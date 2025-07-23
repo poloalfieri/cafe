@@ -1,10 +1,8 @@
 import type { Config } from "tailwindcss"
-import defaultConfig from "shadcn/ui/tailwind.config"
 
 const config: Config = {
-  ...defaultConfig,
+  darkMode: ["class"],
   content: [
-    ...defaultConfig.content,
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
@@ -12,28 +10,21 @@ const config: Config = {
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    ...defaultConfig.theme,
     extend: {
-      ...defaultConfig.theme.extend,
       colors: {
-        ...defaultConfig.theme.extend.colors,
         primary: {
-          ...defaultConfig.theme.extend.colors.primary,
           DEFAULT: "var(--color-primary)",
           hover: "var(--color-primary-hover)",
         },
         secondary: {
-          ...defaultConfig.theme.extend.colors.secondary,
           DEFAULT: "var(--color-secondary)",
           hover: "var(--color-secondary-hover)",
         },
         accent: {
-          ...defaultConfig.theme.extend.colors.accent,
           DEFAULT: "var(--color-accent)",
           hover: "var(--color-accent-hover)",
         },
         card: {
-          ...defaultConfig.theme.extend.colors.card,
           DEFAULT: "var(--color-card)",
           hover: "var(--color-card-hover)",
         },
@@ -49,7 +40,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [...defaultConfig.plugins, require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate")],
 }
 
 export default config
