@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Colores principales - fácilmente reemplazables */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-secondary: #059669;
+  --color-secondary-hover: #047857;
+  --color-accent: #dc2626;
+  --color-accent-hover: #b91c1c;
+
+  /* Colores de fondo */
+  --color-background: #ffffff;
+  --color-card: #ffffff;
+  --color-card-hover: #f8fafc;
+
+  /* Colores de texto */
+  --color-text: #1f2937;
+  --color-muted-foreground: #6b7280;
+
+  /* Colores de borde */
+  --color-border: #e5e7eb;
+}
+
+/* Tema oscuro (opcional) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #0f172a;
+    --color-card: #1e293b;
+    --color-card-hover: #334155;
+    --color-text: #f1f5f9;
+    --color-muted-foreground: #94a3b8;
+    --color-border: #334155;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-text;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Optimizaciones para móvil */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Mejoras para touch en móvil */
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Clase para elementos touch-friendly */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Mejoras para scroll en móvil */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Clases personalizadas usando las variables CSS */
+.bg-primary {
+  background-color: var(--color-primary);
+}
+.bg-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+.bg-secondary {
+  background-color: var(--color-secondary);
+}
+.bg-secondary:hover {
+  background-color: var(--color-secondary-hover);
+}
+.bg-accent {
+  background-color: var(--color-accent);
+}
+.bg-accent:hover {
+  background-color: var(--color-accent-hover);
+}
+.bg-background {
+  background-color: var(--color-background);
+}
+.bg-card {
+  background-color: var(--color-card);
+}
+.bg-card:hover {
+  background-color: var(--color-card-hover);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+.text-secondary {
+  color: var(--color-secondary);
+}
+.text-accent {
+  color: var(--color-accent);
+}
+.text-text {
+  color: var(--color-text);
+}
+.text-muted-foreground {
+  color: var(--color-muted-foreground);
+}
+
+.border-border {
+  border-color: var(--color-border);
+}
+
+/* Optimizaciones específicas para móvil */
+@media (max-width: 640px) {
+  /* Asegurar que los elementos touch sean lo suficientemente grandes */
+  button,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Mejorar el espaciado en móvil */
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Evitar zoom en inputs en iOS */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Animaciones suaves para transiciones */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
