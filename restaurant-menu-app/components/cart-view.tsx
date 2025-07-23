@@ -7,15 +7,50 @@ import CartItem from "@/components/cart-item"
 import CallWaiterModal from "@/components/call-waiter-modal"
 import { ArrowLeft, CreditCard, Trash2, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function CartView() {
   const { state, clearCart } = useCart()
   const [showCallWaiterModal, setShowCallWaiterModal] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const searchParams = useSearchParams()
+  const mesa_id = searchParams.get("mesa_id")
+  const token = searchParams.get("token")
 
-  const handlePayment = () => {
-    // Función vacía para implementar el sistema de pago más adelante
-    console.log("Procesando pago...", state)
-    alert(`Procesando pago por $${state.total.toFixed(2)}. Función de pago por implementar.`)
+  const handlePayment = async () => {
+    setError("")
+    setSuccess("")
+    if (!mesa_id || !token) {
+      setError("Faltan datos de la mesa o token QR.")
+      return
+    }
+    setLoading(true)
+    try {
+      const response = await fetch(
+        `http://localhost:5000/order/create/${mesa_id}?token=${token}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            table_id: mesa_id,
+            products: state.items.map((item) => ({ id: item.id, quantity: item.quantity }))
+          })
+        }
+      )
+      const data = await response.json()
+      if (response.ok) {
+        setSuccess("Pedido enviado correctamente. ID: " + data.order_id)
+        clearCart()
+      } else {
+        setError(data.error || "Error al enviar el pedido")
+      }
+    } catch (e) {
+      setError("No se pudo conectar con el backend")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleCallWaiter = () => {
@@ -45,7 +80,6 @@ export default function CartView() {
               </Link>
               <h1 className="text-2xl sm:text-3xl font-bold text-primary">Tu Carrito</h1>
             </div>
-
             <Button
               onClick={handleCallWaiter}
               variant="outline"
@@ -56,7 +90,6 @@ export default function CartView() {
               <span className="hidden sm:inline">Mozo</span>
             </Button>
           </div>
-
           <div className="text-center py-8 sm:py-12">
             <div className="text-5xl sm:text-6xl mb-4 opacity-30">🛒</div>
             <h2 className="text-lg sm:text-xl font-semibold text-text mb-2">Tu carrito está vacío</h2>
@@ -70,7 +103,6 @@ export default function CartView() {
             </Link>
           </div>
         </div>
-
         <CallWaiterModal
           isOpen={showCallWaiterModal}
           onConfirm={handleConfirmCallWaiter}
@@ -99,7 +131,6 @@ export default function CartView() {
                 </p>
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <Button
                 onClick={handleCallWaiter}
@@ -110,7 +141,6 @@ export default function CartView() {
                 <Bell className="w-4 h-4 sm:mr-1" />
                 <span className="hidden sm:inline">Mozo</span>
               </Button>
-
               <Button
                 onClick={clearCart}
                 variant="outline"
@@ -124,7 +154,6 @@ export default function CartView() {
           </div>
         </div>
       </div>
-
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Lista de productos */}
         <div className="space-y-3 sm:space-y-4 mb-6">
@@ -133,7 +162,6 @@ export default function CartView() {
           ))}
         </div>
       </div>
-
       {/* Resumen - Fijo en la parte inferior en móvil */}
       <div className="fixed bottom-0 left-0 right-0 sm:relative sm:bottom-auto bg-background border-t sm:border-t-0 border-border sm:bg-transparent">
         <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-0">
@@ -142,18 +170,19 @@ export default function CartView() {
               <span className="text-base sm:text-lg font-semibold text-text">Total:</span>
               <span className="text-xl sm:text-2xl font-bold text-primary">${state.total.toFixed(2)}</span>
             </div>
-
+            {error && <div className="text-red-500 text-center mb-2">{error}</div>}
+            {success && <div className="text-green-600 text-center mb-2">{success}</div>}
             <Button
               onClick={handlePayment}
               className="w-full bg-secondary hover:bg-secondary-hover text-white py-3 sm:py-4 text-base sm:text-lg font-medium touch-manipulation"
+              disabled={loading}
             >
               <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-              Ir a pagar
+              {loading ? "Enviando..." : "Ir a pagar"}
             </Button>
           </div>
         </div>
       </div>
-
       <CallWaiterModal
         isOpen={showCallWaiterModal}
         onConfirm={handleConfirmCallWaiter}
