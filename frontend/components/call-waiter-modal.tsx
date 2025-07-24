@@ -12,6 +12,12 @@ interface CallWaiterModalProps {
 export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWaiterModalProps) {
   if (!isOpen) return null
 
+  const handleConfirm = () => {
+    // Aquí enviarías la llamada al sistema de gestión
+    // Por ejemplo, hacer un POST a /api/waiter-calls
+    onConfirm()
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm mx-auto border border-border">
@@ -49,7 +55,7 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
               Cancelar
             </Button>
             <Button
-              onClick={onConfirm}
+              onClick={handleConfirm}
               className="flex-1 bg-primary hover:bg-primary-hover text-white py-3 text-sm sm:text-base touch-manipulation"
             >
               Sí, llamar mozo
