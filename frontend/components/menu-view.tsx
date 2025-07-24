@@ -88,7 +88,7 @@ export default function MenuView() {
                 <Bell className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2 text-primary" />
                 <span className="hidden sm:inline text-primary">Mozo</span>
               </Button>
-              <Link href="/cart">
+              <Link href="/usuario/cart">
                 <Button className="relative bg-accent hover:bg-accent-hover text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium transition-colors text-sm touch-manipulation">
                   <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 sm:mr-2" />
                   <span className="hidden sm:inline">Carrito</span>
