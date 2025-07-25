@@ -1,4 +1,6 @@
 from flask import Blueprint, jsonify
+from ..db.connection import get_db
+from ..db.models import Order
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/menu")
 
@@ -13,4 +15,11 @@ def get_menu():
         {"id": "5", "name": "Tacos de Pollo", "price": 11.25, "available": True, "category": "Mexicana"},
         {"id": "6", "name": "Salmón Grillado", "price": 18.99, "available": True, "category": "Pescados"},
     ]
-    return jsonify(menu) 
+    return jsonify(menu)
+
+@menu_bp.route("/mesas", methods=["GET"])
+def get_mesas():
+    db = get_db()
+    mesas = db.query(Order.mesa_id).distinct().all()
+    mesas_list = [m[0] for m in mesas]
+    return jsonify(mesas_list) 

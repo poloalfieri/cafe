@@ -40,85 +40,14 @@ export default function KitchenDashboard() {
 
   // Simulación de datos - en producción esto vendría de tu API
   useEffect(() => {
-    const mockOrders: Order[] = [
-      {
-        id: "ORD-001",
-        mesa_id: "5",
-        items: [
-          { id: "1", name: "Hamburguesa Clásica", quantity: 2, price: 12.99 },
-          { id: "3", name: "Ensalada César", quantity: 1, price: 9.99 },
-        ],
-        total: 35.97,
-        status: "PAID",
-        created_at: "2024-01-24T14:30:00Z",
-        paid_at: "2024-01-24T14:32:00Z",
-      },
-      {
-        id: "ORD-002",
-        mesa_id: "12",
-        items: [
-          { id: "2", name: "Pizza Margherita", quantity: 1, price: 15.5 },
-          { id: "4", name: "Pasta Carbonara", quantity: 1, price: 13.75 },
-        ],
-        total: 29.25,
-        status: "PAYMENT_PENDING",
-        created_at: "2024-01-24T14:45:00Z",
-      },
-      {
-        id: "ORD-003",
-        mesa_id: "8",
-        items: [
-          { id: "5", name: "Tacos de Pollo", quantity: 3, price: 11.25 },
-          { id: "6", name: "Salmón Grillado", quantity: 1, price: 18.99 },
-        ],
-        total: 52.74,
-        status: "PAID",
-        created_at: "2024-01-24T15:00:00Z",
-        paid_at: "2024-01-24T15:01:00Z",
-      },
-      {
-        id: "ORD-004",
-        mesa_id: "3",
-        items: [
-          { id: "1", name: "Hamburguesa Clásica", quantity: 1, price: 12.99 },
-          { id: "2", name: "Pizza Margherita", quantity: 1, price: 15.5 },
-        ],
-        total: 28.49,
-        status: "PREPARING",
-        created_at: "2024-01-24T15:15:00Z",
-        paid_at: "2024-01-24T15:16:00Z",
-      },
-    ]
-
-    const mockWaiterCalls: WaiterCall[] = [
-      {
-        id: "CALL-001",
-        mesa_id: "7",
-        created_at: "2024-01-24T15:20:00Z",
-        status: "PENDING",
-        message: "Solicitud de atención",
-      },
-      {
-        id: "CALL-002",
-        mesa_id: "15",
-        created_at: "2024-01-24T15:25:00Z",
-        status: "PENDING",
-        message: "Consulta sobre el menú",
-      },
-      {
-        id: "CALL-003",
-        mesa_id: "2",
-        created_at: "2024-01-24T15:30:00Z",
-        status: "PENDING",
-        message: "Solicitud de atención",
-      },
-    ]
-
-    setTimeout(() => {
-      setOrders(mockOrders)
-      setWaiterCalls(mockWaiterCalls)
-      setLoading(false)
-    }, 1000)
+    setLoading(true)
+    fetch("http://localhost:5000/order")
+      .then((res) => res.json())
+      .then((data) => {
+        setOrders(data)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
   const refreshData = async () => {
