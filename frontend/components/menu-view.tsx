@@ -25,12 +25,15 @@ export default function MenuView() {
   useEffect(() => {
     async function fetchMenu() {
       setLoading(true)
-      try {
-        const res = await fetch("http://localhost:5000/menu")
+              try {
+          const res = await fetch("http://localhost:5001/menu")
+          console.log("Respuesta fetch:", res)
         if (!res.ok) throw new Error("Error al obtener el menú")
         const data = await res.json()
+        console.log("Datos del menú:", data)
         setProducts(data)
       } catch (e) {
+        console.error("Error al cargar el menú:", e)
         setError("No se pudo cargar el menú")
       } finally {
         setLoading(false)

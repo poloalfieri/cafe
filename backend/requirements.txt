@@ -1,4 +1,6 @@
-Flask
+flask
 python-dotenv
-SQLAlchemy
-requests 
+sqlalchemy
+psycopg2-binary
+supabase
+flask-cors 

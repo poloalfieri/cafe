@@ -29,14 +29,14 @@ export default function CartView() {
     setLoading(true)
     try {
       const response = await fetch(
-        `http://localhost:5000/order/create/${mesa_id}?token=${token}`,
+        `http://localhost:5001/order/create/${mesa_id}?token=${token}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             table_id: mesa_id,
             products: state.items.map((item) => ({ id: item.id, quantity: item.quantity }))
-          })
+          }),
         }
       )
       const data = await response.json()

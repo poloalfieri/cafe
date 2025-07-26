@@ -1,11 +1,21 @@
 from flask import Blueprint, jsonify
-from ..db.connection import get_db
-from ..db.models import Order
+from ..db.supabase_client import supabase
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/menu")
 
 @menu_bp.route("", methods=["GET"])
 def get_menu():
+    try:
+        response = supabase.table("menu").select("*").execute()  # Quitado .order("created_at", desc=True)
+        print("Respuesta de Supabase:", response)
+        menu = response.data or []
+        return jsonify(menu)
+    except Exception as e:
+        print("Error al consultar Supabase:", e)
+        return jsonify({"error": str(e)}), 500
+
+@menu_bp.route("/mesas", methods=["GET"])
+def get_mesas():
     # Simulación, deberías traerlo de la base de datos
     menu = [
         {"id": "1", "name": "Hamburguesa Clásica", "price": 12.99, "available": True, "category": "Hamburguesas"},
@@ -16,10 +26,3 @@ def get_menu():
         {"id": "6", "name": "Salmón Grillado", "price": 18.99, "available": True, "category": "Pescados"},
     ]
     return jsonify(menu)
-
-@menu_bp.route("/mesas", methods=["GET"])
-def get_mesas():
-    db = get_db()
-    mesas = db.query(Order.mesa_id).distinct().all()
-    mesas_list = [m[0] for m in mesas]
-    return jsonify(mesas_list) 

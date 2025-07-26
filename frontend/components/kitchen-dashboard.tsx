@@ -41,7 +41,7 @@ export default function KitchenDashboard() {
   // Simulación de datos - en producción esto vendría de tu API
   useEffect(() => {
     setLoading(true)
-    fetch("http://localhost:5000/order")
+    fetch("http://localhost:5001/order")
       .then((res) => res.json())
       .then((data) => {
         setOrders(data)
