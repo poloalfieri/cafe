@@ -45,8 +45,8 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
 
   return (
     <div
-      className={`bg-card rounded-lg border-2 shadow-sm hover:shadow-md transition-shadow ${
-        isUrgent ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"
+      className={`bg-card rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 ${
+        isUrgent ? "ring-2 ring-red-100" : "ring-1 ring-orange-50"
       }`}
     >
       {/* Header */}
@@ -58,21 +58,25 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
                 isUrgent ? "bg-red-500" : "bg-orange-500"
               }`}
             >
-              <span className="text-white font-bold text-lg">{call.mesa_id}</span>
+              <span className="text-white font-bold text-lg">
+                {call.mesa_id.replace('Mesa ', '')}
+              </span>
             </div>
             <div>
               <h3 className="font-semibold text-text flex items-center gap-2">
                 <Bell className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-orange-500"}`} />
-                Mesa {call.mesa_id}
+                {call.mesa_id}
               </h3>
               <p className="text-xs text-muted-foreground">#{call.id}</p>
             </div>
           </div>
           <div
-            className={`flex items-center gap-1 px-3 py-1 rounded-full ${isUrgent ? "bg-red-100" : "bg-orange-100"}`}
+            className={`flex items-center gap-1 px-3 py-1 rounded-full ${
+              isUrgent ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"
+            }`}
           >
-            <Clock className={`w-3 h-3 ${isUrgent ? "text-red-600" : "text-orange-600"}`} />
-            <span className={`text-xs font-medium ${isUrgent ? "text-red-600" : "text-orange-600"}`}>
+            <Clock className="w-3 h-3" />
+            <span className="text-xs font-medium">
               {timeElapsed}
             </span>
           </div>
@@ -82,7 +86,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
           <span>Llamada: {formatTime(call.created_at)}</span>
           {isUrgent && (
             <span className="text-red-600 font-medium flex items-center gap-1">
-              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
               Urgente
             </span>
           )}
@@ -92,9 +96,9 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
       {/* Contenido */}
       <div className="p-4">
         {call.message && (
-          <div className="mb-4 p-3 bg-background rounded-lg border border-border">
+          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
             <p className="text-sm text-text">
-              <span className="font-medium">Motivo:</span> {call.message}
+              <span className="font-medium text-muted-foreground">Motivo:</span> {call.message}
             </p>
           </div>
         )}
@@ -119,7 +123,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
           </div>
 
           <div className="text-center py-2">
-            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+            <p className="text-xs text-muted-foreground/70 flex items-center justify-center gap-1">
               <User className="w-3 h-3" />
               Cliente esperando atención
             </p>

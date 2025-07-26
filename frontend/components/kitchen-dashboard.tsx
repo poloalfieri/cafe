@@ -41,13 +41,77 @@ export default function KitchenDashboard() {
   // Simulación de datos - en producción esto vendría de tu API
   useEffect(() => {
     setLoading(true)
+    
+    // Fetch orders
     fetch("http://localhost:5001/order")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
       .then((data) => {
-        setOrders(data)
+        // Ensure data is an array and has the expected structure
+        const processedOrders = Array.isArray(data) ? data.map(order => ({
+          ...order,
+          items: order.items || [], // Add empty items array if not present
+          total: order.total || 0, // Add total if not present
+          paid_at: order.paid_at || undefined
+        })) : []
+        setOrders(processedOrders)
+      })
+      .catch((error) => {
+        console.error("Error fetching orders:", error)
+        // Add sample orders data when backend is not available
+        const sampleOrders: Order[] = [
+          {
+            id: "1",
+            mesa_id: "Mesa 1",
+            items: [
+              { id: "1", name: "Café Americano", quantity: 2, price: 3.50 },
+              { id: "2", name: "Croissant", quantity: 1, price: 2.50 }
+            ],
+            total: 9.50,
+            status: "PAYMENT_PENDING",
+            created_at: new Date().toISOString(),
+            paid_at: undefined
+          },
+          {
+            id: "2",
+            mesa_id: "Mesa 2", 
+            items: [
+              { id: "3", name: "Cappuccino", quantity: 1, price: 4.00 },
+              { id: "4", name: "Tarta de Manzana", quantity: 1, price: 5.00 }
+            ],
+            total: 9.00,
+            status: "PAID",
+            created_at: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
+            paid_at: new Date(Date.now() - 300000).toISOString() // 5 minutes ago
+          }
+        ]
+        setOrders(sampleOrders)
+      })
+      .finally(() => {
+        // Add sample waiter calls data for demonstration
+        const sampleWaiterCalls: WaiterCall[] = [
+          {
+            id: "1",
+            mesa_id: "Mesa 1",
+            created_at: new Date().toISOString(),
+            status: "PENDING",
+            message: "Necesito más servilletas"
+          },
+          {
+            id: "2", 
+            mesa_id: "Mesa 3",
+            created_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
+            status: "PENDING",
+            message: "¿Pueden traer la cuenta?"
+          }
+        ]
+        setWaiterCalls(sampleWaiterCalls)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
   }, [])
 
   const refreshData = async () => {

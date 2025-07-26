@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev")
-    DB_URI = os.getenv("DATABASE_URL", "sqlite:///app.db")
+    DB_URI = os.getenv("DATABASE_URL", "sqlite:///cafe.db")
     USE_ORM = os.getenv("USE_ORM", "true").lower() == "true"
     MERCADO_PAGO_TOKEN = os.getenv("MERCADO_PAGO_TOKEN", "")
     KITCHEN_WEBHOOK_URL = os.getenv("KITCHEN_WEBHOOK_URL", "")

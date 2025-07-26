@@ -107,10 +107,12 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">{order.mesa_id}</span>
+              <span className="text-white font-bold text-sm">
+                {order.mesa_id.replace('Mesa ', '')}
+              </span>
             </div>
             <div>
-              <h3 className="font-semibold text-text">Mesa {order.mesa_id}</h3>
+              <h3 className="font-semibold text-text">{order.mesa_id}</h3>
               <p className="text-xs text-muted-foreground">#{order.id}</p>
             </div>
           </div>
