@@ -1,5 +1,15 @@
 FROM python:3.11-slim
+
 WORKDIR /app
-COPY . .
+
+# Copiá SOLO el requirements.txt primero
+COPY requirements.txt .
+
+# Instalá dependencias
 RUN pip install --no-cache-dir -r requirements.txt
-CMD ["python", "-m", "app.main"] 
+
+# Ahora copiá el resto del código
+COPY . .
+
+# Comando para ejecutar la app
+CMD ["python", "-m", "app.main"]

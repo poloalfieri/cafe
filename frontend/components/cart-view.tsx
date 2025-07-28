@@ -28,26 +28,31 @@ export default function CartView() {
     }
     setLoading(true)
     try {
-      const response = await fetch(
-        `http://localhost:5001/order/create/${mesa_id}?token=${token}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            table_id: mesa_id,
-            products: state.items.map((item) => ({ id: item.id, quantity: item.quantity }))
-          }),
-        }
-      )
+      // Crear preferencia de pago en Mercado Pago
+      const response = await fetch("http://localhost:5001/payment/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          total_amount: state.total,
+          items: state.items.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price
+          })),
+          mesa_id: mesa_id
+        }),
+      })
+      
       const data = await response.json()
-      if (response.ok) {
-        setSuccess("Pedido enviado correctamente. ID: " + data.order_id)
-        clearCart()
+      if (response.ok && data.success) {
+        // Redirigir a Mercado Pago
+        window.location.href = data.init_point
       } else {
-        setError(data.error || "Error al enviar el pedido")
+        setError(data.error || "Error al procesar el pago")
       }
     } catch (e) {
-      setError("No se pudo conectar con el backend")
+      setError("No se pudo conectar con el servidor de pagos")
     } finally {
       setLoading(false)
     }

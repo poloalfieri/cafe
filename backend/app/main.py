@@ -7,7 +7,7 @@ def create_app():
     app = Flask(__name__)
     CORS(app)  # Habilitar CORS para todas las rutas
     app.config.from_object(Config)
-    setup_logger()
+    setup_logger(__name__)
 
     @app.errorhandler(Exception)
     def handle_error(e):

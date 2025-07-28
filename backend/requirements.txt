@@ -3,4 +3,5 @@ python-dotenv
 sqlalchemy
 psycopg2-binary
 supabase
-flask-cors 
+flask-cors
+requests

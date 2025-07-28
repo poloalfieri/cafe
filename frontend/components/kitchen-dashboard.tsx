@@ -19,9 +19,10 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAID" | "PREPARING" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
   created_at: string
   paid_at?: string
+  payment_status?: string
 }
 
 interface WaiterCall {
@@ -126,6 +127,46 @@ export default function KitchenDashboard() {
     setOrders(orders.map((order) => (order.id === orderId ? { ...order, status: newStatus } : order)))
   }
 
+  const acceptOrder = async (orderId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5001/payment/accept-order/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setOrders(orders.map(order => 
+          order.id === orderId ? { ...order, status: data.status } : order
+        ))
+      } else {
+        console.error("Error accepting order")
+      }
+    } catch (error) {
+      console.error("Error accepting order:", error)
+    }
+  }
+
+  const rejectOrder = async (orderId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5001/payment/reject-order/${orderId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setOrders(orders.map(order => 
+          order.id === orderId ? { ...order, status: data.status } : order
+        ))
+      } else {
+        console.error("Error rejecting order")
+      }
+    } catch (error) {
+      console.error("Error rejecting order:", error)
+    }
+  }
+
   const updateCallStatus = (callId: string, newStatus: WaiterCall["status"]) => {
     setWaiterCalls(waiterCalls.map((call) => (call.id === callId ? { ...call, status: newStatus } : call)))
   }
@@ -140,7 +181,7 @@ export default function KitchenDashboard() {
     // Excluir pedidos entregados
     if (order.status === "DELIVERED") return false
 
-    if (filter === "paid") return order.status === "PAID" || order.status === "PREPARING" || order.status === "READY"
+    if (filter === "paid") return order.status === "PAID" || order.status === "IN_PREPARATION" || order.status === "READY"
     if (filter === "pending") return order.status === "PAYMENT_PENDING"
     return true
   })
@@ -150,10 +191,10 @@ export default function KitchenDashboard() {
   const getStatusStats = () => {
     const activeOrders = orders.filter((o) => o.status !== "DELIVERED")
     const paid = activeOrders.filter(
-      (o) => o.status === "PAID" || o.status === "PREPARING" || o.status === "READY",
+      (o) => o.status === "PAID" || o.status === "IN_PREPARATION" || o.status === "READY",
     ).length
     const pending = activeOrders.filter((o) => o.status === "PAYMENT_PENDING").length
-    const preparing = activeOrders.filter((o) => o.status === "PREPARING").length
+    const preparing = activeOrders.filter((o) => o.status === "IN_PREPARATION").length
 
     return { paid, pending, preparing, total: activeOrders.length }
   }
@@ -315,7 +356,13 @@ export default function KitchenDashboard() {
             ) : (
               <div className="space-y-4">
                 {filteredOrders.map((order) => (
-                  <OrderCard key={order.id} order={order} onStatusUpdate={updateOrderStatus} />
+                  <OrderCard 
+                    key={order.id} 
+                    order={order} 
+                    onStatusUpdate={updateOrderStatus}
+                    onAcceptOrder={acceptOrder}
+                    onRejectOrder={rejectOrder}
+                  />
                 ))}
               </div>
             )}

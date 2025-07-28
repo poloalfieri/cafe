@@ -15,17 +15,20 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAID" | "PREPARING" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
   created_at: string
   paid_at?: string
+  payment_status?: string
 }
 
 interface OrderCardProps {
   order: Order
   onStatusUpdate: (orderId: string, newStatus: Order["status"]) => void
+  onAcceptOrder?: (orderId: string) => void
+  onRejectOrder?: (orderId: string) => void
 }
 
-export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
+export default function OrderCard({ order, onStatusUpdate, onAcceptOrder, onRejectOrder }: OrderCardProps) {
   const getStatusInfo = (status: Order["status"]) => {
     switch (status) {
       case "PAYMENT_PENDING":
@@ -36,6 +39,22 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
           bgColor: "bg-accent/10",
           borderColor: "border-accent/20",
         }
+      case "PAYMENT_APPROVED":
+        return {
+          icon: CheckCircle,
+          text: "Pago Aprobado",
+          color: "text-green-600",
+          bgColor: "bg-green-50",
+          borderColor: "border-green-200",
+        }
+      case "PAYMENT_REJECTED":
+        return {
+          icon: AlertCircle,
+          text: "Pago Rechazado",
+          color: "text-red-600",
+          bgColor: "bg-red-50",
+          borderColor: "border-red-200",
+        }
       case "PAID":
         return {
           icon: CheckCircle,
@@ -44,10 +63,10 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
           bgColor: "bg-secondary/10",
           borderColor: "border-secondary/20",
         }
-      case "PREPARING":
+      case "IN_PREPARATION":
         return {
           icon: ChefHat,
-          text: "Preparando",
+          text: "En Preparación",
           color: "text-primary",
           bgColor: "bg-primary/10",
           borderColor: "border-primary/20",
@@ -64,6 +83,14 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
         return {
           icon: CheckCircle,
           text: "Entregado",
+          color: "text-gray-600",
+          bgColor: "bg-gray-100",
+          borderColor: "border-gray-200",
+        }
+      default:
+        return {
+          icon: AlertCircle,
+          text: "Desconocido",
           color: "text-gray-600",
           bgColor: "bg-gray-100",
           borderColor: "border-gray-200",
@@ -95,7 +122,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
   }
 
   const canStartPreparing = order.status === "PAID"
-  const canMarkReady = order.status === "PREPARING"
+  const canMarkReady = order.status === "IN_PREPARATION"
   const canMarkDelivered = order.status === "READY"
 
   return (
@@ -160,7 +187,7 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
         <div className="space-y-2">
           {canStartPreparing && (
             <Button
-              onClick={() => onStatusUpdate(order.id, "PREPARING")}
+              onClick={() => onStatusUpdate(order.id, "IN_PREPARATION")}
               className="w-full bg-primary hover:bg-primary-hover text-white"
             >
               <ChefHat className="w-4 h-4 mr-2" />
@@ -191,6 +218,26 @@ export default function OrderCard({ order, onStatusUpdate }: OrderCardProps) {
           {order.status === "PAYMENT_PENDING" && (
             <div className="text-center py-2">
               <p className="text-xs text-muted-foreground">Esperando confirmación de pago...</p>
+            </div>
+          )}
+
+          {order.status === "PAYMENT_APPROVED" && onAcceptOrder && onRejectOrder && (
+            <div className="space-y-2">
+              <Button
+                onClick={() => onAcceptOrder(order.id)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Aceptar Pedido
+              </Button>
+              <Button
+                onClick={() => onRejectOrder(order.id)}
+                variant="outline"
+                className="w-full border-red-200 text-red-600 hover:bg-red-50"
+              >
+                <AlertCircle className="w-4 h-4 mr-2" />
+                Rechazar y Reembolsar
+              </Button>
             </div>
           )}
 
