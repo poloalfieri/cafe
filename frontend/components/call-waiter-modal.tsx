@@ -2,38 +2,44 @@
 
 import { Bell, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useState } from "react"
 
 interface CallWaiterModalProps {
   isOpen: boolean
-  onConfirm: () => void
+  onConfirm: (message?: string) => void
   onCancel: () => void
 }
 
 export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWaiterModalProps) {
+  const [message, setMessage] = useState("")
+
   if (!isOpen) return null
 
   const handleConfirm = () => {
-    // Aquí enviarías la llamada al sistema de gestión
-    // Por ejemplo, hacer un POST a /api/waiter-calls
-    onConfirm()
+    onConfirm(message.trim() || undefined)
+  }
+
+  const handleCancel = () => {
+    setMessage("")
+    onCancel()
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm mx-auto border border-border">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-auto border border-gray-200">
         {/* Header del modal */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <Bell className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 bg-gray-900/10 rounded-full flex items-center justify-center">
+              <Bell className="w-5 h-5 text-gray-900" />
             </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-text">Llamar al Mozo</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Llamar al Mozo</h2>
           </div>
           <Button
-            onClick={onCancel}
+            onClick={handleCancel}
             variant="ghost"
             size="sm"
-            className="w-8 h-8 p-0 rounded-full hover:bg-card-hover touch-manipulation"
+            className="w-8 h-8 p-0 rounded-full hover:bg-gray-100 touch-manipulation"
           >
             <X className="w-4 h-4" />
           </Button>
@@ -41,22 +47,41 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
 
         {/* Contenido del modal */}
         <div className="p-4 sm:p-6">
-          <p className="text-muted-foreground text-sm sm:text-base mb-6 leading-relaxed">
+          <p className="text-gray-600 text-sm sm:text-base mb-4 leading-relaxed">
             ¿Necesitas ayuda con tu pedido o tienes alguna consulta? Un mozo se acercará a tu mesa en breve.
           </p>
+
+          {/* Campo de mensaje opcional */}
+          <div className="mb-6">
+            <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+              Motivo (opcional)
+            </label>
+            <textarea
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ej: Necesito más servilletas, ¿Pueden traer la cuenta?, etc."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+              rows={3}
+              maxLength={200}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {message.length}/200 caracteres
+            </p>
+          </div>
 
           {/* Botones de acción */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={onCancel}
+              onClick={handleCancel}
               variant="outline"
-              className="flex-1 py-3 text-sm sm:text-base touch-manipulation bg-transparent"
+              className="flex-1 py-3 text-sm sm:text-base touch-manipulation bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleConfirm}
-              className="flex-1 bg-primary hover:bg-primary-hover text-white py-3 text-sm sm:text-base touch-manipulation"
+              className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 text-sm sm:text-base touch-manipulation"
             >
               Sí, llamar mozo
             </Button>

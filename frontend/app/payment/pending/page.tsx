@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,7 @@ interface OrderStatus {
   created_at: string
 }
 
-export default function PaymentPendingPage() {
+function PaymentPendingContent() {
   const searchParams = useSearchParams()
   const orderId = searchParams.get("order_id")
   
@@ -55,12 +55,12 @@ export default function PaymentPendingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6">
             <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-3">Verificando estado del pago...</span>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="ml-3 text-gray-700">Verificando estado del pago...</span>
             </div>
           </CardContent>
         </Card>
@@ -70,15 +70,15 @@ export default function PaymentPendingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-center text-red-600">Error</CardTitle>
           </CardHeader>
           <CardContent className="text-center">
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="text-gray-600 mb-4">{error}</p>
             <Link href="/">
-              <Button>Volver al inicio</Button>
+              <Button className="bg-gray-900 hover:bg-gray-800">Volver al inicio</Button>
             </Link>
           </CardContent>
         </Card>
@@ -87,37 +87,37 @@ export default function PaymentPendingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Clock className="w-12 h-12 text-orange-500" />
           </div>
-          <CardTitle className="text-xl">
+          <CardTitle className="text-xl text-gray-900">
             Pago en Proceso
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <p className="text-muted-foreground mb-4">
+            <p className="text-gray-600 mb-4">
               Tu pago está siendo procesado. Esto puede tomar unos minutos.
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-600">
               Te notificaremos automáticamente cuando el pago se confirme.
             </p>
             
             {orderStatus && (
               <div className="space-y-2 text-sm mt-4">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pedido #:</span>
-                  <span className="font-medium">{orderStatus.order_id}</span>
+                  <span className="text-gray-600">Pedido #:</span>
+                  <span className="font-medium text-gray-900">{orderStatus.order_id}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total:</span>
-                  <span className="font-medium">${orderStatus.total_amount.toFixed(2)}</span>
+                  <span className="text-gray-600">Total:</span>
+                  <span className="font-medium text-gray-900">${orderStatus.total_amount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Estado:</span>
+                  <span className="text-gray-600">Estado:</span>
                   <span className="font-medium text-orange-600">Pendiente</span>
                 </div>
               </div>
@@ -140,17 +140,36 @@ export default function PaymentPendingPage() {
           
           <div className="flex flex-col gap-2 pt-4">
             <Link href="/usuario">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50">
                 Volver al Menú
               </Button>
             </Link>
             
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-xs text-gray-600 text-center">
               Esta página se actualizará automáticamente cuando el pago se confirme.
             </p>
           </div>
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function PaymentPendingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="ml-3 text-gray-700">Cargando...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <PaymentPendingContent />
+    </Suspense>
   )
 } 

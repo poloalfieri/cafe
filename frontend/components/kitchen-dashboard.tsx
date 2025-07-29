@@ -92,8 +92,26 @@ export default function KitchenDashboard() {
         ]
         setOrders(sampleOrders)
       })
-      .finally(() => {
-        // Add sample waiter calls data for demonstration
+
+    // Fetch waiter calls
+    fetch("http://localhost:5001/waiter/calls")
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+        return res.json()
+      })
+      .then((data) => {
+        if (data.success && Array.isArray(data.calls)) {
+          setWaiterCalls(data.calls)
+        } else {
+          console.error("Invalid waiter calls data format:", data)
+          setWaiterCalls([])
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching waiter calls:", error)
+        // Add sample waiter calls data for demonstration when backend is not available
         const sampleWaiterCalls: WaiterCall[] = [
           {
             id: "1",
@@ -111,16 +129,42 @@ export default function KitchenDashboard() {
           }
         ]
         setWaiterCalls(sampleWaiterCalls)
+      })
+      .finally(() => {
         setLoading(false)
       })
   }, [])
 
   const refreshData = async () => {
     setLoading(true)
-    // Simular llamada a API
-    setTimeout(() => {
+    
+    try {
+      // Refresh orders
+      const ordersResponse = await fetch("http://localhost:5001/order")
+      if (ordersResponse.ok) {
+        const ordersData = await ordersResponse.json()
+        const processedOrders = Array.isArray(ordersData) ? ordersData.map(order => ({
+          ...order,
+          items: order.items || [],
+          total: order.total || 0,
+          paid_at: order.paid_at || undefined
+        })) : []
+        setOrders(processedOrders)
+      }
+
+      // Refresh waiter calls
+      const callsResponse = await fetch("http://localhost:5001/waiter/calls")
+      if (callsResponse.ok) {
+        const callsData = await callsResponse.json()
+        if (callsData.success && Array.isArray(callsData.calls)) {
+          setWaiterCalls(callsData.calls)
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   const updateOrderStatus = (orderId: string, newStatus: Order["status"]) => {
@@ -167,8 +211,32 @@ export default function KitchenDashboard() {
     }
   }
 
-  const updateCallStatus = (callId: string, newStatus: WaiterCall["status"]) => {
-    setWaiterCalls(waiterCalls.map((call) => (call.id === callId ? { ...call, status: newStatus } : call)))
+  const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
+    try {
+      const response = await fetch(`http://localhost:5001/waiter/calls/${callId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setWaiterCalls(waiterCalls.map((call) => 
+          call.id === callId ? { ...call, status: newStatus } : call
+        ))
+        console.log("Estado de llamada actualizado:", data)
+      } else {
+        console.error("Error actualizando estado de llamada")
+      }
+    } catch (error) {
+      console.error("Error actualizando estado de llamada:", error)
+      // Fallback: actualizar localmente si falla la llamada al backend
+      setWaiterCalls(waiterCalls.map((call) => (call.id === callId ? { ...call, status: newStatus } : call)))
+    }
   }
 
   const createOrderFromCall = (mesa_id: string) => {
@@ -202,76 +270,76 @@ export default function KitchenDashboard() {
   const stats = getStatusStats()
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border z-10">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">🍽️</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-primary">Panel de Gestión</h1>
-                <p className="text-muted-foreground text-sm">Pedidos y llamadas en tiempo real</p>
+                <h1 className="text-2xl font-bold text-gray-900">Panel de Gestión</h1>
+                <p className="text-gray-600 text-sm">Pedidos y llamadas en tiempo real</p>
               </div>
             </div>
             <Button
               onClick={refreshData}
               disabled={loading}
-              className="bg-secondary hover:bg-secondary-hover text-white"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 flex items-center gap-2"
             >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Actualizar
             </Button>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
-            <div className="bg-card rounded-lg p-4 border border-border">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-accent" />
+                <AlertCircle className="w-5 h-5 text-red-600" />
                 <div>
-                  <p className="text-2xl font-bold text-accent">{stats.pending}</p>
-                  <p className="text-xs text-muted-foreground">Sin Pagar</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.pending}</p>
+                  <p className="text-xs text-gray-600">Sin Pagar</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-secondary" />
+                <CheckCircle className="w-5 h-5 text-green-600" />
                 <div>
-                  <p className="text-2xl font-bold text-secondary">{stats.paid}</p>
-                  <p className="text-xs text-muted-foreground">Pagados</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.paid}</p>
+                  <p className="text-xs text-gray-600">Pagados</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
+                <Clock className="w-5 h-5 text-gray-900" />
                 <div>
-                  <p className="text-2xl font-bold text-primary">{stats.preparing}</p>
-                  <p className="text-xs text-muted-foreground">Preparando</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.preparing}</p>
+                  <p className="text-xs text-gray-600">Preparando</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="text-lg">📊</span>
                 <div>
-                  <p className="text-2xl font-bold text-text">{stats.total}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  <p className="text-xs text-gray-600">Total</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card rounded-lg p-4 border border-border">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
                 <Bell className={`w-5 h-5 ${pendingCalls.length > 0 ? "text-orange-500" : "text-gray-400"}`} />
                 <div>
                   <p className={`text-2xl font-bold ${pendingCalls.length > 0 ? "text-orange-500" : "text-gray-400"}`}>
                     {pendingCalls.length}
                   </p>
-                  <p className="text-xs text-muted-foreground">Llamadas</p>
+                  <p className="text-xs text-gray-600">Llamadas</p>
                 </div>
               </div>
             </div>
@@ -282,12 +350,12 @@ export default function KitchenDashboard() {
       {/* Contenido con Tabs */}
       <div className="container mx-auto px-4 py-6">
         <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="orders" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-white border border-gray-200">
+            <TabsTrigger value="orders" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <span>📋</span>
               Pedidos ({stats.total})
             </TabsTrigger>
-            <TabsTrigger value="calls" className="flex items-center gap-2">
+            <TabsTrigger value="calls" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
               Llamadas ({pendingCalls.length})
               {pendingCalls.length > 0 && (
@@ -305,7 +373,7 @@ export default function KitchenDashboard() {
                 onClick={() => setFilter("all")}
                 variant={filter === "all" ? "default" : "outline"}
                 size="sm"
-                className={filter === "all" ? "bg-primary text-white" : "bg-transparent"}
+                className={filter === "all" ? "bg-gray-900 text-white hover:bg-gray-800" : "bg-white border-gray-300 hover:bg-gray-50"}
               >
                 Todos ({stats.total})
               </Button>
@@ -315,8 +383,8 @@ export default function KitchenDashboard() {
                 size="sm"
                 className={
                   filter === "pending"
-                    ? "bg-accent text-white"
-                    : "bg-transparent border-accent/20 text-accent hover:bg-accent/5"
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : "bg-white border-red-300 text-red-600 hover:bg-red-50"
                 }
               >
                 Sin Pagar ({stats.pending})
@@ -327,8 +395,8 @@ export default function KitchenDashboard() {
                 size="sm"
                 className={
                   filter === "paid"
-                    ? "bg-secondary text-white"
-                    : "bg-transparent border-secondary/20 text-secondary hover:bg-secondary/5"
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-white border-green-300 text-green-600 hover:bg-green-50"
                 }
               >
                 Pagados ({stats.paid})
@@ -338,14 +406,14 @@ export default function KitchenDashboard() {
             {/* Lista de pedidos */}
             {loading ? (
               <div className="text-center py-12">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-muted-foreground">Cargando pedidos...</p>
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-900" />
+                <p className="text-gray-600">Cargando pedidos...</p>
               </div>
             ) : filteredOrders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">📋</div>
-                <h3 className="text-xl font-semibold text-text mb-2">No hay pedidos</h3>
-                <p className="text-muted-foreground">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay pedidos</h3>
+                <p className="text-gray-600">
                   {filter === "all"
                     ? "No hay pedidos en este momento"
                     : filter === "pending"
@@ -372,14 +440,14 @@ export default function KitchenDashboard() {
             {/* Lista de llamadas */}
             {loading ? (
               <div className="text-center py-12">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-                <p className="text-muted-foreground">Cargando llamadas...</p>
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-900" />
+                <p className="text-gray-600">Cargando llamadas...</p>
               </div>
             ) : pendingCalls.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">🔔</div>
-                <h3 className="text-xl font-semibold text-text mb-2">No hay llamadas pendientes</h3>
-                <p className="text-muted-foreground">Todas las mesas están atendidas</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay llamadas pendientes</h3>
+                <p className="text-gray-600">Todas las mesas están atendidas</p>
               </div>
             ) : (
               <div className="space-y-4">

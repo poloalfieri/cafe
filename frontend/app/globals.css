@@ -3,25 +3,29 @@
 @tailwind utilities;
 
 :root {
-  /* Colores principales - fácilmente reemplazables */
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-secondary: #059669;
-  --color-secondary-hover: #047857;
-  --color-accent: #dc2626;
-  --color-accent-hover: #b91c1c;
+  /* Paleta de colores coherente y moderna */
+  --color-primary: #1f2937; /* Gris oscuro elegante */
+  --color-primary-hover: #111827;
+  --color-secondary: #dc2626; /* Rojo vibrante para CTAs */
+  --color-secondary-hover: #b91c1c;
+  --color-accent: #f59e0b; /* Naranja para destacados */
+  --color-accent-hover: #d97706;
 
   /* Colores de fondo */
-  --color-background: #ffffff;
+  --color-background: #f8fafc; /* Gris muy claro */
   --color-card: #ffffff;
-  --color-card-hover: #f8fafc;
+  --color-card-hover: #f1f5f9;
 
-  /* Colores de texto */
-  --color-text: #1f2937;
-  --color-muted-foreground: #6b7280;
+  /* Colores de texto con mejor contraste */
+  --color-text: #1f2937; /* Gris oscuro */
+  --color-muted-foreground: #6b7280; /* Gris medio */
 
   /* Colores de borde */
   --color-border: #e5e7eb;
+  
+  /* Colores de éxito y error */
+  --color-success: #059669;
+  --color-error: #dc2626;
 }
 
 /* Tema oscuro (opcional) */

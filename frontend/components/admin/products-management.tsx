@@ -231,38 +231,39 @@ export default function ProductsManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text">Gestión de Productos</h2>
-          <p className="text-muted-foreground">Administra el catálogo de productos del local</p>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Productos</h2>
+          <p className="text-gray-600">Administra el catálogo de productos del local</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
+            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Producto
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[500px] bg-white border border-gray-200">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-gray-900">
                 {editingProduct ? "Editar Producto" : "Crear Nuevo Producto"}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nombre</Label>
+                  <Label htmlFor="name" className="text-gray-700">Nombre</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ej: Café Americano"
                     required
+                    className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
+                  <Label htmlFor="category" className="text-gray-700">Categoría</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                       <SelectValue placeholder="Seleccionar categoría" />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,7 +278,7 @@ export default function ProductsManagement() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="price">Precio</Label>
+                <Label htmlFor="price" className="text-gray-700">Precio</Label>
                 <Input
                   id="price"
                   type="number"
@@ -286,16 +287,18 @@ export default function ProductsManagement() {
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0.00"
                   required
+                  className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
+                <Label htmlFor="description" className="text-gray-700">Descripción</Label>
                 <Input
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Descripción opcional del producto"
+                  className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
               </div>
 
@@ -305,16 +308,16 @@ export default function ProductsManagement() {
                   id="available"
                   checked={formData.available}
                   onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
-                  className="rounded"
+                  className="rounded border-gray-300 focus:ring-gray-900"
                 />
-                <Label htmlFor="available">Disponible</Label>
+                <Label htmlFor="available" className="text-gray-700">Disponible</Label>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 hover:bg-gray-50 text-gray-700">
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white">
                   {editingProduct ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -325,45 +328,45 @@ export default function ProductsManagement() {
 
       {/* Buscador */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
         <Input
           placeholder="Buscar productos por nombre o categoría..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
+          className="pl-10 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
         />
       </div>
 
       {/* Tabla de productos */}
-      <div className="bg-card rounded-lg border border-border overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-muted/50">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Producto</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Categoría</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Precio</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Estado</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">Acciones</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Producto</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Categoría</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Precio</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Estado</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-gray-200">
               {filteredProducts.map((product) => (
-                <tr key={product.id} className="hover:bg-muted/30">
+                <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div>
-                      <p className="font-medium text-text">{product.name}</p>
+                      <p className="font-medium text-gray-900">{product.name}</p>
                       {product.description && (
-                        <p className="text-xs text-muted-foreground">{product.description}</p>
+                        <p className="text-xs text-gray-600">{product.description}</p>
                       )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
                       {product.category}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-text">
+                  <td className="px-4 py-3 font-medium text-gray-900">
                     ${product.price.toFixed(2)}
                   </td>
                   <td className="px-4 py-3">
@@ -387,6 +390,7 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => toggleAvailability(product.id)}
+                        className="border-gray-300 hover:bg-gray-50 text-gray-700"
                       >
                         {product.available ? "Desactivar" : "Activar"}
                       </Button>
@@ -394,6 +398,7 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(product)}
+                        className="border-gray-300 hover:bg-gray-50 text-gray-700"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -401,7 +406,7 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-700"
+                        className="border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -415,8 +420,8 @@ export default function ProductsManagement() {
         
         {filteredProducts.length === 0 && (
           <div className="text-center py-8">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">
+            <Package className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+            <p className="text-gray-600">
               {searchTerm ? "No se encontraron productos" : "No hay productos registrados"}
             </p>
           </div>

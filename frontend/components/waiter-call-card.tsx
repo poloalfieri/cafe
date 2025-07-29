@@ -45,12 +45,12 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
 
   return (
     <div
-      className={`bg-card rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 ${
+      className={`bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ${
         isUrgent ? "ring-2 ring-red-100" : "ring-1 ring-orange-50"
       }`}
     >
       {/* Header */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div
@@ -63,11 +63,11 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
               </span>
             </div>
             <div>
-              <h3 className="font-semibold text-text flex items-center gap-2">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                 <Bell className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-orange-500"}`} />
                 {call.mesa_id}
               </h3>
-              <p className="text-xs text-muted-foreground">#{call.id}</p>
+              <p className="text-xs text-gray-600">#{call.id}</p>
             </div>
           </div>
           <div
@@ -82,7 +82,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center justify-between text-xs text-gray-600">
           <span>Llamada: {formatTime(call.created_at)}</span>
           {isUrgent && (
             <span className="text-red-600 font-medium flex items-center gap-1">
@@ -96,9 +96,9 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
       {/* Contenido */}
       <div className="p-4">
         {call.message && (
-          <div className="mb-4 p-3 bg-muted/30 rounded-lg">
-            <p className="text-sm text-text">
-              <span className="font-medium text-muted-foreground">Motivo:</span> {call.message}
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-900">
+              <span className="font-medium text-gray-600">Motivo:</span> {call.message}
             </p>
           </div>
         )}
@@ -108,14 +108,14 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
           <div className="grid grid-cols-2 gap-2">
             <Button
               onClick={() => onStatusUpdate(call.id, "ATTENDED")}
-              className="bg-secondary hover:bg-secondary-hover text-white"
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Atendido
             </Button>
             <Button
               onClick={() => onCreateOrder(call.mesa_id)}
-              className="bg-primary hover:bg-primary-hover text-white"
+              className="bg-gray-900 hover:bg-gray-800 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Crear Pedido
@@ -123,7 +123,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
           </div>
 
           <div className="text-center py-2">
-            <p className="text-xs text-muted-foreground/70 flex items-center justify-center gap-1">
+            <p className="text-xs text-gray-600 flex items-center justify-center gap-1">
               <User className="w-3 h-3" />
               Cliente esperando atención
             </p>

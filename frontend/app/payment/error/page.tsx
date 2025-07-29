@@ -1,12 +1,13 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
-export default function PaymentErrorPage() {
+function PaymentErrorContent() {
   const searchParams = useSearchParams()
   const message = searchParams.get("message")
 
@@ -45,7 +46,7 @@ export default function PaymentErrorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
@@ -57,36 +58,55 @@ export default function PaymentErrorPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
-            <p className="text-muted-foreground mb-4">
+            <p className="text-gray-600 mb-4">
               {getErrorMessage()}
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-600">
               {getErrorDescription()}
             </p>
           </div>
           
           <div className="flex flex-col gap-2 pt-4">
             <Link href="/usuario">
-              <Button className="w-full">
+              <Button className="w-full bg-gray-900 hover:bg-gray-800">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver al Menú
               </Button>
             </Link>
             
             <Link href="/">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50">
                 Ir al Inicio
               </Button>
             </Link>
           </div>
           
           <div className="text-center pt-4">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-gray-600">
               Si el problema persiste, contacta al local directamente.
             </p>
           </div>
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function PaymentErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className="ml-3 text-gray-700">Cargando...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <PaymentErrorContent />
+    </Suspense>
   )
 } 

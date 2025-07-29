@@ -62,23 +62,49 @@ export default function CartView() {
     setShowCallWaiterModal(true)
   }
 
-  const handleConfirmCallWaiter = () => {
-    console.log("Llamando al mozo desde el carrito...")
-    alert("¡Mozo llamado! Te atenderemos en breve.")
-    setShowCallWaiterModal(false)
+  const handleConfirmCallWaiter = async (message?: string): Promise<void> => {
+    try {
+      // Mesa hardcodeada para demo - en producción esto vendría del contexto de la mesa
+      const mesa_id = "Mesa 1"
+      
+      const response = await fetch("http://localhost:5001/waiter/calls", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mesa_id: mesa_id,
+          message: message || ""
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Llamada al mozo creada desde carrito:", data)
+        alert("¡Mozo llamado! Te atenderemos en breve.")
+      } else {
+        console.error("Error llamando al mozo")
+        alert("Error al llamar al mozo. Inténtalo de nuevo.")
+      }
+    } catch (error) {
+      console.error("Error llamando al mozo:", error)
+      alert("Error al llamar al mozo. Inténtalo de nuevo.")
+    } finally {
+      setShowCallWaiterModal(false)
+    }
   }
 
   if (state.items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-50">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link href="/usuario">
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <ArrowLeft className="w-5 h-5" />
+                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
+                    <ArrowLeft className="w-5 h-5 text-gray-700" />
                   </Button>
                 </Link>
                 <h1 className="text-xl font-bold text-gray-900">Carrito</h1>
@@ -87,9 +113,9 @@ export default function CartView() {
                 onClick={handleCallWaiter}
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full"
+                className="rounded-full hover:bg-gray-100"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-5 h-5 text-gray-700" />
               </Button>
             </div>
           </div>
@@ -99,7 +125,7 @@ export default function CartView() {
         <div className="container mx-auto px-4 py-12 text-center">
           <div className="text-6xl mb-4 opacity-30">🛒</div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Tu carrito está vacío</h2>
-          <p className="text-gray-500 mb-6">Agrega algunos productos deliciosos para comenzar</p>
+          <p className="text-gray-600 mb-6">Agrega algunos productos deliciosos para comenzar</p>
           <Link href="/usuario">
             <Button className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-full">
               Ver Menú
@@ -121,19 +147,19 @@ export default function CartView() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-100 z-50">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/usuario">
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <ArrowLeft className="w-5 h-5" />
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
+                  <ArrowLeft className="w-5 h-5 text-gray-700" />
                 </Button>
               </Link>
               <h1 className="text-xl font-bold text-gray-900">Carrito</h1>
             </div>
             <div className="flex items-center gap-2">
-              <span className="bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium">
+              <span className="bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium">
                 {totalItems}
               </span>
               <Button 
@@ -148,9 +174,9 @@ export default function CartView() {
                 onClick={handleCallWaiter}
                 variant="ghost" 
                 size="icon" 
-                className="rounded-full"
+                className="rounded-full hover:bg-gray-100"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-5 h-5 text-gray-700" />
               </Button>
             </div>
           </div>
@@ -173,7 +199,7 @@ export default function CartView() {
         {/* Cart Items */}
         <div className="space-y-4 mb-6">
           {state.items.map((item) => (
-            <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
               <div className="flex items-center gap-4">
                 {/* Product Image */}
                 <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -191,17 +217,17 @@ export default function CartView() {
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 text-sm mb-1">{item.name}</h3>
-                  <p className="text-xs text-gray-500">{item.description || "Delicioso platillo"}</p>
+                  <p className="text-xs text-gray-600">{item.description || "Delicioso platillo"}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-bold text-red-500">${item.price.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-red-600">${item.price.toFixed(2)}</span>
                     <div className="flex items-center gap-2">
                       <Button
                         onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
                         size="icon"
                         variant="outline"
-                        className="h-8 w-8 rounded-full border-gray-200"
+                        className="h-8 w-8 rounded-full border-gray-300 hover:bg-gray-50"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-3 h-3 text-gray-700" />
                       </Button>
                       
                       <span className="font-semibold text-gray-900 min-w-[30px] text-center">
@@ -213,7 +239,7 @@ export default function CartView() {
                         size="icon"
                         className="h-8 w-8 rounded-full bg-gray-900 hover:bg-gray-800"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3 h-3 text-white" />
                       </Button>
                     </div>
                   </div>
@@ -224,20 +250,20 @@ export default function CartView() {
         </div>
 
         {/* Summary */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 sticky bottom-4">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky bottom-4">
           <div className="space-y-3 mb-6">
             <div className="flex justify-between">
               <span className="text-gray-600">Items seleccionados</span>
-              <span className="font-semibold">${state.total.toFixed(2)}</span>
+              <span className="font-semibold text-gray-900">${state.total.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Cargo por servicio</span>
-              <span className="font-semibold">$0.00</span>
+              <span className="font-semibold text-gray-900">$0.00</span>
             </div>
-            <div className="border-t border-gray-100 pt-3">
+            <div className="border-t border-gray-200 pt-3">
               <div className="flex justify-between">
                 <span className="text-lg font-bold text-gray-900">Total</span>
-                <span className="text-lg font-bold text-red-500">${state.total.toFixed(2)}</span>
+                <span className="text-lg font-bold text-red-600">${state.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -245,7 +271,7 @@ export default function CartView() {
           <Button 
             onClick={handlePayment}
             disabled={loading}
-            className="w-full bg-gray-900 hover:bg-gray-800 text-white py-4 rounded-2xl font-semibold text-base"
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-semibold text-base"
           >
             {loading ? "Procesando..." : "Proceder al Pago"}
           </Button>

@@ -194,19 +194,19 @@ export default function PromotionsManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text">Gestión de Promociones</h2>
-          <p className="text-muted-foreground">Administra las promociones y ofertas del local</p>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Promociones</h2>
+          <p className="text-gray-600">Administra las promociones y ofertas del local</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
+            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
               <Plus className="w-4 h-4 mr-2" />
               Nueva Promoción
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[600px] bg-white border border-gray-200">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-gray-900">
                 {editingPromotion ? "Editar Promoción" : "Crear Nueva Promoción"}
               </DialogTitle>
             </DialogHeader>
@@ -244,7 +244,7 @@ export default function PromotionsManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="value">
+                  <Label htmlFor="value" className="text-gray-700 font-medium">
                     {formData.type === "discount" || formData.type === "timeframe" ? "Porcentaje de Descuento" :
                      formData.type === "combo" ? "Precio del Combo" : "Valor"}
                   </Label>
@@ -256,52 +256,56 @@ export default function PromotionsManagement() {
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                     placeholder={formData.type === "discount" || formData.type === "timeframe" ? "20" : "0.00"}
                     required
+                    className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="active">Estado</Label>
+                  <Label htmlFor="active" className="text-gray-700 font-medium">Estado</Label>
                   <Select value={formData.active.toString()} onValueChange={(value) => setFormData({ ...formData, active: value === "true" })}>
-                    <SelectTrigger>
+                    <SelectTrigger className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">Activa</SelectItem>
-                      <SelectItem value="false">Inactiva</SelectItem>
+                      <SelectItem value="true">🟢 Activa</SelectItem>
+                      <SelectItem value="false">⚪ Inactiva</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
+                <Label htmlFor="description" className="text-gray-700 font-medium">Descripción</Label>
                 <Input
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Descripción detallada de la promoción"
                   required
+                  className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">Fecha de Inicio</Label>
+                  <Label htmlFor="startDate" className="text-gray-700 font-medium">Fecha de Inicio</Label>
                   <Input
                     id="startDate"
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     required
+                    className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate">Fecha de Fin</Label>
+                  <Label htmlFor="endDate" className="text-gray-700 font-medium">Fecha de Fin</Label>
                   <Input
                     id="endDate"
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     required
+                    className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
               </div>
@@ -309,31 +313,41 @@ export default function PromotionsManagement() {
               {(formData.type === "timeframe") && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime">Hora de Inicio</Label>
+                    <Label htmlFor="startTime" className="text-gray-700 font-medium">Hora de Inicio</Label>
                     <Input
                       id="startTime"
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">Hora de Fin</Label>
+                    <Label htmlFor="endTime" className="text-gray-700 font-medium">Hora de Fin</Label>
                     <Input
                       id="endTime"
                       type="time"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                     />
                   </div>
                 </div>
               )}
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <div className="flex justify-end space-x-3 pt-6">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsDialogOpen(false)}
+                  className="border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button 
+                  type="submit"
+                  className="bg-gray-900 hover:bg-gray-800 text-white font-medium"
+                >
                   {editingPromotion ? "Actualizar" : "Crear"}
                 </Button>
               </div>
@@ -343,7 +357,7 @@ export default function PromotionsManagement() {
       </div>
 
       {/* Lista de promociones */}
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         {promotions.map((promotion) => {
           const typeInfo = getPromotionTypeInfo(promotion.type)
           const TypeIcon = typeInfo.icon
@@ -351,58 +365,84 @@ export default function PromotionsManagement() {
           return (
             <div
               key={promotion.id}
-              className={`bg-card rounded-lg border border-border p-4 ${
-                promotion.active ? "ring-1 ring-green-200" : "opacity-75"
+              className={`bg-white rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-all duration-200 ${
+                promotion.active 
+                  ? "border-green-200 bg-green-50/30" 
+                  : "border-gray-200 bg-gray-50/30"
               }`}
             >
               <div className="flex items-start justify-between">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    promotion.active ? "bg-green-100" : "bg-gray-100"
+                <div className="flex items-start gap-4 flex-1">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                    promotion.active 
+                      ? "bg-green-100 border-2 border-green-200" 
+                      : "bg-gray-100 border-2 border-gray-200"
                   }`}>
-                    <TypeIcon className={`w-5 h-5 ${
+                    <TypeIcon className={`w-6 h-6 ${
                       promotion.active ? "text-green-600" : "text-gray-600"
                     }`} />
                   </div>
                   
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-text">{promotion.name}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-bold text-lg text-gray-900 truncate">{promotion.name}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                         promotion.active 
-                          ? "bg-green-100 text-green-700" 
-                          : "bg-gray-100 text-gray-700"
+                          ? "bg-green-100 text-green-700 border border-green-200" 
+                          : "bg-gray-100 text-gray-700 border border-gray-200"
                       }`}>
-                        {promotion.active ? "Activa" : "Inactiva"}
+                        {promotion.active ? "🟢 Activa" : "⚪ Inactiva"}
                       </span>
                     </div>
                     
-                    <p className="text-sm text-muted-foreground mb-2">{promotion.description}</p>
+                    <p className="text-gray-700 mb-3 leading-relaxed">{promotion.description}</p>
                     
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>{promotion.startDate} - {promotion.endDate}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Período</p>
+                          <p className="text-gray-600 text-xs">{promotion.startDate} - {promotion.endDate}</p>
+                        </div>
                       </div>
+                      
                       {promotion.startTime && promotion.endTime && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{promotion.startTime} - {promotion.endTime}</span>
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <Clock className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">Horario</p>
+                            <p className="text-gray-600 text-xs">{promotion.startTime} - {promotion.endTime}</p>
+                          </div>
                         </div>
                       )}
-                      <div className="flex items-center gap-1">
-                        <Tag className="w-3 h-3" />
-                        <span className="font-medium text-primary">{formatPromotionValue(promotion)}</span>
+                      
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                          <Tag className="w-4 h-4 text-orange-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">Valor</p>
+                          <p className="text-gray-900 font-bold text-sm">{formatPromotionValue(promotion)}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => toggleActive(promotion.id)}
+                    className={`border-2 font-medium ${
+                      promotion.active 
+                        ? "border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400" 
+                        : "border-green-300 text-green-600 hover:bg-green-50 hover:border-green-400"
+                    }`}
                   >
                     {promotion.active ? "Desactivar" : "Activar"}
                   </Button>
@@ -410,6 +450,7 @@ export default function PromotionsManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(promotion)}
+                    className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -417,7 +458,7 @@ export default function PromotionsManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(promotion.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -428,9 +469,19 @@ export default function PromotionsManagement() {
         })}
         
         {promotions.length === 0 && (
-          <div className="text-center py-8">
-            <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">No hay promociones registradas</p>
+          <div className="text-center py-12 bg-white rounded-xl border-2 border-gray-200">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrendingUp className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay promociones</h3>
+            <p className="text-gray-600 mb-4">Crea tu primera promoción para aumentar las ventas</p>
+            <Button 
+              onClick={() => setIsDialogOpen(true)} 
+              className="bg-gray-900 hover:bg-gray-800 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear Promoción
+            </Button>
           </div>
         )}
       </div>

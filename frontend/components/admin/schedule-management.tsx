@@ -14,7 +14,8 @@ import {
   Calendar,
   MapPin,
   Users,
-  Save
+  Save,
+  X
 } from "lucide-react"
 
 interface Schedule {
@@ -159,63 +160,70 @@ export default function ScheduleManagement() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-text">Horarios de Apertura</h2>
-            <p className="text-muted-foreground">Configura los horarios de apertura y cierre por día</p>
+            <h2 className="text-2xl font-bold text-gray-900">Horarios de Apertura</h2>
+            <p className="text-gray-600">Configura los horarios de apertura y cierre por día</p>
           </div>
-          <Button onClick={saveSchedules}>
+          <Button onClick={saveSchedules} className="bg-gray-900 hover:bg-gray-800 text-white">
             <Save className="w-4 h-4 mr-2" />
             Guardar Horarios
           </Button>
         </div>
 
-        <div className="bg-card rounded-lg border border-border p-6">
+        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
           <div className="space-y-4">
             {schedules.map((schedule) => (
-              <div key={schedule.day} className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+              <div key={schedule.day} className="flex items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <div className="w-24">
-                  <Label className="font-medium text-text">{schedule.day}</Label>
+                  <Label className="font-bold text-gray-900 text-sm">{schedule.day}</Label>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     id={`open-${schedule.day}`}
                     checked={schedule.open}
                     onChange={(e) => handleScheduleChange(schedule.day, "open", e.target.checked)}
-                    className="rounded"
+                    className="w-5 h-5 rounded border-2 border-gray-300 focus:ring-gray-900 focus:ring-2"
                   />
-                  <Label htmlFor={`open-${schedule.day}`} className="text-sm">
+                  <Label htmlFor={`open-${schedule.day}`} className="text-sm font-medium text-gray-700">
                     Abierto
                   </Label>
                 </div>
 
                 {schedule.open && (
                   <>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-blue-600" />
+                      </div>
                       <Input
                         type="time"
                         value={schedule.openTime}
                         onChange={(e) => handleScheduleChange(schedule.day, "openTime", e.target.value)}
-                        className="w-32"
+                        className="w-32 border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                       />
                     </div>
                     
-                    <span className="text-muted-foreground">a</span>
+                    <span className="text-gray-600 font-medium">a</span>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <Input
                         type="time"
                         value={schedule.closeTime}
                         onChange={(e) => handleScheduleChange(schedule.day, "closeTime", e.target.value)}
-                        className="w-32"
+                        className="w-32 border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                       />
                     </div>
                   </>
                 )}
 
                 {!schedule.open && (
-                  <span className="text-muted-foreground text-sm">Cerrado</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                      <X className="w-4 h-4 text-red-600" />
+                    </div>
+                    <span className="text-red-600 font-medium text-sm">Cerrado</span>
+                  </div>
                 )}
               </div>
             ))}
@@ -224,39 +232,40 @@ export default function ScheduleManagement() {
       </div>
 
       {/* Gestión de Mesas */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-text">Gestión de Mesas</h2>
-            <p className="text-muted-foreground">Administra las mesas del local</p>
+            <h2 className="text-2xl font-bold text-gray-900">Gestión de Mesas</h2>
+            <p className="text-gray-600">Administra las mesas del local</p>
           </div>
           <Dialog open={isTableDialogOpen} onOpenChange={setIsTableDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => resetTableForm()}>
+              <Button onClick={() => resetTableForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Mesa
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px] bg-white border border-gray-200">
               <DialogHeader>
-                <DialogTitle>
+                <DialogTitle className="text-gray-900">
                   {editingTable ? "Editar Mesa" : "Crear Nueva Mesa"}
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleTableSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="tableName">Nombre de la Mesa</Label>
+                    <Label htmlFor="tableName" className="text-gray-700 font-medium">Nombre de la Mesa</Label>
                     <Input
                       id="tableName"
                       value={tableFormData.name}
                       onChange={(e) => setTableFormData({ ...tableFormData, name: e.target.value })}
                       placeholder="Ej: Mesa 1"
                       required
+                      className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="capacity">Capacidad</Label>
+                    <Label htmlFor="capacity" className="text-gray-700 font-medium">Capacidad</Label>
                     <Input
                       id="capacity"
                       type="number"
@@ -266,15 +275,16 @@ export default function ScheduleManagement() {
                       onChange={(e) => setTableFormData({ ...tableFormData, capacity: e.target.value })}
                       placeholder="4"
                       required
+                      className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="location">Ubicación</Label>
+                    <Label htmlFor="location" className="text-gray-700 font-medium">Ubicación</Label>
                     <Select value={tableFormData.location} onValueChange={(value) => setTableFormData({ ...tableFormData, location: value })}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                         <SelectValue placeholder="Seleccionar ubicación" />
                       </SelectTrigger>
                       <SelectContent>
@@ -286,9 +296,9 @@ export default function ScheduleManagement() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="status">Estado</Label>
+                    <Label htmlFor="status" className="text-gray-700 font-medium">Estado</Label>
                     <Select value={tableFormData.status} onValueChange={(value) => setTableFormData({ ...tableFormData, status: value as any })}>
-                      <SelectTrigger>
+                      <SelectTrigger className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -302,11 +312,19 @@ export default function ScheduleManagement() {
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsTableDialogOpen(false)}>
+                <div className="flex justify-end space-x-3 pt-6">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsTableDialogOpen(false)}
+                    className="border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit">
+                  <Button 
+                    type="submit"
+                    className="bg-gray-900 hover:bg-gray-800 text-white font-medium"
+                  >
                     {editingTable ? "Actualizar" : "Crear"}
                   </Button>
                 </div>
@@ -316,28 +334,30 @@ export default function ScheduleManagement() {
         </div>
 
         {/* Vista de mesas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tables.map((table) => {
             const statusInfo = getStatusInfo(table.status)
             
             return (
               <div
                 key={table.id}
-                className="bg-card rounded-lg border border-border p-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm hover:shadow-md transition-all duration-200"
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-semibold text-text">{table.name}</h3>
-                    <p className="text-sm text-muted-foreground">{table.location}</p>
+                    <h3 className="font-bold text-lg text-gray-900">{table.name}</h3>
+                    <p className="text-gray-600 text-sm">{table.location}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold border-2 ${statusInfo.color}`}>
                     {statusInfo.label}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Users className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <span className="text-gray-700 font-medium">
                     Capacidad: {table.capacity} personas
                   </span>
                 </div>
@@ -347,7 +367,7 @@ export default function ScheduleManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleTableEdit(table)}
-                    className="flex-1"
+                    className="flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-medium"
                   >
                     <Edit className="w-4 h-4 mr-1" />
                     Editar
@@ -356,7 +376,7 @@ export default function ScheduleManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleTableDelete(table.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -367,9 +387,19 @@ export default function ScheduleManagement() {
         </div>
 
         {tables.length === 0 && (
-          <div className="text-center py-8">
-            <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-            <p className="text-muted-foreground">No hay mesas registradas</p>
+          <div className="text-center py-12 bg-white rounded-xl border-2 border-gray-200">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MapPin className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay mesas registradas</h3>
+            <p className="text-gray-600 mb-4">Crea tu primera mesa para comenzar a gestionar el local</p>
+            <Button 
+              onClick={() => setIsTableDialogOpen(true)} 
+              className="bg-gray-900 hover:bg-gray-800 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Crear Mesa
+            </Button>
           </div>
         )}
       </div>
