@@ -49,16 +49,23 @@ serve(async (req) => {
     // Crear cliente Supabase
     const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
 
-    // Crear el pedido en la base de datos
+    // Generar token único para el pedido
+    const token = crypto.randomUUID()
+
+    // Crear el pedido con la estructura simplificada usando solo items
+    const orderData = {
+      mesa_id: mesa_id.toString(),
+      token: token,
+      status: 'PAYMENT_PENDING',
+      items: items, // Solo usar items, no productos
+      creation_date: new Date().toISOString()
+    }
+
+    console.log('Insertando orden con datos:', orderData)
+
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .insert({
-        mesa_id,
-        status: 'PAYMENT_PENDING',
-        total_amount,
-        items,
-        created_at: new Date().toISOString()
-      })
+      .insert(orderData)
       .select()
       .single()
 
@@ -80,18 +87,21 @@ serve(async (req) => {
     // Crear preferencia en Mercado Pago
     const preferenceData = {
       items: mpItems,
-      external_reference: order.id.toString(),
-      notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
+      external_reference: order.id,
+      notification_url: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/mercadopago-webhook`,
       back_urls: {
-        success: `${Deno.env.get('FRONTEND_URL')}/payment/success`,
-        failure: `${Deno.env.get('FRONTEND_URL')}/payment/failure`,
-        pending: `${Deno.env.get('FRONTEND_URL')}/payment/pending`
+        success: `http://localhost:3000/payment/success`, // Hardcodeado temporalmente
+        failure: `http://localhost:3000/payment/failure`,
+        pending: `http://localhost:3000/payment/pending`
       },
       auto_return: "approved",
       statement_descriptor: "CAFE LOCAL",
       metadata: {
         mesa_id: mesa_id.toString(),
-        order_id: order.id.toString()
+        order_id: order.id,
+        token: order.token,
+        total_amount: total_amount.toString(),
+        items: JSON.stringify(items)
       }
     }
 
@@ -101,21 +111,14 @@ serve(async (req) => {
 
     console.log('Respuesta MP:', mpResponse)
 
-    // Actualizar el pedido con la información de la preferencia
-    await supabase
-      .from('orders')
-      .update({
-        payment_preference_id: mpResponse.id,
-        payment_init_point: mpResponse.init_point
-      })
-      .eq('id', order.id)
-
     return new Response(
       JSON.stringify({
         success: true,
         order_id: order.id,
+        token: order.token,
         init_point: mpResponse.init_point,
-        preference_id: mpResponse.id
+        preference_id: mpResponse.id,
+        total_amount
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

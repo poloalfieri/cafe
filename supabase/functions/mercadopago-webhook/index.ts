@@ -50,21 +50,14 @@ serve(async (req) => {
 
     // Actualizar el pedido según el estado del pago
     let orderStatus = 'PAYMENT_PENDING'
-    let updateData: any = {
-      payment_id: paymentId,
-      payment_status: paymentInfo.status,
-      updated_at: new Date().toISOString()
-    }
 
     switch (paymentInfo.status) {
       case 'approved':
         orderStatus = 'PAYMENT_APPROVED'
-        updateData.payment_approved_at = new Date().toISOString()
         break
       case 'rejected':
       case 'cancelled':
         orderStatus = 'PAYMENT_REJECTED'
-        updateData.payment_rejected_at = new Date().toISOString()
         break
       case 'pending':
       case 'in_process':
@@ -72,12 +65,11 @@ serve(async (req) => {
         break
     }
 
-    updateData.status = orderStatus
-
+    // Como id es UUID, no necesitamos parseInt
     const { error } = await supabase
       .from('orders')
-      .update(updateData)
-      .eq('id', parseInt(externalReference))
+      .update({ status: orderStatus })
+      .eq('id', externalReference)
 
     if (error) {
       throw new Error(`Error actualizando pedido: ${error.message}`)
@@ -98,15 +90,3 @@ serve(async (req) => {
     )
   }
 })
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/mercadopago-webhook' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
