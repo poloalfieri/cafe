@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "mercadopago": "npm:mercadopago@2.0.15",
+    "http/server": "https://deno.land/std@0.182.0/http/server.ts",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": false
+  }
+}
