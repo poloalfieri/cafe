@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useCart, Product } from "@/contexts/cart-context"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
+import { useSearchParams } from "next/navigation"
 import InstructionsModal from "./instructions-modal"
 
 // Tipo para los productos que vienen de la API
@@ -32,6 +33,11 @@ export default function MenuView() {
   const [likedItems, setLikedItems] = useState<string[]>([])
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
+  
+  // Obtener parámetros de la URL
+  const searchParams = useSearchParams()
+  const mesa_id = searchParams.get("mesa_id")
+  const token = searchParams.get("token")
 
   // Función helper para obtener categorías únicas sin usar Set
   const getUniqueCategories = (products: ApiProduct[]): string[] => {
@@ -48,7 +54,7 @@ export default function MenuView() {
       setLoading(true)
       setError("")
       
-      const response = await fetch("http://localhost:5001/menu")
+      const response = await fetch("http://localhost:5001/menu/")
       if (!response.ok) throw new Error("Error al cargar el menú")
       
       const data: ApiProduct[] = await response.json()
@@ -70,13 +76,14 @@ export default function MenuView() {
     fetchProducts()
   }, [])
 
-  // Filtrar productos basado en categoría y búsqueda
+  // Filtrar productos basado en categoría, búsqueda y disponibilidad
   const filteredProducts = products.filter((product: ApiProduct) => {
     const matchesCategory = selectedCategory === "Todos" || product.category === selectedCategory
     const matchesSearch = !searchQuery || 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    return matchesCategory && matchesSearch
+    const isAvailable = product.available !== false // Mostrar solo productos disponibles
+    return matchesCategory && matchesSearch && isAvailable
   })
 
   const handleSearch = (query: string): void => {
@@ -193,7 +200,7 @@ export default function MenuView() {
                 <span className="hidden sm:inline text-sm font-medium">Mozo</span>
               </Button>
 
-              <Link href="/usuario/cart">
+              <Link href={`/usuario/cart?mesa_id=${mesa_id}&token=${token}`}>
                 <Button variant="ghost" size="icon" className="rounded-full relative hover:bg-gray-100">
                   <ShoppingCart className="w-5 h-5 text-gray-700" />
                   {totalItems > 0 && (

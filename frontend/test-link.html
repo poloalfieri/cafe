@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Links - Mesa 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 10px 5px;
+            font-weight: bold;
+            text-align: center;
+            min-width: 200px;
+        }
+        .test-link:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            transition: all 0.2s;
+        }
+        .token-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍽️ Test Links - Mesa 1</h1>
+    
+    <div class="test-card">
+        <h2>📱 Link Directo al Menú</h2>
+        <p>Este link te lleva directamente al menú de la <strong>Mesa 1</strong> con un token válido:</p>
+        
+        <div class="token-info">
+            <strong>Mesa ID:</strong> 1<br>
+            <strong>Token:</strong> XA2r4Ggt4X7Bti7XWSR0cQ
+        </div>
+        
+        <a href="http://localhost:3000/usuario?mesa_id=1&token=XA2r4Ggt4X7Bti7XWSR0cQ" 
+           class="test-link" target="_blank">
+           🍽️ Abrir Menú - Mesa 1
+        </a>
+    </div>
+
+    <div class="test-card">
+        <h2>🛒 Link Directo al Carrito</h2>
+        <p>Este link te lleva directamente al carrito de la <strong>Mesa 1</strong>:</p>
+        
+        <a href="http://localhost:3000/usuario/cart?mesa_id=1&token=XA2r4Ggt4X7Bti7XWSR0cQ" 
+           class="test-link" target="_blank">
+           🛒 Abrir Carrito - Mesa 1
+        </a>
+    </div>
+
+    <div class="test-card">
+        <h2>🔧 Generar Nuevo Token</h2>
+        <p>Si el token actual expiró, genera uno nuevo para la Mesa 1:</p>
+        
+        <button onclick="generateNewToken()" class="test-link" style="border: none; cursor: pointer;">
+           🔄 Generar Nuevo Token
+        </button>
+        
+        <div id="new-token-result"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>📋 Instrucciones de Prueba</h2>
+        <ol>
+            <li><strong>Abre el menú</strong> usando el primer link</li>
+            <li><strong>Agrega productos</strong> al carrito</li>
+            <li><strong>Haz clic en el carrito</strong> (debería aparecer el botón de pago)</li>
+            <li><strong>Prueba el pago</strong> con Mercado Pago</li>
+        </ol>
+        
+        <p><strong>Nota:</strong> Si ves "Error: Faltan datos de la mesa o token QR", significa que el token expiró. Usa el botón "Generar Nuevo Token" y actualiza los links.</p>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jkiqaytofyqrptkzvzei.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraXFheXRvZnlxcnB0a3p2emVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzOTMxMzcsImV4cCI6MjA2ODk2OTEzN30.ElLG1xcsJ5D3N2NXVTX2yH3CY6Jc7pE89qANZ_NCwSM';
+        const MESA_ID = '1';
+
+        async function generateNewToken() {
+            const resultDiv = document.getElementById('new-token-result');
+            resultDiv.innerHTML = '<p class="info">🔄 Generando nuevo token...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/renew_mesa_token`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mesa_id_param: MESA_ID })
+                });
+
+                if (response.ok) {
+                    const newToken = await response.text();
+                    const cleanToken = newToken.replace(/"/g, '');
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <p>✅ Nuevo token generado para Mesa 1</p>
+                            <div class="token-info">
+                                <strong>Nuevo Token:</strong> ${cleanToken}
+                            </div>
+                            <a href="http://localhost:3000/usuario?mesa_id=${MESA_ID}&token=${cleanToken}" 
+                               class="test-link" target="_blank">
+                               🍽️ Probar con nuevo token
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<p class="error">❌ Error generando token</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html> 

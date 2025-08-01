@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "http/server": "https://deno.land/std@0.220.0/http/server.ts"
+  },
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": false
+  }
+}

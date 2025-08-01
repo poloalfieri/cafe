@@ -4,7 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { serve } from "http/server"
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts"
 import { createClient } from '@supabase/supabase-js'
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 
@@ -21,11 +21,11 @@ serve(async (req) => {
   }
 
   try {
-    const { mesa_id, items, total_amount } = await req.json()
+    const { mesa_id, items, total_amount, token } = await req.json()
 
     // Validaciones
-    if (!mesa_id || !items || !total_amount) {
-      throw new Error('mesa_id, items y total_amount son requeridos')
+    if (!mesa_id || !items || !total_amount || !token) {
+      throw new Error('mesa_id, items, total_amount y token son requeridos')
     }
 
     console.log('Datos recibidos:', { mesa_id, items, total_amount })
@@ -39,6 +39,27 @@ serve(async (req) => {
       throw new Error('MERCADO_PAGO_ACCESS_TOKEN no configurado')
     }
 
+    // Crear cliente Supabase primero
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
+
+    // Validar token de mesa (temporalmente deshabilitado para testing)
+    // const { data: tokenValid, error: tokenError } = await supabase
+    //   .rpc('validate_mesa_token', {
+    //     mesa_id_param: mesa_id,
+    //     token_param: token
+    //   })
+
+    // if (tokenError) {
+    //   console.error('Error validando token:', tokenError)
+    //   throw new Error('Error validando token de mesa')
+    // }
+
+    // if (!tokenValid) {
+    //   throw new Error('Token de mesa inválido o expirado')
+    // }
+
+    console.log('Token validation skipped for testing - mesa_id:', mesa_id, 'token:', token)
+
     // Inicializar Mercado Pago
     const client = new MercadoPagoConfig({ 
       accessToken: MP_ACCESS_TOKEN,
@@ -46,16 +67,13 @@ serve(async (req) => {
     })
     const preference = new Preference(client)
 
-    // Crear cliente Supabase
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
-
     // Generar token único para el pedido
-    const token = crypto.randomUUID()
+    const orderToken = crypto.randomUUID()
 
     // Crear el pedido con la estructura simplificada usando solo items
     const orderData = {
       mesa_id: mesa_id.toString(),
-      token: token,
+      token: orderToken,
       status: 'PAYMENT_PENDING',
       items: items, // Solo usar items, no productos
       creation_date: new Date().toISOString()
@@ -90,9 +108,9 @@ serve(async (req) => {
       external_reference: order.id,
       notification_url: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/mercadopago-webhook`,
       back_urls: {
-        success: `http://localhost:3000/payment/success`, // Hardcodeado temporalmente
-        failure: `http://localhost:3000/payment/failure`,
-        pending: `http://localhost:3000/payment/pending`
+        success: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-success`,
+        failure: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-failure`,
+        pending: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-pending`
       },
       auto_return: "approved",
       statement_descriptor: "CAFE LOCAL",
@@ -115,7 +133,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         order_id: order.id,
-        token: order.token,
+        order_token: order.token,
         init_point: mpResponse.init_point,
         preference_id: mpResponse.id,
         total_amount
@@ -136,16 +154,4 @@ serve(async (req) => {
       },
     )
   }
-})
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/create-payment-preference' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
+}) 

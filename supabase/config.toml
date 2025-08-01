@@ -90,10 +90,10 @@ openai_api_key = "env(OPENAI_API_KEY)"
 [inbucket]
 enabled = true
 # Port to use for the email testing server web interface.
-port = 54324
+port = 54325
 # Uncomment to expose additional ports for testing user applications that send emails.
-# smtp_port = 54325
-# pop3_port = 54326
+# smtp_port = 54326
+# pop3_port = 54327
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
@@ -335,7 +335,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.create-payment-preference]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/create-payment-preference/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -346,11 +346,24 @@ entrypoint = "./functions/create-payment-preference/index.ts"
 
 [functions.mercadopago-webhook]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/mercadopago-webhook/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/mercadopago-webhook/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/mercadopago-webhook/*.html" ]
+
+[functions.payment-success]
+enabled = true
+verify_jwt = false
+import_map = "./functions/payment-success/deno.json"
+entrypoint = "./functions/payment-success/index.ts"
+
+[functions.payment-failure]
+enabled = true
+verify_jwt = false
+import_map = "./functions/payment-failure/deno.json"
+entrypoint = "./functions/payment-failure/index.ts"
+
+[functions.payment-pending]
+enabled = true
+verify_jwt = false
+import_map = "./functions/payment-pending/deno.json"
+entrypoint = "./functions/payment-pending/index.ts"

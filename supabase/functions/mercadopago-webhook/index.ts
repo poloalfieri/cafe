@@ -4,7 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { serve } from "http/server"
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts"
 import { createClient } from '@supabase/supabase-js'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 
@@ -63,6 +63,9 @@ serve(async (req) => {
       case 'in_process':
         orderStatus = 'PAYMENT_PENDING'
         break
+      default:
+        orderStatus = 'PAYMENT_PENDING'
+        break
     }
 
     // Como id es UUID, no necesitamos parseInt
@@ -89,4 +92,4 @@ serve(async (req) => {
       },
     )
   }
-})
+}) 

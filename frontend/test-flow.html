@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Flow - Café</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-link {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .test-link:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Flow - Sistema de Pago</h1>
+    
+    <div class="test-section">
+        <h2>📋 Paso 1: Verificar Token de Mesa</h2>
+        <p class="info">Token actual: <strong>token_test_123_1753998986</strong></p>
+        <p class="info">Mesa ID: <strong>1</strong></p>
+        <button onclick="testTokenValidation()" class="test-link">Validar Token</button>
+        <div id="token-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🛒 Paso 2: Flujo de Usuario</h2>
+        <p>1. Ir al menú con token válido</p>
+        <a href="http://localhost:3000/usuario?mesa_id=1&token=token_test_123_1753998986" 
+           class="test-link" target="_blank">
+           📱 Abrir Menú
+        </a>
+        
+        <p>2. Ir directamente al carrito (para probar)</p>
+        <a href="http://localhost:3000/usuario/cart?mesa_id=1&token=token_test_123_1753998986" 
+           class="test-link" target="_blank">
+           🛒 Abrir Carrito
+        </a>
+    </div>
+
+    <div class="test-section">
+        <h2>💳 Paso 3: Probar Pago</h2>
+        <p>Probar la función de pago directamente:</p>
+        <button onclick="testPayment()" class="test-link">Probar Pago</button>
+        <div id="payment-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Paso 4: Generar Nuevo Token</h2>
+        <p>Si el token actual expiró, generar uno nuevo:</p>
+        <button onclick="generateNewToken()" class="test-link">Generar Nuevo Token</button>
+        <div id="new-token-result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jkiqaytofyqrptkzvzei.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraXFheXRvZnlxcnB0a3p2emVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzOTMxMzcsImV4cCI6MjA2ODk2OTEzN30.ElLG1xcsJ5D3N2NXVTX2yH3CY6Jc7pE89qANZ_NCwSM';
+        const CURRENT_TOKEN = 'token_test_123_1753998986';
+        const MESA_ID = '1';
+
+        async function testTokenValidation() {
+            const resultDiv = document.getElementById('token-result');
+            resultDiv.innerHTML = '<p class="info">Validando token...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-mesa-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mesa_id: MESA_ID,
+                        token: CURRENT_TOKEN
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.valid) {
+                    resultDiv.innerHTML = '<p class="success">✅ Token válido</p>';
+                } else {
+                    resultDiv.innerHTML = '<p class="error">❌ Token inválido o expirado</p>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testPayment() {
+            const resultDiv = document.getElementById('payment-result');
+            resultDiv.innerHTML = '<p class="info">Probando pago...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-preference`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mesa_id: MESA_ID,
+                        token: CURRENT_TOKEN,
+                        items: [
+                            {
+                                name: "Café Americano",
+                                price: 3.50,
+                                quantity: 1
+                            }
+                        ],
+                        total_amount: 3.50
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Pago creado exitosamente</p>
+                        <p><strong>Order ID:</strong> ${data.order_id}</p>
+                        <p><strong>Preference ID:</strong> ${data.preference_id}</p>
+                        <p><strong>Total:</strong> $${data.total_amount}</p>
+                        <a href="${data.init_point}" target="_blank" class="test-link">
+                            🔗 Ir a Mercado Pago
+                        </a>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.error || 'Error desconocido'}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function generateNewToken() {
+            const resultDiv = document.getElementById('new-token-result');
+            resultDiv.innerHTML = '<p class="info">Generando nuevo token...</p>';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/renew_mesa_token`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mesa_id_param: MESA_ID })
+                });
+
+                if (response.ok) {
+                    const newToken = await response.text();
+                    const cleanToken = newToken.replace(/"/g, '');
+                    
+                    resultDiv.innerHTML = `
+                        <p class="success">✅ Nuevo token generado</p>
+                        <p><strong>Nuevo token:</strong> ${cleanToken}</p>
+                        <a href="http://localhost:3000/usuario?mesa_id=${MESA_ID}&token=${cleanToken}" 
+                           class="test-link" target="_blank">
+                           🔗 Probar con nuevo token
+                        </a>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error generando token</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Auto-validar token al cargar la página
+        window.onload = function() {
+            testTokenValidation();
+        };
+    </script>
+</body>
+</html> 

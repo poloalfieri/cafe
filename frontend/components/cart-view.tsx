@@ -7,6 +7,7 @@ import { useCart } from "@/contexts/cart-context"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
+import { PaymentHandler } from "./payment-handler"
 
 export default function CartView() {
   const { state, updateQuantity, removeItem, clearCart } = useCart()
@@ -18,44 +19,19 @@ export default function CartView() {
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
 
-  // Mantener exactamente la misma lógica de pago que ya tienes
-  const handlePayment = async () => {
-    setError("")
-    setSuccess("")
-    if (!mesa_id || !token) {
-      setError("Faltan datos de la mesa o token QR.")
-      return
-    }
-    setLoading(true)
-    try {
-      // Crear preferencia de pago en Mercado Pago
-      const response = await fetch("http://localhost:5001/payment/create-preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          total_amount: state.total,
-          items: state.items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          mesa_id: mesa_id
-        }),
-      })
-      
-      const data = await response.json()
-      if (response.ok && data.success) {
-        // Redirigir a Mercado Pago
-        window.location.href = data.init_point
-      } else {
-        setError(data.error || "Error al procesar el pago")
-      }
-    } catch (e) {
-      setError("No se pudo conectar con el servidor de pagos")
-    } finally {
-      setLoading(false)
-    }
+  // Debug: Log los parámetros
+  console.log("CartView - mesa_id:", mesa_id)
+  console.log("CartView - token:", token)
+  console.log("CartView - searchParams:", Object.fromEntries(searchParams.entries()))
+
+  // Usar el nuevo componente de pago con Supabase
+  const handlePaymentComplete = (orderId: string, status: string) => {
+    setSuccess(`Pago procesado. ID del pedido: ${orderId}`)
+    // Aquí podrías limpiar el carrito o hacer otras acciones
+  }
+
+  const handlePaymentError = (error: string) => {
+    setError(error)
   }
 
   const handleCallWaiter = () => {
@@ -268,13 +244,24 @@ export default function CartView() {
             </div>
           </div>
 
-          <Button 
-            onClick={handlePayment}
-            disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl font-semibold text-base"
-          >
-            {loading ? "Procesando..." : "Proceder al Pago"}
-          </Button>
+          {mesa_id && token ? (
+            <PaymentHandler
+              mesaId={mesa_id}
+              mesaToken={token}
+              items={state.items.map((item) => ({
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity
+              }))}
+              totalAmount={state.total}
+              onPaymentComplete={handlePaymentComplete}
+              onPaymentError={handlePaymentError}
+            />
+          ) : (
+            <div className="text-center text-red-600 p-4">
+              Error: Faltan datos de la mesa o token QR.
+            </div>
+          )}
         </div>
       </div>
 

@@ -18,6 +18,7 @@ import {
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
 import ScheduleManagement from "./admin/schedule-management"
+import MetricsDashboard from "./MetricsDashboard"
 
 interface DashboardMetrics {
   dailySales: number
@@ -190,49 +191,7 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Ranking de productos */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Productos Más Vendidos</h3>
-                  <Button variant="outline" size="sm" className="border-gray-300 hover:bg-gray-50">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Ver Todos
-                  </Button>
-                </div>
-                <div className="space-y-3">
-                  {metrics.topProducts.map((product, index) => (
-                    <div key={product.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-900 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-sm">{index + 1}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{product.name}</p>
-                          <p className="text-xs text-gray-600">{product.quantity} unidades</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">${product.revenue.toFixed(2)}</p>
-                        <p className="text-xs text-gray-600">Ingresos</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gráfico de ventas (placeholder) */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Tendencia de Ventas</h3>
-                <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-600">Gráfico de ventas</p>
-                    <p className="text-xs text-gray-500">(Integrar librería de gráficos)</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <MetricsDashboard />
           </TabsContent>
 
           <TabsContent value="products">

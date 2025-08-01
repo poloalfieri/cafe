@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import uuid
-from ..utils.logger import logger
+from ..utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 waiter_bp = Blueprint('waiter', __name__, url_prefix='/waiter')
 

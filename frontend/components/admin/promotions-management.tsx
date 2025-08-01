@@ -438,10 +438,10 @@ export default function PromotionsManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => toggleActive(promotion.id)}
-                    className={`border-2 font-medium ${
+                    className={`font-medium transition-all duration-200 ${
                       promotion.active 
-                        ? "border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400" 
-                        : "border-green-300 text-green-600 hover:bg-green-50 hover:border-green-400"
+                        ? "border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 hover:text-orange-800 bg-orange-50/50" 
+                        : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 bg-green-50/50"
                     }`}
                   >
                     {promotion.active ? "Desactivar" : "Activar"}
@@ -450,7 +450,7 @@ export default function PromotionsManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(promotion)}
-                    className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-800 bg-blue-50/50 font-medium transition-all duration-200"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -458,7 +458,7 @@ export default function PromotionsManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(promotion.id)}
-                    className="border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400"
+                    className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 hover:text-red-800 bg-red-50/50 font-medium transition-all duration-200"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

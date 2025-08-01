@@ -37,10 +37,33 @@ function PaymentSuccessContent() {
 
   const fetchOrderStatus = async () => {
     try {
-      const response = await fetch(`http://localhost:5001/payment/order-status/${orderId}`)
+      // Usar Supabase para obtener el estado del pedido
+      const SUPABASE_URL = 'https://jkiqaytofyqrptkzvzei.supabase.co'
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraXFheXRvZnlxcnB0a3p2emVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzOTMxMzcsImV4cCI6MjA2ODk2OTEzN30.ElLG1xcsJ5D3N2NXVTX2yH3CY6Jc7pE89qANZ_NCwSM'
+      
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'apikey': SUPABASE_ANON_KEY
+        }
+      })
+      
       if (response.ok) {
         const data = await response.json()
-        setOrderStatus(data)
+        if (data && data.length > 0) {
+          const order = data[0]
+          setOrderStatus({
+            order_id: order.id,
+            status: order.status,
+            payment_status: order.status,
+            total_amount: order.items ? order.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0) : 0,
+            created_at: order.creation_date,
+            payment_approved_at: order.status === 'PAYMENT_APPROVED' ? order.creation_date : null,
+            payment_rejected_at: order.status === 'PAYMENT_REJECTED' ? order.creation_date : null
+          })
+        } else {
+          setError("Pedido no encontrado")
+        }
       } else {
         setError("Error al obtener el estado del pedido")
       }

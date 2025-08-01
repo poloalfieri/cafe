@@ -56,7 +56,7 @@ export default function ProductsManagement() {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      const response = await fetch("http://localhost:5001/product")
+      const response = await fetch("http://localhost:5001/menu/")
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -64,42 +64,8 @@ export default function ProductsManagement() {
       setProducts(data)
     } catch (error) {
       console.error("Error fetching products:", error)
-      // Fallback a datos simulados si la API no está disponible
-      const mockProducts: Product[] = [
-        {
-          id: "1",
-          name: "Café Americano",
-          category: "Café",
-          price: 3.50,
-          available: true,
-          description: "Café negro tradicional"
-        },
-        {
-          id: "2",
-          name: "Cappuccino",
-          category: "Café",
-          price: 4.00,
-          available: true,
-          description: "Café con leche espumada"
-        },
-        {
-          id: "3",
-          name: "Croissant",
-          category: "Pastelería",
-          price: 2.50,
-          available: true,
-          description: "Croissant tradicional francés"
-        },
-        {
-          id: "4",
-          name: "Tarta de Manzana",
-          category: "Postres",
-          price: 5.00,
-          available: false,
-          description: "Tarta casera de manzana"
-        }
-      ]
-      setProducts(mockProducts)
+      // Mostrar error al usuario en lugar de fallback a datos simulados
+      alert("Error al cargar productos. Verifica que el servidor esté funcionando.")
     } finally {
       setLoading(false)
     }
@@ -119,7 +85,7 @@ export default function ProductsManagement() {
     try {
       if (editingProduct) {
         // Actualizar producto existente
-        const response = await fetch(`http://localhost:5001/product/${editingProduct.id}`, {
+        const response = await fetch(`http://localhost:5001/menu/${editingProduct.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -135,7 +101,7 @@ export default function ProductsManagement() {
         setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p))
       } else {
         // Crear nuevo producto
-        const response = await fetch("http://localhost:5001/product", {
+        const response = await fetch("http://localhost:5001/menu/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -153,9 +119,11 @@ export default function ProductsManagement() {
 
       resetForm()
       setIsDialogOpen(false)
+      alert(editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente")
     } catch (error) {
       console.error("Error saving product:", error)
-      alert("Error al guardar el producto. Por favor, intenta nuevamente.")
+      const errorMessage = error instanceof Error ? error.message : "Error al guardar el producto. Por favor, intenta nuevamente."
+      alert(errorMessage)
     }
   }
 
@@ -174,7 +142,7 @@ export default function ProductsManagement() {
   const handleDelete = async (productId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
       try {
-        const response = await fetch(`http://localhost:5001/product/${productId}`, {
+        const response = await fetch(`http://localhost:5001/menu/${productId}`, {
           method: "DELETE"
         })
 
@@ -183,16 +151,18 @@ export default function ProductsManagement() {
         }
 
         setProducts(products.filter(p => p.id !== productId))
+        alert("Producto eliminado correctamente")
       } catch (error) {
         console.error("Error deleting product:", error)
-        alert("Error al eliminar el producto. Por favor, intenta nuevamente.")
+        const errorMessage = error instanceof Error ? error.message : "Error al eliminar el producto. Por favor, intenta nuevamente."
+        alert(errorMessage)
       }
     }
   }
 
   const toggleAvailability = async (productId: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/product/${productId}/toggle`, {
+      const response = await fetch(`http://localhost:5001/menu/${productId}/toggle`, {
         method: "PATCH"
       })
 
@@ -204,9 +174,11 @@ export default function ProductsManagement() {
       setProducts(products.map(p => 
         p.id === productId ? { ...p, available: result.available } : p
       ))
+      alert(`Producto ${result.available ? 'activado' : 'desactivado'} correctamente`)
     } catch (error) {
       console.error("Error toggling product availability:", error)
-      alert("Error al cambiar la disponibilidad del producto. Por favor, intenta nuevamente.")
+      const errorMessage = error instanceof Error ? error.message : "Error al cambiar la disponibilidad del producto. Por favor, intenta nuevamente."
+      alert(errorMessage)
     }
   }
 
@@ -390,7 +362,11 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => toggleAvailability(product.id)}
-                        className="border-gray-300 hover:bg-gray-50 text-gray-700"
+                        className={`font-medium transition-all duration-200 ${
+                          product.available 
+                            ? "border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 hover:text-orange-800 bg-orange-50/50" 
+                            : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 bg-green-50/50"
+                        }`}
                       >
                         {product.available ? "Desactivar" : "Activar"}
                       </Button>
@@ -398,7 +374,7 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(product)}
-                        className="border-gray-300 hover:bg-gray-50 text-gray-700"
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-800 bg-blue-50/50 font-medium transition-all duration-200"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -406,7 +382,7 @@ export default function ProductsManagement() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(product.id)}
-                        className="border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700"
+                        className="border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 hover:text-red-800 bg-red-50/50 font-medium transition-all duration-200"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
