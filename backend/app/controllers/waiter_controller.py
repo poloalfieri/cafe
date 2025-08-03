@@ -144,3 +144,49 @@ def delete_waiter_call(call_id):
     except Exception as e:
         logger.error(f"Error eliminando llamada al mozo: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500 
+
+@waiter_bp.route('/notificar-mozo', methods=['POST'])
+def notificar_mozo():
+    """Notificar al mozo con motivo específico (pago_efectivo, pago_tarjeta, pago_qr)"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        if not data or 'mesa_id' not in data or 'motivo' not in data:
+            return jsonify({'error': 'mesa_id y motivo son requeridos'}), 400
+        
+        mesa_id = data['mesa_id']
+        motivo = data['motivo']
+        usuario_id = data.get('usuario_id', '')
+        message = data.get('message', '')
+        
+        # Validar que el motivo sea válido
+        motivos_validos = ['pago_efectivo', 'pago_tarjeta', 'pago_qr']
+        if motivo not in motivos_validos:
+            return jsonify({'error': f'motivo debe ser uno de: {motivos_validos}'}), 400
+        
+        # Crear nueva notificación
+        new_notification = {
+            'id': str(uuid.uuid4()),
+            'mesa_id': mesa_id,
+            'usuario_id': usuario_id,
+            'motivo': motivo,
+            'message': message,
+            'status': 'PENDING',
+            'created_at': datetime.utcnow().isoformat(),
+            'attended_at': None
+        }
+        
+        waiter_calls.append(new_notification)
+        
+        logger.info(f"Nueva notificación al mozo creada - mesa_id: {mesa_id}, motivo: {motivo}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Notificación al mozo enviada exitosamente',
+            'notification': new_notification
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error notificando al mozo: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500 

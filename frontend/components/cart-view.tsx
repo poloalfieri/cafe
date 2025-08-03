@@ -7,11 +7,12 @@ import { useCart } from "@/contexts/cart-context"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
-import { PaymentHandler } from "./payment-handler"
+import PaymentModal from "./payment-modal"
 
 export default function CartView() {
   const { state, updateQuantity, removeItem, clearCart } = useCart()
   const [showCallWaiterModal, setShowCallWaiterModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -24,7 +25,6 @@ export default function CartView() {
   console.log("CartView - token:", token)
   console.log("CartView - searchParams:", Object.fromEntries(searchParams.entries()))
 
-  // Usar el nuevo componente de pago con Supabase
   const handlePaymentComplete = (orderId: string, status: string) => {
     setSuccess(`Pago procesado. ID del pedido: ${orderId}`)
     // Aquí podrías limpiar el carrito o hacer otras acciones
@@ -245,18 +245,13 @@ export default function CartView() {
           </div>
 
           {mesa_id && token ? (
-            <PaymentHandler
-              mesaId={mesa_id}
-              mesaToken={token}
-              items={state.items.map((item) => ({
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity
-              }))}
-              totalAmount={state.total}
-              onPaymentComplete={handlePaymentComplete}
-              onPaymentError={handlePaymentError}
-            />
+            <Button
+              onClick={() => setShowPaymentModal(true)}
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold text-lg"
+              size="lg"
+            >
+              Pagar ${state.total.toFixed(2)}
+            </Button>
           ) : (
             <div className="text-center text-red-600 p-4">
               Error: Faltan datos de la mesa o token QR.
@@ -269,6 +264,19 @@ export default function CartView() {
         isOpen={showCallWaiterModal}
         onConfirm={handleConfirmCallWaiter}
         onCancel={() => setShowCallWaiterModal(false)}
+      />
+
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        mesaId={mesa_id || ''}
+        mesaToken={token || ''}
+        totalAmount={state.total}
+        items={state.items.map((item) => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        }))}
       />
     </div>
   )

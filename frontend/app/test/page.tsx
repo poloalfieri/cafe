@@ -1,9 +1,9 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 
-export default function TestPage() {
+function TestPageContent() {
   const searchParams = useSearchParams()
   
   useEffect(() => {
@@ -61,5 +61,13 @@ export default function TestPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function TestPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <TestPageContent />
+    </Suspense>
   )
 } 
