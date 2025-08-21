@@ -1,6 +1,6 @@
-import requests
+import mercadopago
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..config import Config
 from ..utils.logger import setup_logger
 
@@ -9,15 +9,11 @@ logger = setup_logger(__name__)
 class MercadoPagoService:
     def __init__(self):
         self.access_token = Config.MERCADO_PAGO_ACCESS_TOKEN
-        self.base_url = "https://api.mercadopago.com"
-        self.headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
+        self.sdk = mercadopago.SDK(self.access_token)
     
     def create_preference(self, order_data):
         """
-        Crear una preferencia de pago en Mercado Pago
+        Crear una preferencia de pago en Mercado Pago usando el SDK oficial
         
         Args:
             order_data: dict con información del pedido
@@ -25,7 +21,7 @@ class MercadoPagoService:
                 - items: list
                 - order_id: str
                 - mesa_id: str
-        
+        x
         Returns:
             dict con la respuesta de Mercado Pago
         """
@@ -39,46 +35,46 @@ class MercadoPagoService:
                     "unit_price": float(item["price"])
                 })
             
-            # Crear preferencia
+            # Crear preferencia usando el SDK
             preference_data = {
                 "items": items,
                 "external_reference": str(order_data["order_id"]),
-                "notification_url": f"{Config.BASE_URL}/webhooks/mercadopago",
+                "notification_url": f"{Config.BASE_URL}/payment/webhooks/mercadopago",
                 "back_urls": {
-                    "success": f"{Config.BASE_URL}/payment/success",
-                    "failure": f"{Config.BASE_URL}/payment/failure",
-                    "pending": f"{Config.BASE_URL}/payment/pending"
+                    "success": f"{Config.FRONTEND_URL}/payment/success",
+                    "failure": f"{Config.FRONTEND_URL}/payment/error",
+                    "pending": f"{Config.FRONTEND_URL}/payment/pending"
                 },
                 "auto_return": "approved",
                 "expires": True,
-                "expiration_date_to": (datetime.utcnow().replace(hour=23, minute=59, second=59) + 
-                                     datetime.timedelta(days=1)).isoformat() + "Z",
+                "expiration_date_to": (datetime.utcnow() + timedelta(days=1)).isoformat() + "Z",
                 "statement_descriptor": "CAFE LOCAL",
-                "additional_info": f"Pedido para Mesa {order_data['mesa_id']}"
+                "additional_info": f"Pedido para Mesa {order_data['mesa_id']}",
+                "payer": {
+                    "name": f"Cliente Mesa {order_data['mesa_id']}",
+                    "email": "cliente@restaurante.com"
+                }
             }
             
             logger.info(f"Creando preferencia para orden {order_data['order_id']}")
             
-            response = requests.post(
-                f"{self.base_url}/checkout/preferences",
-                headers=self.headers,
-                json=preference_data
-            )
+            # Usar el SDK de Mercado Pago
+            preference_response = self.sdk.preference().create(preference_data)
             
-            if response.status_code == 201:
-                data = response.json()
-                logger.info(f"Preferencia creada exitosamente: {data['id']}")
+            if preference_response["status"] == 201:
+                preference = preference_response["response"]
+                logger.info(f"Preferencia creada exitosamente: {preference['id']}")
                 return {
                     "success": True,
-                    "preference_id": data["id"],
-                    "init_point": data["init_point"],
-                    "sandbox_init_point": data.get("sandbox_init_point")
+                    "preference_id": preference["id"],
+                    "init_point": preference["init_point"],
+                    "sandbox_init_point": preference.get("sandbox_init_point")
                 }
             else:
-                logger.error(f"Error creando preferencia: {response.status_code} - {response.text}")
+                logger.error(f"Error creando preferencia: {preference_response}")
                 return {
                     "success": False,
-                    "error": f"Error {response.status_code}: {response.text}"
+                    "error": f"Error creando preferencia: {preference_response}"
                 }
                 
         except Exception as e:
@@ -90,7 +86,7 @@ class MercadoPagoService:
     
     def get_payment_info(self, payment_id):
         """
-        Obtener información de un pago específico
+        Obtener información de un pago específico usando el SDK
         
         Args:
             payment_id: str - ID del pago en Mercado Pago
@@ -99,21 +95,18 @@ class MercadoPagoService:
             dict con la información del pago
         """
         try:
-            response = requests.get(
-                f"{self.base_url}/v1/payments/{payment_id}",
-                headers=self.headers
-            )
+            payment_response = self.sdk.payment().get(payment_id)
             
-            if response.status_code == 200:
+            if payment_response["status"] == 200:
                 return {
                     "success": True,
-                    "payment": response.json()
+                    "payment": payment_response["response"]
                 }
             else:
-                logger.error(f"Error obteniendo pago {payment_id}: {response.status_code} - {response.text}")
+                logger.error(f"Error obteniendo pago {payment_id}: {payment_response}")
                 return {
                     "success": False,
-                    "error": f"Error {response.status_code}: {response.text}"
+                    "error": f"Error obteniendo pago: {payment_response}"
                 }
                 
         except Exception as e:
@@ -125,7 +118,7 @@ class MercadoPagoService:
     
     def refund_payment(self, payment_id, amount=None):
         """
-        Reembolsar un pago
+        Reembolsar un pago usando el SDK
         
         Args:
             payment_id: str - ID del pago en Mercado Pago
@@ -139,26 +132,22 @@ class MercadoPagoService:
             if amount:
                 refund_data["amount"] = amount
             
-            response = requests.post(
-                f"{self.base_url}/v1/payments/{payment_id}/refunds",
-                headers=self.headers,
-                json=refund_data
-            )
+            refund_response = self.sdk.refund().create(payment_id, refund_data)
             
-            if response.status_code == 201:
-                data = response.json()
-                logger.info(f"Reembolso exitoso para pago {payment_id}: {data['id']}")
+            if refund_response["status"] == 201:
+                refund = refund_response["response"]
+                logger.info(f"Reembolso exitoso para pago {payment_id}: {refund['id']}")
                 return {
                     "success": True,
-                    "refund_id": data["id"],
-                    "amount": data.get("amount"),
-                    "status": data.get("status")
+                    "refund_id": refund["id"],
+                    "amount": refund.get("amount"),
+                    "status": refund.get("status")
                 }
             else:
-                logger.error(f"Error reembolsando pago {payment_id}: {response.status_code} - {response.text}")
+                logger.error(f"Error reembolsando pago {payment_id}: {refund_response}")
                 return {
                     "success": False,
-                    "error": f"Error {response.status_code}: {response.text}"
+                    "error": f"Error reembolsando pago: {refund_response}"
                 }
                 
         except Exception as e:

@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Menu {
+  id          BigInt    @id @default(autoincrement())
+  name        String
+  category    String
+  price       Decimal   @db.Decimal(10, 2)
+  description String?
+  available   Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  recipes     Recipe[]
+
+  @@map("menu")
+}
+
+model Ingredient {
+  id           BigInt    @id @default(autoincrement())
+  name         String    @unique
+  unit         String
+  currentStock Decimal   @default(0) @map("current_stock")
+  unitCost     Decimal?  @map("unit_cost") @db.Decimal(10, 4)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  recipes      Recipe[]
+
+  @@map("ingredients")
+}
+
+model Recipe {
+  productId    BigInt     @map("product_id")
+  ingredientId BigInt     @map("ingredient_id")
+  quantity     Decimal    @db.Decimal(10, 4)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  
+  product      Menu       @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([productId, ingredientId])
+  @@map("recipes")
+} 

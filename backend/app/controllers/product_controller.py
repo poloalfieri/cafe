@@ -30,6 +30,11 @@ def list_products():
     except Exception as e:
         return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
 
+@product_bp.route("s", methods=["GET"])
+def list_products_plural():
+    """Alias para /products - Obtener lista de todos los productos"""
+    return list_products()
+
 @product_bp.route("", methods=["POST"])
 def create_product():
     """Crear un nuevo producto"""

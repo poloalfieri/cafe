@@ -1,6 +1,6 @@
 "use client"
 
-import { Clock, Bell, CheckCircle, Plus, User } from "lucide-react"
+import { Clock, Bell, CheckCircle, Plus, User, CreditCard, Banknote, QrCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface WaiterCall {
@@ -9,6 +9,7 @@ interface WaiterCall {
   created_at: string
   status: "PENDING" | "ATTENDED"
   message?: string
+  payment_method: "CARD" | "CASH" | "QR"
 }
 
 interface WaiterCallCardProps {
@@ -36,6 +37,28 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
     const hours = Math.floor(diffMinutes / 60)
     const minutes = diffMinutes % 60
     return `${hours}h ${minutes}m`
+  }
+
+  const getPaymentMethodIcon = (method: WaiterCall["payment_method"]) => {
+    switch (method) {
+      case "CARD":
+        return <CreditCard className="w-4 h-4" />
+      case "CASH":
+        return <Banknote className="w-4 h-4" />
+      case "QR":
+        return <QrCode className="w-4 h-4" />
+    }
+  }
+
+  const getPaymentMethodText = (method: WaiterCall["payment_method"]) => {
+    switch (method) {
+      case "CARD":
+        return "Pago con Tarjeta"
+      case "CASH":
+        return "Pago en Efectivo"
+      case "QR":
+        return "Pago con QR"
+    }
   }
 
   const timeElapsed = getTimeElapsed(call.created_at)
@@ -95,6 +118,14 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
 
       {/* Contenido */}
       <div className="p-4">
+        {/* Método de Pago */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center gap-2 text-gray-900">
+            {getPaymentMethodIcon(call.payment_method)}
+            <p className="text-sm font-medium">{getPaymentMethodText(call.payment_method)}</p>
+          </div>
+        </div>
+
         {call.message && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-900">

@@ -3,24 +3,31 @@
 import { Bell, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 
 interface CallWaiterModalProps {
   isOpen: boolean
-  onConfirm: (message?: string) => void
+  onConfirm: (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }) => void
   onCancel: () => void
 }
 
 export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWaiterModalProps) {
   const [message, setMessage] = useState("")
+  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'CASH' | 'QR'>('CASH')
 
   if (!isOpen) return null
 
   const handleConfirm = () => {
-    onConfirm(message.trim() || undefined)
+    onConfirm({
+      message: message.trim() || undefined,
+      paymentMethod
+    })
   }
 
   const handleCancel = () => {
     setMessage("")
+    setPaymentMethod('CASH')
     onCancel()
   }
 
@@ -50,6 +57,31 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
           <p className="text-gray-600 text-sm sm:text-base mb-4 leading-relaxed">
             ¿Necesitas ayuda con tu pedido o tienes alguna consulta? Un mozo se acercará a tu mesa en breve.
           </p>
+
+          {/* Selección de método de pago */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Método de Pago
+            </label>
+            <RadioGroup
+              value={paymentMethod}
+              onValueChange={(value) => setPaymentMethod(value as 'CARD' | 'CASH' | 'QR')}
+              className="flex flex-col space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="CASH" id="cash" />
+                <Label htmlFor="cash">Efectivo</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="CARD" id="card" />
+                <Label htmlFor="card">Tarjeta</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="QR" id="qr" />
+                <Label htmlFor="qr">QR</Label>
+              </div>
+            </RadioGroup>
+          </div>
 
           {/* Campo de mensaje opcional */}
           <div className="mb-6">

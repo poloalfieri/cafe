@@ -38,7 +38,7 @@ export default function CartView() {
     setShowCallWaiterModal(true)
   }
 
-  const handleConfirmCallWaiter = async (message?: string): Promise<void> => {
+  const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
       // Mesa hardcodeada para demo - en producción esto vendría del contexto de la mesa
       const mesa_id = "Mesa 1"
@@ -50,13 +50,13 @@ export default function CartView() {
         },
         body: JSON.stringify({
           mesa_id: mesa_id,
-          message: message || ""
+          message: data.message || ""
         }),
       })
 
       if (response.ok) {
-        const data = await response.json()
-        console.log("Llamada al mozo creada desde carrito:", data)
+        const responseData = await response.json()
+        console.log("Llamada al mozo creada desde carrito:", responseData)
         alert("¡Mozo llamado! Te atenderemos en breve.")
       } else {
         console.error("Error llamando al mozo")
@@ -119,9 +119,10 @@ export default function CartView() {
   }
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-32">
       {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
@@ -225,17 +226,40 @@ export default function CartView() {
           ))}
         </div>
 
-        {/* Summary */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 sticky bottom-4">
-          <div className="space-y-3 mb-6">
+        {/* Botón "Buscar más productos" con flecha hacia atrás */}
+        <div className="mb-6">
+          <Link href="/usuario">
+            <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Buscar más productos
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Footer fijo con total del pedido - solo visible cuando hay productos */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
+        <div className="container mx-auto px-4 py-4">
+          {/* Resumen del pedido */}
+          <div className="space-y-3 mb-4">
             <div className="flex justify-between">
-              <span className="text-gray-600">Items seleccionados</span>
-              <span className="font-semibold text-gray-900">${state.total.toFixed(2)}</span>
+              <span className="text-gray-600">Subtotal</span>
+              <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
             </div>
+            
+            {/* Fila de descuentos - solo visible si existen */}
+            {state.discounts > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Descuentos</span>
+                <span className="font-semibold text-green-600">-${state.discounts.toFixed(2)}</span>
+              </div>
+            )}
+            
             <div className="flex justify-between">
-              <span className="text-gray-600">Cargo por servicio</span>
-              <span className="font-semibold text-gray-900">$0.00</span>
+              <span className="text-gray-600">Tarifa de servicio</span>
+              <span className="font-semibold text-gray-900">${state.serviceCharge.toFixed(2)}</span>
             </div>
+            
             <div className="border-t border-gray-200 pt-3">
               <div className="flex justify-between">
                 <span className="text-lg font-bold text-gray-900">Total</span>
@@ -244,6 +268,7 @@ export default function CartView() {
             </div>
           </div>
 
+          {/* Botón de pago */}
           {mesa_id && token ? (
             <Button
               onClick={() => setShowPaymentModal(true)}

@@ -2,22 +2,19 @@ from flask import Blueprint, request, jsonify, redirect, url_for
 from ..db.connection import get_db
 from ..db.models import Order, OrderStatus, PaymentStatus
 from ..services.mercadopago_service import MercadoPagoService
-from ..services.payway_service import PaywayService
 from ..utils.logger import setup_logger
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 import uuid
-import requests
 from ..config import Config
 
 payment_bp = Blueprint("payment", __name__, url_prefix="/payment")
 mp_service = MercadoPagoService()
-payway_service = PaywayService()
 logger = setup_logger(__name__)
 
 @payment_bp.route("/init", methods=["POST"])
 def init_payment():
-    """Inicializar pago con billetera virtual usando Payway"""
+    """Inicializar pago con Mercado Pago Checkout Pro"""
     try:
         data = request.get_json()
         
@@ -31,45 +28,64 @@ def init_payment():
         if data["monto"] <= 0:
             return jsonify({"error": "El monto debe ser mayor a 0"}), 400
         
-        # Preparar datos para Payway
-        external_reference = f"mesa_{data['mesa_id']}_{uuid.uuid4().hex[:8]}"
+        # Crear pedido en la base de datos
+        db = get_db()
+        order_token = str(uuid.uuid4())
+        new_order = Order(
+            mesa_id=data["mesa_id"],
+            status=OrderStatus.PAYMENT_PENDING,
+            token=order_token,
+            total_amount=data["monto"],
+            items=[{
+                "name": data["descripcion"],
+                "quantity": 1,
+                "price": data["monto"]
+            }]
+        )
         
-        payment_data = {
-            "amount": data["monto"],
-            "currency": "ARS",
-            "description": data["descripcion"],
-            "external_reference": external_reference,
-            "payer": {
-                "name": f"Cliente Mesa {data['mesa_id']}",
-                "email": "cliente@restaurante.com",
-                "dni": "12345678"  # En producción, esto vendría del frontend
-            },
-            "items": [
-                {
-                    "id": "item_1",
-                    "name": data["descripcion"],
-                    "quantity": 1,
-                    "price": data["monto"]
-                }
-            ]
+        db.add(new_order)
+        db.commit()
+        db.refresh(new_order)
+        
+        # Crear preferencia en Mercado Pago
+        order_data = {
+            "order_id": new_order.id,
+            "total_amount": data["monto"],
+            "items": [{
+                "name": data["descripcion"],
+                "quantity": 1,
+                "price": data["monto"]
+            }],
+            "mesa_id": data["mesa_id"]
         }
         
-        # Crear preferencia de pago usando el servicio de Payway
-        payway_response = payway_service.create_payment_preference(payment_data)
+        mp_response = mp_service.create_preference(order_data)
         
-        if not payway_response["success"]:
-            logger.error(f"Error creando preferencia Payway: {payway_response['error']}")
-            return jsonify({"error": payway_response["error"]}), 500
+        if not mp_response["success"]:
+            # Si falla la creación de preferencia, eliminar el pedido
+            db.delete(new_order)
+            db.commit()
+            return jsonify({"error": mp_response["error"]}), 500
         
-        logger.info(f"Preferencia de pago Payway creada - mesa_id: {data['mesa_id']}, monto: {data['monto']}")
+        # Actualizar el pedido con la información de la preferencia
+        new_order.payment_preference_id = mp_response["preference_id"]
+        new_order.payment_init_point = mp_response["init_point"]
+        db.commit()
+        
+        logger.info(f"Preferencia de pago Mercado Pago creada - mesa_id: {data['mesa_id']}, monto: {data['monto']}")
         
         return jsonify({
             "success": True,
-            "payment_link": payway_response["init_point"],
-            "preference_id": payway_response["preference_id"],
-            "external_reference": external_reference
+            "order_id": new_order.id,
+            "order_token": order_token,
+            "init_point": mp_response["init_point"],
+            "preference_id": mp_response["preference_id"]
         })
         
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error: {str(e)}")
+        return jsonify({"error": "Error en la base de datos"}), 500
     except Exception as e:
         logger.error(f"Error inicializando pago: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
@@ -388,50 +404,3 @@ def mercadopago_webhook():
         logger.error(f"Error in webhook: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
-@payment_bp.route("/webhooks/payway", methods=["POST"])
-def payway_webhook():
-    """Webhook para recibir notificaciones de Payway"""
-    try:
-        data = request.get_json()
-        logger.info(f"Payway webhook received: {data}")
-        
-        # Validar la firma del webhook (en producción)
-        # signature = request.headers.get("X-Signature")
-        # if not payway_service.validate_webhook_signature(request.data, signature):
-        #     return jsonify({"error": "Invalid signature"}), 400
-        
-        if data.get("type") == "payment":
-            payment_id = data.get("data", {}).get("id")
-            
-            if payment_id:
-                # Obtener información actualizada del pago
-                payment_info = payway_service.get_payment_info(payment_id)
-                
-                if payment_info["success"]:
-                    payment_data = payment_info["payment"]
-                    external_reference = payment_data.get("external_reference")
-                    
-                    if external_reference:
-                        db = get_db()
-                        order = db.query(Order).filter(Order.external_reference == external_reference).first()
-                        
-                        if order:
-                            # Actualizar el pedido con la información del pago
-                            order.payment_id = payment_id
-                            order.payment_status = PaymentStatus(payment_data["status"])
-                            
-                            if payment_data["status"] == "approved":
-                                order.status = OrderStatus.PAYMENT_APPROVED
-                                order.payment_approved_at = datetime.utcnow()
-                            elif payment_data["status"] in ["rejected", "cancelled"]:
-                                order.status = OrderStatus.PAYMENT_REJECTED
-                                order.payment_rejected_at = datetime.utcnow()
-                            
-                            db.commit()
-                            logger.info(f"Order {order.id} updated via Payway webhook - status: {payment_data['status']}")
-        
-        return jsonify({"success": True}), 200
-        
-    except Exception as e:
-        logger.error(f"Error in Payway webhook: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500

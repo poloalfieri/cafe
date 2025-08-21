@@ -2,13 +2,12 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime
 import uuid
 from ..utils.logger import setup_logger
+from ..db.connection import get_db
+from sqlalchemy import text
 
 logger = setup_logger(__name__)
 
 waiter_bp = Blueprint('waiter', __name__, url_prefix='/waiter')
-
-# Simulación de base de datos en memoria para las llamadas al mozo
-waiter_calls = []
 
 @waiter_bp.route('/calls', methods=['POST'])
 def create_waiter_call():
@@ -17,25 +16,36 @@ def create_waiter_call():
         data = request.get_json()
         
         # Validar datos requeridos
-        if not data or 'mesa_id' not in data:
-            return jsonify({'error': 'mesa_id es requerido'}), 400
+        if not data or 'mesa_id' not in data or 'payment_method' not in data:
+            return jsonify({'error': 'mesa_id y payment_method son requeridos'}), 400
         
         mesa_id = data['mesa_id']
-        message = data.get('message', '')  # El mensaje es opcional
+        payment_method = data['payment_method']
+        message = data.get('message', '')
         
-        # Crear nueva llamada
-        new_call = {
-            'id': str(uuid.uuid4()),
+        # Validar método de pago
+        valid_payment_methods = ['CARD', 'CASH', 'QR']
+        if payment_method not in valid_payment_methods:
+            return jsonify({'error': f'payment_method debe ser uno de: {valid_payment_methods}'}), 400
+        
+        db = get_db()
+        
+        # Crear nueva llamada en la base de datos
+        query = text("""
+            INSERT INTO waiter_calls (mesa_id, payment_method, status)
+            VALUES (:mesa_id, :payment_method, 'PENDING')
+            RETURNING id, mesa_id, payment_method, status, created_at
+        """)
+        
+        result = db.execute(query, {
             'mesa_id': mesa_id,
-            'message': message,
-            'status': 'PENDING',
-            'created_at': datetime.utcnow().isoformat(),
-            'attended_at': None
-        }
+            'payment_method': payment_method
+        })
         
-        waiter_calls.append(new_call)
+        new_call = dict(result.fetchone())
+        db.commit()
         
-        logger.info(f"Nueva llamada al mozo creada - mesa_id: {mesa_id}, message: {message}")
+        logger.info(f"Nueva llamada al mozo creada - mesa_id: {mesa_id}, payment_method: {payment_method}")
         
         return jsonify({
             'success': True,
@@ -54,17 +64,27 @@ def get_waiter_calls():
         # Filtrar por estado si se especifica
         status = request.args.get('status')
         
-        if status:
-            filtered_calls = [call for call in waiter_calls if call['status'] == status]
-        else:
-            filtered_calls = waiter_calls
+        db = get_db()
         
-        # Ordenar por fecha de creación (más recientes primero)
-        filtered_calls.sort(key=lambda x: x['created_at'], reverse=True)
+        if status:
+            query = text("""
+                SELECT * FROM waiter_calls 
+                WHERE status = :status 
+                ORDER BY created_at DESC
+            """)
+            result = db.execute(query, {'status': status})
+        else:
+            query = text("""
+                SELECT * FROM waiter_calls 
+                ORDER BY created_at DESC
+            """)
+            result = db.execute(query)
+        
+        calls = [dict(row) for row in result]
         
         return jsonify({
             'success': True,
-            'calls': filtered_calls
+            'calls': calls
         }), 200
         
     except Exception as e:
@@ -87,29 +107,35 @@ def update_waiter_call_status(call_id):
         if new_status not in valid_statuses:
             return jsonify({'error': f'Status debe ser uno de: {valid_statuses}'}), 400
         
-        # Buscar la llamada
-        call = None
-        for c in waiter_calls:
-            if c['id'] == call_id:
-                call = c
-                break
-        
-        if not call:
-            return jsonify({'error': 'Llamada no encontrada'}), 404
+        db = get_db()
         
         # Actualizar estado
-        call['status'] = new_status
+        query = text("""
+            UPDATE waiter_calls 
+            SET status = :status,
+                updated_at = timezone('utc'::text, now())
+            WHERE id = :call_id
+            RETURNING *
+        """)
         
-        # Si se marca como atendida, agregar timestamp
-        if new_status == 'ATTENDED':
-            call['attended_at'] = datetime.utcnow().isoformat()
+        result = db.execute(query, {
+            'status': new_status,
+            'call_id': call_id
+        })
+        
+        updated_call = result.fetchone()
+        
+        if not updated_call:
+            return jsonify({'error': 'Llamada no encontrada'}), 404
+            
+        db.commit()
         
         logger.info(f"Estado de llamada al mozo actualizado - call_id: {call_id}, status: {new_status}")
         
         return jsonify({
             'success': True,
             'message': 'Estado de llamada actualizado exitosamente',
-            'call': call
+            'call': dict(updated_call)
         }), 200
         
     except Exception as e:
@@ -120,25 +146,29 @@ def update_waiter_call_status(call_id):
 def delete_waiter_call(call_id):
     """Eliminar una llamada al mozo"""
     try:
-        # Buscar la llamada
-        call_index = None
-        for i, c in enumerate(waiter_calls):
-            if c['id'] == call_id:
-                call_index = i
-                break
-        
-        if call_index is None:
-            return jsonify({'error': 'Llamada no encontrada'}), 404
+        db = get_db()
         
         # Eliminar la llamada
-        deleted_call = waiter_calls.pop(call_index)
+        query = text("""
+            DELETE FROM waiter_calls 
+            WHERE id = :call_id
+            RETURNING *
+        """)
+        
+        result = db.execute(query, {'call_id': call_id})
+        deleted_call = result.fetchone()
+        
+        if not deleted_call:
+            return jsonify({'error': 'Llamada no encontrada'}), 404
+            
+        db.commit()
         
         logger.info(f"Llamada al mozo eliminada - call_id: {call_id}")
         
         return jsonify({
             'success': True,
             'message': 'Llamada eliminada exitosamente',
-            'call': deleted_call
+            'call': dict(deleted_call)
         }), 200
         
     except Exception as e:

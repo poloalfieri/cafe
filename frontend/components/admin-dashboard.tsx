@@ -13,12 +13,21 @@ import {
   Clock,
   BarChart3,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Building,
+  CreditCard,
+  Share,
+  Archive,
+  ChefHat
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
 import ScheduleManagement from "./admin/schedule-management"
 import MetricsDashboard from "./MetricsDashboard"
+import BranchesManagement from "./admin/branches-management"
+import BankConfigManagement from "./admin/bank-config-management"
+import IngredientsManagement from "./admin/ingredients-management"
+import StockManagement from "./admin/stock-management"
 
 interface DashboardMetrics {
   dailySales: number
@@ -26,6 +35,8 @@ interface DashboardMetrics {
   monthlySales: number
   totalOrders: number
   averageOrderValue: number
+  totalIngredients: number
+  lowStockItems: number
   topProducts: Array<{
     name: string
     quantity: number
@@ -40,6 +51,8 @@ export default function AdminDashboard() {
     monthlySales: 0,
     totalOrders: 0,
     averageOrderValue: 0,
+    totalIngredients: 0,
+    lowStockItems: 0,
     topProducts: []
   })
   const [loading, setLoading] = useState(true)
@@ -51,6 +64,13 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
+      // Fetch ingredients data from API
+      const ingredientsResponse = await fetch('/api/ingredients')
+      const ingredientsData = await ingredientsResponse.json()
+      
+      const totalIngredients = ingredientsData.data?.ingredients?.length || 0
+      const lowStockItems = ingredientsData.data?.ingredients?.filter((ing: any) => ing.currentStock < 100).length || 0
+
       // Simular datos del dashboard - en producción esto vendría de tu API
       const mockData: DashboardMetrics = {
         dailySales: 1250.50,
@@ -58,6 +78,8 @@ export default function AdminDashboard() {
         monthlySales: 32500.75,
         totalOrders: 45,
         averageOrderValue: 27.78,
+        totalIngredients,
+        lowStockItems,
         topProducts: [
           { name: "Café Americano", quantity: 28, revenue: 98.00 },
           { name: "Croissant", quantity: 22, revenue: 55.00 },
@@ -69,6 +91,23 @@ export default function AdminDashboard() {
       setMetrics(mockData)
     } catch (error) {
       console.error("Error fetching dashboard data:", error)
+      // Fallback to mock data
+      setMetrics({
+        dailySales: 1250.50,
+        weeklySales: 8750.25,
+        monthlySales: 32500.75,
+        totalOrders: 45,
+        averageOrderValue: 27.78,
+        totalIngredients: 5,
+        lowStockItems: 1,
+        topProducts: [
+          { name: "Café Americano", quantity: 28, revenue: 98.00 },
+          { name: "Croissant", quantity: 22, revenue: 55.00 },
+          { name: "Cappuccino", quantity: 18, revenue: 72.00 },
+          { name: "Tarta de Manzana", quantity: 15, revenue: 75.00 },
+          { name: "Café Latte", quantity: 12, revenue: 48.00 }
+        ]
+      })
     } finally {
       setLoading(false)
     }
@@ -104,7 +143,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -124,7 +163,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.weeklySales.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ventas de la Semana</p>
+                  <p className="text-xs text-gray-600">Ventas Semanales</p>
                 </div>
               </div>
             </div>
@@ -136,7 +175,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.monthlySales.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ventas del Mes</p>
+                  <p className="text-xs text-gray-600">Ventas Mensuales</p>
                 </div>
               </div>
             </div>
@@ -164,6 +203,34 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </div>
+
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center">
+                  <Archive className="w-5 h-5 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{metrics.totalIngredients}</p>
+                  <p className="text-xs text-gray-600">Ingredientes</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                  metrics.lowStockItems > 0 ? 'bg-red-100' : 'bg-green-100'
+                }`}>
+                  <Package className={`w-5 h-5 ${
+                    metrics.lowStockItems > 0 ? 'text-red-600' : 'text-green-600'
+                  }`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900">{metrics.lowStockItems}</p>
+                  <p className="text-xs text-gray-600">Stock Bajo</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -171,7 +238,7 @@ export default function AdminDashboard() {
       {/* Contenido principal */}
       <div className="container mx-auto px-4 py-6">
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-gray-200">
+          <TabsList className="grid w-full grid-cols-9 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4" />
               Dashboard
@@ -180,6 +247,14 @@ export default function AdminDashboard() {
               <Package className="w-4 h-4" />
               Productos
             </TabsTrigger>
+            <TabsTrigger value="ingredients" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <Archive className="w-4 h-4" />
+              Ingredientes
+            </TabsTrigger>
+            <TabsTrigger value="stock" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <ChefHat className="w-4 h-4" />
+              Recetas & Stock
+            </TabsTrigger>
             <TabsTrigger value="promotions" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <TrendingUp className="w-4 h-4" />
               Promociones
@@ -187,6 +262,18 @@ export default function AdminDashboard() {
             <TabsTrigger value="schedule" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Clock className="w-4 h-4" />
               Horarios & Mesas
+            </TabsTrigger>
+            <TabsTrigger value="branches" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <Building className="w-4 h-4" />
+              Sucursales
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="banking" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <CreditCard className="w-4 h-4" />
+              Cuenta Bancaria
             </TabsTrigger>
           </TabsList>
 
@@ -198,12 +285,35 @@ export default function AdminDashboard() {
             <ProductsManagement />
           </TabsContent>
 
+          <TabsContent value="ingredients">
+            <IngredientsManagement />
+          </TabsContent>
+
+          <TabsContent value="stock">
+            <StockManagement />
+          </TabsContent>
+
           <TabsContent value="promotions">
             <PromotionsManagement />
           </TabsContent>
 
           <TabsContent value="schedule">
             <ScheduleManagement />
+          </TabsContent>
+
+          <TabsContent value="branches">
+            <BranchesManagement />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas Avanzadas</h3>
+              <MetricsDashboard />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="banking">
+            <BankConfigManagement />
           </TabsContent>
         </Tabs>
       </div>

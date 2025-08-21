@@ -14,7 +14,8 @@ import {
   CheckCircle,
   X,
   ShoppingCart,
-  Clock
+  Clock,
+  Shield
 } from 'lucide-react'
 
 interface PaymentModalProps {
@@ -41,8 +42,7 @@ interface PaymentMethodOption {
   buttonText: string
   message?: string
   color: string
-  bgColor: string
-  borderColor: string
+  features: string[]
 }
 
 export default function PaymentModal({
@@ -82,9 +82,8 @@ export default function PaymentModal({
       const data = await response.json()
       
       if (data.success && data.payment_link) {
-        // Abrir el link de pago en una nueva pestaña
         window.open(data.payment_link, '_blank')
-        setSuccessMessage('¡Link de pago abierto! Completa tu pago en la nueva pestaña.')
+        setSuccessMessage('¡Perfecto! Se abrió tu billetera digital.')
       } else {
         throw new Error('Error al generar el link de pago')
       }
@@ -121,7 +120,7 @@ export default function PaymentModal({
       const data = await response.json()
       
       if (data.success) {
-        setSuccessMessage('¡Perfecto! El mozo ha sido notificado y llegará pronto.')
+        setSuccessMessage('¡Genial! El mozo ya fue notificado.')
       } else {
         throw new Error('Error al notificar al mozo')
       }
@@ -137,49 +136,45 @@ export default function PaymentModal({
     {
       id: 'billetera',
       title: 'Billetera Digital',
-      description: 'Paga con Mercado Pago, Ualá, o tu billetera preferida',
-      icon: <Wallet className="w-6 h-6" />,
+      description: 'Mercado Pago, Ualá, etc.',
+      icon: <Wallet className="w-5 h-5" />,
       action: handleBilleteraPayment,
       buttonText: 'Pagar Ahora',
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200'
+      color: 'text-gray-600',
+      features: ['Pago instantáneo', '100% seguro']
     },
     {
       id: 'tarjeta',
       title: 'Tarjeta Física',
-      description: 'El mozo traerá el posnet a tu mesa',
-      icon: <CreditCard className="w-6 h-6" />,
+      description: 'El mozo traerá el posnet',
+      icon: <CreditCard className="w-5 h-5" />,
       action: () => handleWaiterNotification('pago_tarjeta'),
       buttonText: 'Solicitar Posnet',
-      message: 'El mozo llegará en 2-3 minutos con el posnet',
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200'
+      message: 'Llegará en 2-3 minutos',
+      color: 'text-gray-600',
+      features: ['Acepta todas las tarjetas', 'Pago en cuotas']
     },
     {
       id: 'efectivo',
       title: 'Efectivo',
-      description: 'El mozo pasará a cobrar en efectivo',
-      icon: <DollarSign className="w-6 h-6" />,
+      description: 'El mozo pasará a cobrar',
+      icon: <DollarSign className="w-5 h-5" />,
       action: () => handleWaiterNotification('pago_efectivo'),
       buttonText: 'Solicitar Cobro',
-      message: 'El mozo llegará en 2-3 minutos a cobrar',
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200'
+      message: 'Llegará en 2-3 minutos',
+      color: 'text-gray-600',
+      features: ['Pago directo', 'Sin comisiones']
     },
     {
       id: 'qr',
       title: 'QR del Mozo',
-      description: 'Esperá que el mozo te acerque el QR',
-      icon: <QrCode className="w-6 h-6" />,
+      description: 'Esperá que te acerque el QR',
+      icon: <QrCode className="w-5 h-5" />,
       action: () => handleWaiterNotification('pago_qr'),
       buttonText: 'Solicitar QR',
-      message: 'El mozo llegará en 2-3 minutos con el QR',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200'
+      message: 'Llegará en 2-3 minutos',
+      color: 'text-gray-600',
+      features: ['Pago móvil', 'Escaneo rápido']
     }
   ]
 
@@ -203,20 +198,20 @@ export default function PaymentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg p-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="bg-gradient-to-r from-red-600 to-red-700 text-white p-6">
+      <DialogContent className="w-[95vw] max-w-md mx-auto p-0 overflow-hidden bg-white rounded-2xl max-h-[90vh] flex flex-col">
+        {/* Header con botón de cierre */}
+        <DialogHeader className="bg-white text-gray-900 p-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg">
-                <ShoppingCart className="w-6 h-6" />
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <ShoppingCart className="w-5 h-5 text-gray-600" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-bold">
+                <DialogTitle className="text-lg font-bold">
                   Método de Pago
                 </DialogTitle>
-                <p className="text-red-100 text-sm mt-1">
-                  Elige cómo quieres pagar tu pedido
+                <p className="text-gray-500 text-xs">
+                  Elige cómo pagar
                 </p>
               </div>
             </div>
@@ -224,24 +219,24 @@ export default function PaymentModal({
               onClick={handleClose}
               variant="ghost"
               size="icon"
-              className="text-white hover:bg-white/20 rounded-full"
+              className="h-8 w-8 rounded-full hover:bg-gray-100"
             >
-              <X className="w-5 h-5" />
+              <X className="h-4 w-4 text-gray-500" />
             </Button>
           </div>
         </DialogHeader>
 
-        <div className="p-6 space-y-6">
-          {/* Resumen del pedido */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Resumen compacto */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-gray-600" />
-              Resumen del pedido
+              Resumen
             </h3>
             <div className="space-y-2">
-              {items.map((item, index) => (
-                <div key={index} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-700 font-medium">
+              {items.slice(0, 3).map((item, index) => (
+                <div key={index} className="flex justify-between items-center text-xs">
+                  <span className="text-gray-700 font-medium truncate flex-1 mr-2">
                     {item.name} × {item.quantity}
                   </span>
                   <span className="text-gray-900 font-semibold">
@@ -249,10 +244,15 @@ export default function PaymentModal({
                   </span>
                 </div>
               ))}
-              <div className="border-t border-gray-300 pt-2 mt-3">
+              {items.length > 3 && (
+                <div className="text-xs text-gray-500 text-center py-1">
+                  +{items.length - 3} productos más
+                </div>
+              )}
+              <div className="border-t border-gray-300 pt-2 mt-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold text-gray-900">Total a pagar</span>
-                  <span className="text-xl font-bold text-red-600">
+                  <span className="text-sm font-bold text-gray-900">Total</span>
+                  <span className="text-lg font-bold text-gray-900">
                     ${totalAmount.toFixed(2)}
                   </span>
                 </div>
@@ -262,14 +262,14 @@ export default function PaymentModal({
 
           {/* Mensajes de estado */}
           {successMessage && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+            <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-xl flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-gray-600 flex-shrink-0" />
               <div>
-                <p className="font-medium">{successMessage}</p>
-                <p className="text-sm text-green-600 mt-1">
+                <p className="font-medium text-sm">{successMessage}</p>
+                <p className="text-xs text-gray-600 mt-1">
                   {selectedMethod === 'billetera' 
                     ? 'Completa el pago en la nueva pestaña' 
-                    : 'El mozo llegará pronto a tu mesa'
+                    : 'El mozo llegará pronto'
                   }
                 </p>
               </div>
@@ -277,41 +277,41 @@ export default function PaymentModal({
           )}
 
           {errorMessage && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
-              <X className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-xl flex items-center gap-3">
+              <X className="w-5 h-5 text-gray-600 flex-shrink-0" />
               <div>
-                <p className="font-medium">Error en el pago</p>
-                <p className="text-sm text-red-600 mt-1">{errorMessage}</p>
+                <p className="font-medium text-sm">Error en el pago</p>
+                <p className="text-xs text-gray-600 mt-1">{errorMessage}</p>
               </div>
             </div>
           )}
 
-          {/* Opciones de pago */}
+          {/* Opciones de pago con iconos más visibles */}
           <div className="space-y-3">
-            <h3 className="font-semibold text-gray-900 text-lg mb-4">
+            <h3 className="font-semibold text-gray-900 text-base mb-3">
               ¿Cómo quieres pagar?
             </h3>
             
             {paymentMethods.map((method) => (
               <Card 
                 key={method.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                className={`cursor-pointer transition-all duration-200 hover:shadow-md border ${
                   selectedMethod === method.id 
-                    ? `ring-2 ring-offset-2 ${method.borderColor.replace('border-', 'ring-')}` 
-                    : 'hover:border-gray-300'
+                    ? `ring-1 ring-gray-400 border-gray-400 bg-gray-50` 
+                    : 'hover:border-gray-300 border-gray-200'
                 }`}
                 onClick={() => !isLoading && handleMethodSelect(method.id)}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${method.bgColor} ${method.color}`}>
+                <CardHeader className="pb-3 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-lg bg-gray-900 text-white">
                       {method.icon}
                     </div>
-                    <div className="flex-1">
-                      <CardTitle className={`text-lg font-bold ${method.color}`}>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base font-bold text-gray-700 truncate">
                         {method.title}
                       </CardTitle>
-                      <CardDescription className="text-gray-600 mt-1">
+                      <CardDescription className="text-gray-500 text-xs mt-1">
                         {method.description}
                       </CardDescription>
                     </div>
@@ -319,11 +319,20 @@ export default function PaymentModal({
                 </CardHeader>
                 
                 {selectedMethod === method.id && (
-                  <CardContent className="pt-0">
+                  <CardContent className="pt-0 px-4 pb-4">
+                    {/* Features compactos */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {method.features.map((feature, index) => (
+                        <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                    
                     {method.message && (
-                      <div className={`${method.bgColor} border ${method.borderColor} text-gray-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2`}>
+                      <div className="bg-gray-100 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg mb-3 flex items-center gap-2">
                         <Clock className="w-4 h-4" />
-                        <span className="text-sm font-medium">{method.message}</span>
+                        <span className="text-xs font-medium">{method.message}</span>
                       </div>
                     )}
                     
@@ -333,21 +342,17 @@ export default function PaymentModal({
                         handleMethodSelect(method.id)
                       }}
                       disabled={isLoading}
-                      className={`w-full font-semibold py-3 text-base ${
-                        method.id === 'billetera' 
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                          : 'bg-gray-900 hover:bg-gray-800 text-white'
-                      }`}
+                      className="w-full font-semibold py-3 text-sm bg-gray-900 hover:bg-gray-800 text-white"
                       size="lg"
                     >
                       {isLoading ? (
                         <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Procesando...
                         </>
                       ) : (
                         <>
-                          {method.id === 'billetera' && <ExternalLink className="w-5 h-5 mr-2" />}
+                          {method.id === 'billetera' && <ExternalLink className="w-4 h-4 mr-2" />}
                           {method.buttonText}
                         </>
                       )}
@@ -358,18 +363,18 @@ export default function PaymentModal({
             ))}
           </div>
 
-          {/* Información adicional */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          {/* Información de seguridad compacta */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Clock className="w-4 h-4 text-blue-600" />
+              <div className="p-2 bg-gray-100 rounded-lg flex-shrink-0">
+                <Shield className="w-4 h-4 text-gray-600" />
               </div>
               <div>
-                <h4 className="font-semibold text-blue-900 text-sm">
-                  ¿Necesitas ayuda?
+                <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                  Pago Seguro
                 </h4>
-                <p className="text-blue-700 text-sm mt-1">
-                  Si tienes problemas con el pago, el mozo puede ayudarte con cualquier método de pago.
+                <p className="text-gray-600 text-xs leading-relaxed">
+                  Todos los métodos están protegidos. Tus datos están seguros.
                 </p>
               </div>
             </div>

@@ -15,21 +15,13 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto border border-gray-200 max-h-[90vh] overflow-y-auto">
         {/* Header del modal */}
-        <div className="sticky top-0 bg-white rounded-t-2xl flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+        <div className="sticky top-0 bg-white rounded-t-2xl flex items-center p-4 sm:p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gray-900/10 rounded-full flex items-center justify-center">
               <span className="text-gray-900 font-bold text-lg">?</span>
             </div>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900">¿Cómo usar la app?</h2>
           </div>
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            size="sm"
-            className="w-8 h-8 p-0 rounded-full hover:bg-gray-100 touch-manipulation"
-          >
-            <X className="w-4 h-4 text-gray-600" />
-          </Button>
         </div>
 
         {/* Contenido del modal */}

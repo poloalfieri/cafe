@@ -1,7 +1,7 @@
 -- Crear tabla de menú
 CREATE TABLE IF NOT EXISTS menu (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     category TEXT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     description TEXT,

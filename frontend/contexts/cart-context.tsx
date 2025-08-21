@@ -18,6 +18,8 @@ export interface CartItem extends Product {
 export interface CartState {
   items: CartItem[]
   total: number
+  discounts: number
+  serviceCharge: number
 }
 
 interface CartContextType {
@@ -47,34 +49,46 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
+        const subtotal = calculateTotal(updatedItems)
         return {
           items: updatedItems,
-          total: calculateTotal(updatedItems)
+          total: calculateFinalTotal(subtotal, state.discounts, state.serviceCharge),
+          discounts: state.discounts,
+          serviceCharge: state.serviceCharge
         }
       } else {
         const newItem: CartItem = { ...action.payload, quantity: 1 }
         const updatedItems = [...state.items, newItem]
+        const subtotal = calculateTotal(updatedItems)
         return {
           items: updatedItems,
-          total: calculateTotal(updatedItems)
+          total: calculateFinalTotal(subtotal, state.discounts, state.serviceCharge),
+          discounts: state.discounts,
+          serviceCharge: state.serviceCharge
         }
       }
     }
     
     case 'REMOVE_ITEM': {
       const updatedItems = state.items.filter(item => item.id !== action.payload)
+      const subtotal = calculateTotal(updatedItems)
       return {
         items: updatedItems,
-        total: calculateTotal(updatedItems)
+        total: calculateFinalTotal(subtotal, state.discounts, state.serviceCharge),
+        discounts: state.discounts,
+        serviceCharge: state.serviceCharge
       }
     }
     
     case 'UPDATE_QUANTITY': {
       if (action.payload.quantity <= 0) {
         const updatedItems = state.items.filter(item => item.id !== action.payload.id)
+        const subtotal = calculateTotal(updatedItems)
         return {
           items: updatedItems,
-          total: calculateTotal(updatedItems)
+          total: calculateFinalTotal(subtotal, state.discounts, state.serviceCharge),
+          discounts: state.discounts,
+          serviceCharge: state.serviceCharge
         }
       }
       
@@ -83,14 +97,17 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           ? { ...item, quantity: action.payload.quantity }
           : item
       )
+      const subtotal = calculateTotal(updatedItems)
       return {
         items: updatedItems,
-        total: calculateTotal(updatedItems)
+        total: calculateFinalTotal(subtotal, state.discounts, state.serviceCharge),
+        discounts: state.discounts,
+        serviceCharge: state.serviceCharge
       }
     }
     
     case 'CLEAR_CART':
-      return { items: [], total: 0 }
+      return { items: [], total: 0, discounts: 0, serviceCharge: 0 }
     
     default:
       return state
@@ -101,9 +118,15 @@ const calculateTotal = (items: CartItem[]): number => {
   return items.reduce((total, item) => total + (item.price * item.quantity), 0)
 }
 
+const calculateFinalTotal = (subtotal: number, discounts: number, serviceCharge: number): number => {
+  return Math.max(0, subtotal - discounts + serviceCharge)
+}
+
 const initialState: CartState = {
   items: [],
-  total: 0
+  total: 0,
+  discounts: 0,
+  serviceCharge: 0
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
