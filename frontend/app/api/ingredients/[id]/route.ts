@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { ingredientUpdateSchema } from '@/lib/validation'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 interface RouteParams {
   params: { id: string }
@@ -8,21 +8,52 @@ interface RouteParams {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const id = BigInt(params.id)
+    const id = params.id
     const body = await request.json()
     const validatedData = ingredientUpdateSchema.parse(body)
+    const supabase = getSupabaseAdmin()
+    const updateData: any = {}
+    if (validatedData.name !== undefined) updateData.name = validatedData.name
+    if (validatedData.unit !== undefined) updateData.unit = validatedData.unit
+    if (validatedData.currentStock !== undefined) updateData.current_stock = validatedData.currentStock.toFixed(2)
+    if (validatedData.unitCost !== undefined) updateData.unit_cost = validatedData.unitCost != null ? validatedData.unitCost.toFixed(2) : null
+    if (validatedData.minStock !== undefined) updateData.min_stock = validatedData.minStock.toFixed(2)
+    if (validatedData.trackStock !== undefined) updateData.track_stock = validatedData.trackStock
 
-    const ingredient = await prisma.ingredient.update({
-      where: { id },
-      data: validatedData
-    })
+    const { data, error } = await supabase
+      .from('ingredients')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: 'An ingredient with this name already exists' },
+          { status: 409 }
+        )
+      }
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Ingredient not found' },
+          { status: 404 }
+        )
+      }
+      throw error
+    }
 
     return NextResponse.json({
       data: {
-        ...ingredient,
-        id: ingredient.id.toString(),
-        currentStock: ingredient.currentStock.toNumber(),
-        unitCost: ingredient.unitCost?.toNumber() || null
+        id: data.id.toString(),
+        name: data.name,
+        unit: data.unit,
+        currentStock: parseFloat(data.current_stock),
+        unitCost: data.unit_cost != null ? parseFloat(data.unit_cost) : null,
+        minStock: data.min_stock != null ? parseFloat(data.min_stock) : 0,
+        trackStock: Boolean(data.track_stock),
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
       }
     })
   } catch (error: any) {
@@ -32,7 +63,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         { status: 404 }
       )
     }
-    if (error.code === 'P2002') {
+    if (error.code === '23505') {
       return NextResponse.json(
         { error: 'An ingredient with this name already exists' },
         { status: 409 }
@@ -56,23 +87,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const id = BigInt(params.id)
+    const id = params.id
+    const supabase = getSupabaseAdmin()
 
-    // Check if ingredient is used in any recipes
-    const recipeCount = await prisma.recipe.count({
-      where: { ingredientId: id }
-    })
+    const { count, error: countError } = await supabase
+      .from('recipes')
+      .select('*', { count: 'exact', head: true })
+      .eq('ingredient_id', id)
 
-    if (recipeCount > 0) {
+    if (countError) throw countError
+    if ((count || 0) > 0) {
       return NextResponse.json(
         { error: 'Ingredient is used in recipes and cannot be deleted.' },
         { status: 409 }
       )
     }
 
-    await prisma.ingredient.delete({
-      where: { id }
-    })
+    const { error } = await supabase
+      .from('ingredients')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
 
     return NextResponse.json({ data: { success: true } })
   } catch (error: any) {

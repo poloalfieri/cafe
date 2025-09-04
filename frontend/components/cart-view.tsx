@@ -298,6 +298,7 @@ export default function CartView() {
         mesaToken={token || ''}
         totalAmount={state.total}
         items={state.items.map((item) => ({
+          id: item.id,
           name: item.name,
           price: item.price,
           quantity: item.quantity

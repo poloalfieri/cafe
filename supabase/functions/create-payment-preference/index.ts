@@ -119,7 +119,7 @@ serve(async (req) => {
         order_id: order.id,
         token: order.token,
         total_amount: total_amount.toString(),
-        items: JSON.stringify(items)
+        items: JSON.stringify(items.map((i: any) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.price })))
       }
     }
 

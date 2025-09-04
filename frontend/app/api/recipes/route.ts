@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { recipeSchema, recipeUpdateSchema, recipeDeleteSchema } from '@/lib/validation'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,27 +14,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const recipes = await prisma.recipe.findMany({
-      where: { productId: BigInt(productId) },
-      include: {
-        ingredient: {
-          select: {
-            id: true,
-            name: true,
-            unit: true,
-            unitCost: true
-          }
-        }
-      }
-    })
+    const supabase = getSupabaseAdmin()
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(`ingredient_id, quantity, ingredient:ingredients ( id, name, unit, unit_cost )`)
+      .eq('product_id', productId)
+
+    if (error) throw error
 
     return NextResponse.json({
-      data: recipes.map(recipe => ({
-        ingredientId: recipe.ingredientId.toString(),
-        name: recipe.ingredient.name,
-        unit: recipe.ingredient.unit,
-        quantity: recipe.quantity.toNumber(),
-        unitCost: recipe.ingredient.unitCost?.toNumber() || null
+      data: (data || []).map((recipe: any) => ({
+        ingredientId: recipe.ingredient_id.toString(),
+        name: recipe.ingredient?.name,
+        unit: recipe.ingredient?.unit,
+        quantity: parseFloat(recipe.quantity),
+        unitCost: recipe.ingredient?.unit_cost != null ? parseFloat(recipe.ingredient.unit_cost) : null
       }))
     })
   } catch (error) {
@@ -51,40 +45,50 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = recipeSchema.parse(body)
 
-    const recipe = await prisma.recipe.create({
-      data: {
-        productId: validatedData.productId,
-        ingredientId: validatedData.ingredientId,
-        quantity: validatedData.quantity
-      },
-      include: {
-        ingredient: {
-          select: {
-            name: true,
-            unit: true,
-            unitCost: true
-          }
-        }
+    const supabase = getSupabaseAdmin()
+    const { data, error } = await supabase
+      .from('recipes')
+      .insert({
+        product_id: validatedData.productId.toString(),
+        ingredient_id: validatedData.ingredientId.toString(),
+        quantity: validatedData.quantity.toFixed(2)
+      })
+      .select(`ingredient:ingredients ( name, unit, unit_cost ), ingredient_id, quantity`)
+      .single()
+
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json(
+          { error: 'Recipe already exists for this product and ingredient' },
+          { status: 409 }
+        )
       }
-    })
+      if (error.code === '23503') {
+        return NextResponse.json(
+          { error: 'Product or ingredient not found' },
+          { status: 400 }
+        )
+      }
+      throw error
+    }
 
     return NextResponse.json({
       data: {
-        ingredientId: recipe.ingredientId.toString(),
-        name: recipe.ingredient.name,
-        unit: recipe.ingredient.unit,
-        quantity: recipe.quantity.toNumber(),
-        unitCost: recipe.ingredient.unitCost?.toNumber() || null
+        ingredientId: data.ingredient_id.toString(),
+        name: data.ingredient?.name,
+        unit: data.ingredient?.unit,
+        quantity: parseFloat(data.quantity),
+        unitCost: data.ingredient?.unit_cost != null ? parseFloat(data.ingredient.unit_cost) : null
       }
     }, { status: 201 })
   } catch (error: any) {
-    if (error.code === 'P2002') {
+    if (error.code === '23505') {
       return NextResponse.json(
         { error: 'Recipe already exists for this product and ingredient' },
         { status: 409 }
       )
     }
-    if (error.code === 'P2003') {
+    if (error.code === '23503') {
       return NextResponse.json(
         { error: 'Product or ingredient not found' },
         { status: 400 }
@@ -111,34 +115,34 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const validatedData = recipeUpdateSchema.parse(body)
 
-    const recipe = await prisma.recipe.update({
-      where: {
-        productId_ingredientId: {
-          productId: validatedData.productId,
-          ingredientId: validatedData.ingredientId
-        }
-      },
-      data: {
-        quantity: validatedData.quantity
-      },
-      include: {
-        ingredient: {
-          select: {
-            name: true,
-            unit: true,
-            unitCost: true
-          }
-        }
+    const supabase = getSupabaseAdmin()
+    const { data, error } = await supabase
+      .from('recipes')
+      .update({ quantity: validatedData.quantity.toFixed(2) })
+      .match({
+        product_id: validatedData.productId.toString(),
+        ingredient_id: validatedData.ingredientId.toString()
+      })
+      .select(`ingredient:ingredients ( name, unit, unit_cost ), ingredient_id, quantity`)
+      .single()
+
+    if (error) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Recipe not found' },
+          { status: 404 }
+        )
       }
-    })
+      throw error
+    }
 
     return NextResponse.json({
       data: {
-        ingredientId: recipe.ingredientId.toString(),
-        name: recipe.ingredient.name,
-        unit: recipe.ingredient.unit,
-        quantity: recipe.quantity.toNumber(),
-        unitCost: recipe.ingredient.unitCost?.toNumber() || null
+        ingredientId: data.ingredient_id.toString(),
+        name: data.ingredient?.name,
+        unit: data.ingredient?.unit,
+        quantity: parseFloat(data.quantity),
+        unitCost: data.ingredient?.unit_cost != null ? parseFloat(data.ingredient.unit_cost) : null
       }
     })
   } catch (error: any) {
@@ -169,14 +173,24 @@ export async function DELETE(request: NextRequest) {
     const body = await request.json()
     const validatedData = recipeDeleteSchema.parse(body)
 
-    await prisma.recipe.delete({
-      where: {
-        productId_ingredientId: {
-          productId: validatedData.productId,
-          ingredientId: validatedData.ingredientId
-        }
+    const supabase = getSupabaseAdmin()
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .match({
+        product_id: validatedData.productId.toString(),
+        ingredient_id: validatedData.ingredientId.toString()
+      })
+
+    if (error) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Recipe not found' },
+          { status: 404 }
+        )
       }
-    })
+      throw error
+    }
 
     return NextResponse.json({ data: { success: true } })
   } catch (error: any) {

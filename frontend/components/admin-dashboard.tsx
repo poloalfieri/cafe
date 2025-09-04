@@ -27,7 +27,8 @@ import MetricsDashboard from "./MetricsDashboard"
 import BranchesManagement from "./admin/branches-management"
 import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
-import StockManagement from "./admin/stock-management"
+import RecipiesManagement from "./admin/recipies-management"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface DashboardMetrics {
   dailySales: number
@@ -56,9 +57,23 @@ export default function AdminDashboard() {
     topProducts: []
   })
   const [loading, setLoading] = useState(true)
+  const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
+  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
 
   useEffect(() => {
     fetchDashboardData()
+    // Low stock check on each load
+    ;(async () => {
+      try {
+        const res = await fetch('/api/ingredients?page=1&pageSize=1000')
+        const json = await res.json()
+        const list = json.data?.ingredients || []
+        const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
+          .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
+        setLowStock(lows)
+        setShowLowStockDialog(lows.length > 0)
+      } catch (_) {}
+    })()
   }, [])
 
   const fetchDashboardData = async () => {
@@ -237,6 +252,26 @@ export default function AdminDashboard() {
 
       {/* Contenido principal */}
       <div className="container mx-auto px-4 py-6">
+        <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Stock mínimo alcanzado</DialogTitle>
+              <DialogDescription>
+                Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {lowStock.map((i, idx) => (
+                <div key={idx} className="flex justify-between text-sm">
+                  <span className="font-medium">{i.name}</span>
+                  <span>
+                    {i.currentStock.toFixed(2)} / min {i.minStock.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
           <TabsList className="grid w-full grid-cols-9 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
@@ -247,13 +282,13 @@ export default function AdminDashboard() {
               <Package className="w-4 h-4" />
               Productos
             </TabsTrigger>
-            <TabsTrigger value="ingredients" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
-              <Archive className="w-4 h-4" />
-              Ingredientes
-            </TabsTrigger>
             <TabsTrigger value="stock" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
+              <Archive className="w-4 h-4" />
+              Stock
+            </TabsTrigger>
+            <TabsTrigger value="recipes" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <ChefHat className="w-4 h-4" />
-              Recetas & Stock
+              Recetas
             </TabsTrigger>
             <TabsTrigger value="promotions" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <TrendingUp className="w-4 h-4" />
@@ -285,12 +320,12 @@ export default function AdminDashboard() {
             <ProductsManagement />
           </TabsContent>
 
-          <TabsContent value="ingredients">
+          <TabsContent value="stock">
             <IngredientsManagement />
           </TabsContent>
 
-          <TabsContent value="stock">
-            <StockManagement />
+          <TabsContent value="recipes">
+            <RecipiesManagement />
           </TabsContent>
 
           <TabsContent value="promotions">

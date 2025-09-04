@@ -29,6 +29,8 @@ interface Ingredient {
   unit: string
   currentStock: number
   unitCost: number | null
+  minStock: number
+  trackStock: boolean
   createdAt: string
   updatedAt: string
 }
@@ -38,6 +40,8 @@ interface IngredientFormData {
   unit: string
   currentStock: number
   unitCost: number | null
+  minStock: number
+  trackStock: boolean
 }
 
 export default function IngredientsManagement() {
@@ -50,7 +54,9 @@ export default function IngredientsManagement() {
     name: '',
     unit: 'g',
     currentStock: 0,
-    unitCost: null
+    unitCost: null,
+    minStock: 0,
+    trackStock: true
   })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -96,7 +102,7 @@ export default function IngredientsManagement() {
       
       setShowModal(false)
       setEditingId(null)
-      setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null })
+      setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null, minStock: 0, trackStock: true })
       fetchIngredients()
     } catch (error: any) {
       toast({
@@ -112,7 +118,9 @@ export default function IngredientsManagement() {
       name: ingredient.name,
       unit: ingredient.unit,
       currentStock: ingredient.currentStock,
-      unitCost: ingredient.unitCost
+      unitCost: ingredient.unitCost,
+      minStock: ingredient.minStock,
+      trackStock: ingredient.trackStock
     })
     setEditingId(ingredient.id)
     setShowModal(true)
@@ -146,16 +154,16 @@ export default function IngredientsManagement() {
   }
 
   const openNewModal = () => {
-    setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null })
+    setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null, minStock: 0, trackStock: true })
     setEditingId(null)
     setShowModal(true)
   }
 
-  const getStockStatus = (stock: number) => {
-    if (stock === 0) return { variant: 'destructive' as const, label: 'Sin Stock' }
-    if (stock < 50) return { variant: 'secondary' as const, label: 'Stock Bajo' }
-    if (stock < 100) return { variant: 'outline' as const, label: 'Stock Medio' }
-    return { variant: 'default' as const, label: 'Stock Bueno' }
+  const getStockStatus = (stock: number, minStock: number) => {
+    if (stock <= 0) return { variant: 'destructive' as const, label: 'Sin Stock' }
+    if (stock <= minStock) return { variant: 'destructive' as const, label: 'Mínimo' }
+    if (stock < minStock * 2) return { variant: 'secondary' as const, label: 'Bajo' }
+    return { variant: 'default' as const, label: 'Ok' }
   }
 
   const filteredIngredients = ingredients.filter(ingredient =>
@@ -230,7 +238,7 @@ export default function IngredientsManagement() {
                 <Input
                   id="unitCost"
                   type="number"
-                  step="0.0001"
+                  step="0.01"
                   min="0"
                   value={formData.unitCost || ''}
                   onChange={(e) => setFormData({ 
@@ -239,6 +247,28 @@ export default function IngredientsManagement() {
                   })}
                   placeholder="0.00"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="minStock">Stock Mínimo</Label>
+                <Input
+                  id="minStock"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.minStock}
+                  onChange={(e) => setFormData({ ...formData, minStock: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="trackStock"
+                  type="checkbox"
+                  checked={formData.trackStock}
+                  onChange={(e) => setFormData({ ...formData, trackStock: e.target.checked })}
+                />
+                <Label htmlFor="trackStock">Monitorear stock</Label>
               </div>
               
               <div className="flex justify-end gap-2 pt-4">
@@ -354,6 +384,7 @@ export default function IngredientsManagement() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Unidad</TableHead>
                   <TableHead>Stock Actual</TableHead>
+                  <TableHead>Mínimo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Costo Unitario</TableHead>
                   <TableHead>Valor Total</TableHead>
@@ -362,23 +393,19 @@ export default function IngredientsManagement() {
               </TableHeader>
               <TableBody>
                 {filteredIngredients.map((ingredient) => {
-                  const status = getStockStatus(ingredient.currentStock)
+                  const status = getStockStatus(ingredient.currentStock, ingredient.minStock)
                   return (
-                    <TableRow key={ingredient.id}>
+                    <TableRow key={ingredient.id} className={ingredient.currentStock <= ingredient.minStock ? 'bg-red-50' : ''}>
                       <TableCell className="font-medium">{ingredient.name}</TableCell>
                       <TableCell>{ingredient.unit}</TableCell>
-                      <TableCell>{ingredient.currentStock}</TableCell>
+                      <TableCell>{ingredient.currentStock.toFixed(2)}</TableCell>
+                      <TableCell>{ingredient.minStock.toFixed(2)}</TableCell>
+                      <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                       <TableCell>
-                        <Badge variant={status.variant}>{status.label}</Badge>
+                        {ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : 'N/A'}
                       </TableCell>
                       <TableCell>
-                        {ingredient.unitCost ? `$${ingredient.unitCost.toFixed(4)}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {ingredient.unitCost 
-                          ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` 
-                          : 'N/A'
-                        }
+                        {ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { RefreshCw, Users, CheckCircle, Clock, QrCode, Plus, Minus } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,9 +31,22 @@ export default function CajeroDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMesa, setSelectedMesa] = useState<string>("1")
+  const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
+  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
 
   useEffect(() => {
     fetchData()
+    ;(async () => {
+      try {
+        const res = await fetch('/api/ingredients?page=1&pageSize=1000')
+        const json = await res.json()
+        const list = json.data?.ingredients || []
+        const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
+          .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
+        setLowStock(lows)
+        setShowLowStockDialog(lows.length > 0)
+      } catch (_) {}
+    })()
   }, [])
 
   const fetchData = async () => {
@@ -239,6 +253,26 @@ export default function CajeroDashboard() {
 
       {/* Contenido con Tabs */}
       <div className="container mx-auto px-4 py-6">
+        <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Stock mínimo alcanzado</DialogTitle>
+              <DialogDescription>
+                Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {lowStock.map((i, idx) => (
+                <div key={idx} className="flex justify-between text-sm">
+                  <span className="font-medium">{i.name}</span>
+                  <span>
+                    {i.currentStock.toFixed(2)} / min {i.minStock.toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
         <Tabs defaultValue="mesas" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">

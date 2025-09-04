@@ -1,9 +1,14 @@
+"use client"
+
 import CajeroDashboard from "@/components/cajero-dashboard"
+import { RoleGate } from "@/components/role-gate"
 
 export default function CajeroPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <CajeroDashboard />
-    </div>
+    <RoleGate allow={["desarrollador", "caja"]}>
+      <div className="min-h-screen bg-gray-50">
+        <CajeroDashboard />
+      </div>
+    </RoleGate>
   )
 } 

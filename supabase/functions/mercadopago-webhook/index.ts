@@ -69,13 +69,89 @@ serve(async (req) => {
     }
 
     // Como id es UUID, no necesitamos parseInt
-    const { error } = await supabase
+    const { error: updateErr } = await supabase
       .from('orders')
       .update({ status: orderStatus })
       .eq('id', externalReference)
 
-    if (error) {
-      throw new Error(`Error actualizando pedido: ${error.message}`)
+    if (updateErr) {
+      throw new Error(`Error actualizando pedido: ${updateErr.message}`)
+    }
+
+    // On approved payment: decrement stock based on recipes and items
+    if (orderStatus === 'PAYMENT_APPROVED') {
+      // Fetch order items
+      const { data: orders, error: orderErr } = await supabase
+        .from('orders')
+        .select('items')
+        .eq('id', externalReference)
+        .limit(1)
+      if (orderErr) throw orderErr
+      const order = orders && orders[0]
+      const items = Array.isArray(order?.items) ? order.items : []
+
+      // Aggregate consumption by ingredient from product recipes
+      const consumption: Record<string, number> = {}
+
+      for (const it of items) {
+        if (!it.id || !it.quantity) continue
+        // Get recipe for product id
+        const { data: recipes, error: recipeErr } = await supabase
+          .from('recipes')
+          .select('ingredient_id, quantity')
+          .eq('product_id', it.id.toString())
+        if (recipeErr) throw recipeErr
+
+        for (const r of recipes || []) {
+          const key = String(r.ingredient_id)
+          const qty = parseFloat(String(r.quantity || '0')) * Number(it.quantity)
+          consumption[key] = (consumption[key] || 0) + qty
+        }
+      }
+
+      // Apply consumption in a best-effort manner, skipping ingredients with track_stock=false
+      for (const [ingredientId, consume] of Object.entries(consumption)) {
+        // Check track_stock and current values
+        const { data: ingRows, error: ingErr } = await supabase
+          .from('ingredients')
+          .select('current_stock, min_stock, track_stock')
+          .eq('id', ingredientId)
+          .limit(1)
+        if (ingErr) throw ingErr
+        const ing = ingRows && ingRows[0]
+        if (!ing || ing.track_stock === false) continue
+
+        const current = parseFloat(String(ing.current_stock || '0'))
+        const next = +(current - consume).toFixed(2)
+        if (next < 0) {
+          // Skip negative to avoid breaking inventory; could log
+          continue
+        }
+
+        const { error: decErr } = await supabase
+          .from('ingredients')
+          .update({ current_stock: next.toFixed(2) })
+          .eq('id', ingredientId)
+        if (decErr) throw decErr
+
+        // If reached min, disable related products
+        const min = parseFloat(String(ing.min_stock || '0'))
+        if (next <= min) {
+          const { data: relProducts, error: relErr } = await supabase
+            .from('recipes')
+            .select('product_id')
+            .eq('ingredient_id', ingredientId)
+          if (relErr) throw relErr
+          const productIds = Array.from(new Set((relProducts || []).map((p: any) => p.product_id)))
+          if (productIds.length > 0) {
+            const { error: disableErr } = await supabase
+              .from('menu')
+              .update({ available: false })
+              .in('id', productIds)
+            if (disableErr) throw disableErr
+          }
+        }
+      }
     }
 
     console.log(`Pedido ${externalReference} actualizado con estado: ${orderStatus}`)
