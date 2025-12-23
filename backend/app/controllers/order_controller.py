@@ -1,54 +1,192 @@
+"""
+Controller de Pedidos - Solo maneja HTTP, delega lógica al servicio
+"""
 from flask import Blueprint, request, jsonify
-from ..utils.token_manager import validate_token, renew_token
-from ..db.connection import get_db
-from ..db.models import Order
+from ..services.order_service import order_service
+from ..db.models import OrderStatus
 
 order_bp = Blueprint("order", __name__, url_prefix="/order")
 
-@order_bp.route("/create/<mesa_id>", methods=["POST"])
-def create_order(mesa_id):
-    token = request.args.get("token")
-    if not validate_token(mesa_id, token):
-        return jsonify({"error": "Invalid or expired token"}), 401
-    data = request.json
-    # Guardar pedido en DB con estado PAYMENT_PENDING
-    # ...
-    return jsonify({"message": "Order created", "order_id": 123})
-
-@order_bp.route("/renew_token/<mesa_id>", methods=["POST"])
-def renew_token_route(mesa_id):
-    new_token = renew_token(mesa_id)
-    return jsonify({"token": new_token})
 
 @order_bp.route("", methods=["GET"])
 def list_orders():
-    db = get_db()
-    orders = db.query(Order).all()
-    def serialize_order(order):
-        # Add sample items data for demonstration
-        sample_items = [
-            {
-                "id": "1",
-                "name": "Café Americano",
-                "quantity": 2,
-                "price": 3.50
-            },
-            {
-                "id": "2", 
-                "name": "Croissant",
-                "quantity": 1,
-                "price": 2.50
-            }
-        ]
+    """Listar todos los pedidos"""
+    try:
+        orders = order_service.get_all_orders()
+        return jsonify(orders), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@order_bp.route("/<int:order_id>", methods=["GET"])
+def get_order(order_id):
+    """Obtener un pedido específico"""
+    try:
+        order = order_service.get_order_by_id(order_id)
         
-        return {
-            "id": order.id,
-            "mesa_id": order.mesa_id,
-            "status": order.status.value if hasattr(order.status, 'value') else order.status,
-            "token": order.token,
-            "created_at": order.created_at.isoformat() if order.created_at else None,
-            "items": sample_items,  # Add sample items
-            "total": sum(item["price"] * item["quantity"] for item in sample_items),  # Calculate total
-            "paid_at": None  # Add paid_at field
-        }
-    return jsonify([serialize_order(order) for order in orders]) 
+        if not order:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        
+        return jsonify(order), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@order_bp.route("/create/<mesa_id>", methods=["POST"])
+def create_order(mesa_id):
+    """Crear un nuevo pedido para una mesa"""
+    try:
+        # Obtener token de autenticación
+        token = request.args.get("token")
+        
+        # Obtener datos del pedido
+        data = request.get_json()
+        
+        if not data or "items" not in data:
+            return jsonify({"error": "Items requeridos"}), 400
+        
+        items = data["items"]
+        
+        # Delegar al servicio
+        new_order = order_service.create_order(mesa_id, items, token)
+        
+        return jsonify({
+            "message": "Pedido creado exitosamente",
+            "order": new_order
+        }), 201
+        
+    except PermissionError as e:
+        # Token inválido
+        return jsonify({"error": str(e)}), 401
+    except ValueError as e:
+        # Datos inválidos
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@order_bp.route("/<int:order_id>/status", methods=["PATCH"])
+def update_order_status(order_id):
+    """Actualizar el estado de un pedido"""
+    try:
+        data = request.get_json()
+        
+        if not data or "status" not in data:
+            return jsonify({"error": "Estado requerido"}), 400
+        
+        # Convertir string a enum
+        try:
+            new_status = OrderStatus[data["status"].upper()]
+        except KeyError:
+            return jsonify({"error": "Estado inválido"}), 400
+        
+        # Delegar al servicio
+        updated_order = order_service.update_order_status(order_id, new_status)
+        
+        if not updated_order:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        
+        return jsonify({
+            "message": "Estado actualizado",
+            "order": updated_order
+        }), 200
+        
+    except ValueError as e:
+        # Transición inválida
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@order_bp.route("/<int:order_id>/items", methods=["POST"])
+def add_items_to_order(order_id):
+    """Agregar items a un pedido existente"""
+    try:
+        data = request.get_json()
+        
+        if not data or "items" not in data:
+            return jsonify({"error": "Items requeridos"}), 400
+        
+        new_items = data["items"]
+        
+        # Delegar al servicio
+        updated_order = order_service.add_items_to_order(order_id, new_items)
+        
+        if not updated_order:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        
+        return jsonify({
+            "message": "Items agregados",
+            "order": updated_order
+        }), 200
+        
+    except ValueError as e:
+        # Pedido ya pagado
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@order_bp.route("/<int:order_id>/cancel", methods=["POST"])
+def cancel_order(order_id):
+    """Cancelar un pedido"""
+    try:
+        data = request.get_json() or {}
+        reason = data.get("reason", "No especificada")
+        
+        # Delegar al servicio
+        cancelled_order = order_service.cancel_order(order_id, reason)
+        
+        if not cancelled_order:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        
+        return jsonify({
+            "message": "Pedido cancelado",
+            "order": cancelled_order
+        }), 200
+        
+    except ValueError as e:
+        # No se puede cancelar
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@order_bp.route("/mesa/<mesa_id>", methods=["GET"])
+def get_orders_by_mesa(mesa_id):
+    """Obtener todos los pedidos de una mesa"""
+    try:
+        orders = order_service.get_orders_by_mesa(mesa_id)
+        return jsonify(orders), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@order_bp.route("/status/<string:status>", methods=["GET"])
+def get_orders_by_status(status):
+    """Obtener pedidos por estado"""
+    try:
+        # Convertir string a enum
+        try:
+            order_status = OrderStatus[status.upper()]
+        except KeyError:
+            return jsonify({"error": "Estado inválido"}), 400
+        
+        orders = order_service.get_orders_by_status(order_status)
+        return jsonify(orders), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@order_bp.route("/renew_token/<mesa_id>", methods=["POST"])
+def renew_token_route(mesa_id):
+    """Renovar token de acceso de una mesa"""
+    try:
+        new_token = order_service.renew_order_token(mesa_id)
+        return jsonify({"token": new_token}), 200
+    except Exception as e:
+        return jsonify({"error": "Error al renovar token"}), 500

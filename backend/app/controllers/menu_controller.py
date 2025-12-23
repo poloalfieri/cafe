@@ -1,7 +1,11 @@
+"""
+Controller de Menú - Solo maneja HTTP, delega lógica al servicio
+"""
 from flask import Blueprint, request, jsonify
-from ..db.supabase_client import supabase
+from ..services.menu_service import menu_service
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/menu")
+
 
 @menu_bp.route("/", methods=["GET", "POST"])
 def menu_items():
@@ -11,65 +15,35 @@ def menu_items():
     elif request.method == "POST":
         return create_menu_item()
 
+
 def get_menu():
     """Obtener lista de todos los productos del menú"""
     try:
-        response = supabase.table("menu").select("*").execute()
-        print("Respuesta de Supabase:", response)
-        menu = response.data or []
-        return jsonify(menu)
+        items = menu_service.get_all_items()
+        return jsonify(items), 200
     except Exception as e:
-        print("Error al consultar Supabase:", e)
         return jsonify({"error": str(e)}), 500
+
 
 def create_menu_item():
     """Crear un nuevo producto en el menú"""
     try:
         data = request.get_json()
         
-        # Validar datos requeridos
-        required_fields = ["name", "category", "price"]
-        for field in required_fields:
-            if field not in data or not data[field]:
-                return jsonify({"error": f"Campo requerido: {field}"}), 400
+        if not data:
+            return jsonify({"error": "Datos requeridos"}), 400
         
-        # Validar que el precio sea un número positivo
-        try:
-            price = float(data["price"])
-            if price < 0:
-                return jsonify({"error": "El precio debe ser un número positivo"}), 400
-        except (ValueError, TypeError):
-            return jsonify({"error": "El precio debe ser un número válido"}), 400
+        # Delegar toda la lógica al servicio
+        new_item = menu_service.create_item(data)
+        return jsonify(new_item), 201
         
-        # Crear nuevo producto en el menú
-        menu_data = {
-            "name": data["name"],
-            "category": data["category"],
-            "price": price,
-            "description": data.get("description", ""),
-            "available": bool(data.get("available", True))  # Asegurar que sea boolean
-        }
-        
-        response = supabase.table("menu").insert(menu_data).execute()
-        
-        if not response.data:
-            return jsonify({"error": "Error al crear el producto"}), 500
-        
-        new_item = response.data[0]
-        return jsonify({
-            "id": str(new_item["id"]),
-            "name": new_item["name"],
-            "category": new_item["category"],
-            "price": float(new_item["price"]),
-            "description": new_item.get("description", ""),
-            "available": bool(new_item.get("available", True)),
-            "created_at": new_item.get("created_at"),
-            "updated_at": new_item.get("updated_at")
-        }), 201
-        
+    except ValueError as e:
+        # Error de validación
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        print("Error al crear producto en menú:", e)
-        return jsonify({"error": str(e)}), 500
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 
 @menu_bp.route("/<int:item_id>", methods=["GET", "PUT", "DELETE"])
 def menu_item(item_id):
@@ -81,133 +55,98 @@ def menu_item(item_id):
     elif request.method == "DELETE":
         return delete_menu_item(item_id)
 
+
 def get_menu_item(item_id):
     """Obtener un producto específico del menú por ID"""
     try:
-        response = supabase.table("menu").select("*").eq("id", item_id).execute()
+        item = menu_service.get_item_by_id(item_id)
         
-        if not response.data:
+        if not item:
             return jsonify({"error": "Producto no encontrado"}), 404
         
-        item = response.data[0]
-        return jsonify({
-            "id": str(item["id"]),
-            "name": item["name"],
-            "category": item["category"],
-            "price": float(item["price"]),
-            "description": item.get("description", ""),
-            "available": bool(item.get("available", True)),
-            "created_at": item.get("created_at"),
-            "updated_at": item.get("updated_at")
-        })
+        return jsonify(item), 200
         
     except Exception as e:
-        print("Error al obtener producto del menú:", e)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 
 def update_menu_item(item_id):
     """Actualizar un producto existente del menú"""
     try:
         data = request.get_json()
         
-        # Verificar que el producto existe
-        check_response = supabase.table("menu").select("id").eq("id", item_id).execute()
-        if not check_response.data:
+        if not data:
+            return jsonify({"error": "Datos requeridos"}), 400
+        
+        # Delegar toda la lógica al servicio
+        updated_item = menu_service.update_item(item_id, data)
+        
+        if not updated_item:
             return jsonify({"error": "Producto no encontrado"}), 404
         
-        # Preparar datos para actualización
-        update_data = {}
-        if "name" in data:
-            update_data["name"] = data["name"]
-        if "category" in data:
-            update_data["category"] = data["category"]
-        if "price" in data:
-            try:
-                price = float(data["price"])
-                if price < 0:
-                    return jsonify({"error": "El precio debe ser un número positivo"}), 400
-                update_data["price"] = price
-            except (ValueError, TypeError):
-                return jsonify({"error": "El precio debe ser un número válido"}), 400
-        if "description" in data:
-            update_data["description"] = data["description"]
-        if "available" in data:
-            update_data["available"] = bool(data["available"])  # Asegurar que sea boolean
+        return jsonify(updated_item), 200
         
-        # Actualizar producto
-        response = supabase.table("menu").update(update_data).eq("id", item_id).execute()
-        
-        if not response.data:
-            return jsonify({"error": "Error al actualizar el producto"}), 500
-        
-        updated_item = response.data[0]
-        return jsonify({
-            "id": str(updated_item["id"]),
-            "name": updated_item["name"],
-            "category": updated_item["category"],
-            "price": float(updated_item["price"]),
-            "description": updated_item.get("description", ""),
-            "available": bool(updated_item.get("available", True)),
-            "created_at": updated_item.get("created_at"),
-            "updated_at": updated_item.get("updated_at")
-        })
-        
+    except ValueError as e:
+        # Error de validación
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        print("Error al actualizar producto del menú:", e)
-        return jsonify({"error": str(e)}), 500
+        # Error interno
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 
 def delete_menu_item(item_id):
     """Eliminar un producto del menú"""
     try:
-        # Verificar que el producto existe
-        check_response = supabase.table("menu").select("id").eq("id", item_id).execute()
-        if not check_response.data:
+        # Delegar al servicio
+        deleted = menu_service.delete_item(item_id)
+        
+        if not deleted:
             return jsonify({"error": "Producto no encontrado"}), 404
         
-        # Eliminar producto
-        response = supabase.table("menu").delete().eq("id", item_id).execute()
-        
-        if response.data:
-            return jsonify({"message": "Producto eliminado correctamente"}), 200
-        else:
-            return jsonify({"error": "Error al eliminar el producto"}), 500
+        return jsonify({"message": "Producto eliminado correctamente"}), 200
         
     except Exception as e:
-        print("Error al eliminar producto del menú:", e)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 
 @menu_bp.route("/<int:item_id>/toggle", methods=["PATCH"])
 def toggle_menu_item_availability(item_id):
     """Cambiar la disponibilidad de un producto del menú"""
     try:
-        # Obtener el producto actual
-        response = supabase.table("menu").select("available").eq("id", item_id).execute()
+        # Delegar al servicio
+        updated_item = menu_service.toggle_availability(item_id)
         
-        if not response.data:
+        if not updated_item:
             return jsonify({"error": "Producto no encontrado"}), 404
         
-        current_available = bool(response.data[0].get("available", True))
-        new_available = not current_available
+        status = "activado" if updated_item["available"] else "desactivado"
         
-        # Actualizar disponibilidad
-        update_response = supabase.table("menu").update({"available": new_available}).eq("id", item_id).execute()
-        
-        if not update_response.data:
-            return jsonify({"error": "Error al cambiar la disponibilidad"}), 500
-        
-        updated_item = update_response.data[0]
         return jsonify({
-            "id": str(updated_item["id"]),
+            "id": updated_item["id"],
             "name": updated_item["name"],
-            "available": bool(updated_item.get("available", True)),
-            "message": f"Producto {'activado' if bool(updated_item.get('available', True)) else 'desactivado'} correctamente"
-        })
+            "available": updated_item["available"],
+            "message": f"Producto {status} correctamente"
+        }), 200
         
     except Exception as e:
-        print("Error al cambiar disponibilidad del producto:", e)
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@menu_bp.route("/category/<string:category>", methods=["GET"])
+def get_menu_by_category(category):
+    """Obtener productos por categoría"""
+    try:
+        items = menu_service.get_items_by_category(category)
+        return jsonify(items), 200
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@menu_bp.route("/mesas", methods=["GET"])
-def get_mesas():
-    # Simulación, deberías traerlo de la base de datos
-    return jsonify({"message": "Endpoint de mesas"})
+
+@menu_bp.route("/available", methods=["GET"])
+def get_available_items():
+    """Obtener solo productos disponibles"""
+    try:
+        items = menu_service.get_available_items()
+        return jsonify(items), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

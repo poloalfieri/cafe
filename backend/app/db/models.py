@@ -25,6 +25,15 @@ class PaymentStatus(enum.Enum):
     REFUNDED = "refunded"
     CHARGED_BACK = "charged_back"
 
+class WaiterCallStatus(enum.Enum):
+    PENDING = "PENDING"
+    ATTENDED = "ATTENDED"
+
+class PaymentMethod(enum.Enum):
+    CARD = "CARD"
+    CASH = "CASH"
+    QR = "QR"
+
 class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True)
@@ -53,4 +62,26 @@ class Product(Base):
     description = Column(Text)
     available = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class WaiterCall(Base):
+    __tablename__ = "waiter_calls"
+    id = Column(Integer, primary_key=True)
+    mesa_id = Column(String(50), nullable=False)
+    payment_method = Column(Enum(PaymentMethod), nullable=False)
+    status = Column(Enum(WaiterCallStatus), default=WaiterCallStatus.PENDING)
+    usuario_id = Column(String(100), nullable=True)
+    message = Column(Text, nullable=True)
+    motivo = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Mesa(Base):
+    __tablename__ = "mesas"
+    id = Column(Integer, primary_key=True)
+    mesa_id = Column(String(50), unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    current_token = Column(String(255), nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
