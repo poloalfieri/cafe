@@ -5,9 +5,46 @@ from .utils.logger import setup_logger
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)  # Habilitar CORS para todas las rutas
     app.config.from_object(Config)
+    
+    # Configurar CORS de forma segura - SOLO dominios permitidos
+    CORS(
+        app,
+        origins=Config.CORS_ORIGINS,
+        methods=Config.CORS_METHODS,
+        allow_headers=Config.CORS_ALLOW_HEADERS,
+        supports_credentials=Config.CORS_SUPPORTS_CREDENTIALS,
+        max_age=3600  # Cache preflight requests por 1 hora
+    )
+    
     setup_logger(__name__)
+    app.logger.info(f"✅ CORS configurado - Origins permitidos: {Config.CORS_ORIGINS}")
+
+    # Endpoints básicos
+    @app.route("/")
+    def index():
+        return jsonify({
+            "message": "API Café/Restaurante",
+            "version": "1.0.0",
+            "status": "running",
+            "endpoints": {
+                "health": "/health",
+                "orders": "/order",
+                "payments": "/payment",
+                "menu": "/menu",
+                "products": "/products",
+                "mesas": "/mesa",
+                "metrics": "/metrics"
+            }
+        })
+    
+    @app.route("/health")
+    def health():
+        return jsonify({
+            "status": "healthy",
+            "version": "1.0.0",
+            "cors_origins": Config.CORS_ORIGINS
+        })
 
     @app.errorhandler(Exception)
     def handle_error(e):

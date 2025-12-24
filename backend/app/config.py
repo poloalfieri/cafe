@@ -18,6 +18,13 @@ class Config:
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
     BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5001")
     
+    # CORS Configuration - SEGURIDAD MEJORADA
+    # En producción, especificar dominios exactos separados por coma
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", FRONTEND_URL).split(",")
+    CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    CORS_ALLOW_HEADERS = ["Content-Type", "Authorization"]
+    CORS_SUPPORTS_CREDENTIALS = True
+    
     # Other configurations
     KITCHEN_WEBHOOK_URL = os.getenv("KITCHEN_WEBHOOK_URL", "")
     TOKEN_EXPIRY_MINUTES = int(os.getenv("TOKEN_EXPIRY_MINUTES", 10)) 
