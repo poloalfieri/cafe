@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/auth-context"
 import {
   LineChart,
   Line,
@@ -46,12 +47,21 @@ export default function MetricsDashboard() {
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { session } = useAuth()
 
   useEffect(() => {
-    fetchMetricsData()
-  }, [])
+    if (session?.accessToken) {
+      fetchMetricsData()
+    }
+  }, [session])
 
   const fetchMetricsData = async () => {
+    if (!session?.accessToken) {
+      setError("No hay sesión activa")
+      setLoading(false)
+      return
+    }
+    
     setLoading(true)
     setError(null)
     
@@ -65,7 +75,12 @@ export default function MetricsDashboard() {
       
       const results = await Promise.all(
         endpoints.map(endpoint => 
-          fetch(`${API_BASE_URL}/api/metrics/${endpoint}`)
+          fetch(`${API_BASE_URL}/api/metrics/${endpoint}`, {
+            headers: {
+              'Authorization': `Bearer ${session.accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
             .then(res => {
               if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`)
