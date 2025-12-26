@@ -57,10 +57,28 @@ export default function PaymentModal({
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  
+  // Detectar si los parámetros de mesa son inválidos
+  const hasInvalidParams = !mesaId || !mesaToken || 
+    mesaId.toLowerCase() === 'null' || mesaToken.toLowerCase() === 'null' ||
+    mesaId.trim() === '' || mesaToken.trim() === ''
 
   const handleBilleteraPayment = async () => {
     setIsLoading(true)
     setErrorMessage(null)
+    
+    // Validar que mesaId y mesaToken sean válidos
+    if (!isValidParam(mesaId)) {
+      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la página escaneando el QR nuevamente.')
+      setIsLoading(false)
+      return
+    }
+    
+    if (!isValidParam(mesaToken)) {
+      setErrorMessage('Error: Token de mesa inválido. Recarga la página escaneando el QR nuevamente.')
+      setIsLoading(false)
+      return
+    }
     
     try {
       const response = await fetch('http://localhost:5001/payment/init', {
@@ -71,21 +89,27 @@ export default function PaymentModal({
         body: JSON.stringify({
           monto: totalAmount,
           mesa_id: mesaId,
+          token: mesaToken,  // Enviar token para validación
+          items: items,  // Enviar items reales del carrito
           descripcion: `Pedido Mesa ${mesaId} - ${items.map(item => `${item.name} x${item.quantity}`).join(', ')}`
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
       
-      if (data.success && data.payment_link) {
-        window.open(data.payment_link, '_blank')
+      if (!response.ok) {
+        const errorMsg = data.error || `Error ${response.status}: ${response.statusText}`
+        throw new Error(errorMsg)
+      }
+      
+      // Soportar tanto init_point como payment_link (compatibilidad)
+      const paymentUrl = data.init_point || data.payment_link
+      
+      if (data.success && paymentUrl) {
+        window.open(paymentUrl, '_blank')
         setSuccessMessage('¡Perfecto! Se abrió tu billetera digital.')
       } else {
-        throw new Error('Error al generar el link de pago')
+        throw new Error(data.error || 'Error al generar el link de pago')
       }
     } catch (error) {
       console.error('Error procesando pago con billetera:', error)
@@ -95,9 +119,29 @@ export default function PaymentModal({
     }
   }
 
+  // Helper para validar que un valor no sea null/undefined/empty/"null"
+  const isValidParam = (value: string | null | undefined): boolean => {
+    if (!value) return false
+    const trimmed = value.trim().toLowerCase()
+    return trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined'
+  }
+
   const handleWaiterNotification = async (motivo: string) => {
     setIsLoading(true)
     setErrorMessage(null)
+    
+    // Validar que mesaId y mesaToken sean válidos antes de enviar
+    if (!isValidParam(mesaId)) {
+      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la página escaneando el QR nuevamente.')
+      setIsLoading(false)
+      return
+    }
+    
+    if (!isValidParam(mesaToken)) {
+      setErrorMessage('Error: Token de mesa inválido. Recarga la página escaneando el QR nuevamente.')
+      setIsLoading(false)
+      return
+    }
     
     try {
       const response = await fetch('http://localhost:5001/waiter/notificar-mozo', {
@@ -107,22 +151,25 @@ export default function PaymentModal({
         },
         body: JSON.stringify({
           mesa_id: mesaId,
+          token: mesaToken,  // Enviar token para validación
           motivo: motivo,
           usuario_id: 'cliente',
           message: `Solicitud de pago - ${motivo}`
         }),
       })
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
-      }
-
       const data = await response.json()
       
+      // Manejar respuestas de error del backend
+      if (!response.ok) {
+        const errorMsg = data.error || `Error ${response.status}: ${response.statusText}`
+        throw new Error(errorMsg)
+      }
+      
       if (data.success) {
-        setSuccessMessage('¡Genial! El mozo ya fue notificado.')
+        setSuccessMessage('Ya se notificó al mozo y estará acercándose a su mesa en la brevedad.')
       } else {
-        throw new Error('Error al notificar al mozo')
+        throw new Error(data.error || 'Error al notificar al mozo')
       }
     } catch (error) {
       console.error('Error notificando al mozo:', error)
@@ -227,6 +274,19 @@ export default function PaymentModal({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Advertencia si faltan parámetros */}
+          {hasInvalidParams && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
+              <X className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Error de configuración</p>
+                <p className="text-xs text-red-600 mt-1">
+                  No se pudo identificar la mesa. Por favor, escanea el código QR nuevamente.
+                </p>
+              </div>
+            </div>
+          )}
+          
           {/* Resumen compacto */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
@@ -269,7 +329,7 @@ export default function PaymentModal({
                 <p className="text-xs text-gray-600 mt-1">
                   {selectedMethod === 'billetera' 
                     ? 'Completa el pago en la nueva pestaña' 
-                    : 'El mozo llegará pronto'
+                    : 'Por favor aguarde en su mesa'
                   }
                 </p>
               </div>
@@ -295,12 +355,16 @@ export default function PaymentModal({
             {paymentMethods.map((method) => (
               <Card 
                 key={method.id}
-                className={`cursor-pointer transition-all duration-200 hover:shadow-md border ${
+                className={`transition-all duration-200 border ${
+                  hasInvalidParams 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'cursor-pointer hover:shadow-md'
+                } ${
                   selectedMethod === method.id 
                     ? `ring-1 ring-gray-400 border-gray-400 bg-gray-50` 
                     : 'hover:border-gray-300 border-gray-200'
                 }`}
-                onClick={() => !isLoading && handleMethodSelect(method.id)}
+                onClick={() => !isLoading && !hasInvalidParams && handleMethodSelect(method.id)}
               >
                 <CardHeader className="pb-3 px-4 py-3">
                   <div className="flex items-center gap-3">
