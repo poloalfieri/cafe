@@ -4,7 +4,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "dev")
+    # SECRET_KEY debe estar configurado y no puede ser el valor por defecto inseguro
+    _secret_key = os.getenv("SECRET_KEY", "dev")
+    if _secret_key == "dev" or not _secret_key or _secret_key.strip() == "":
+        raise ValueError(
+            "SECRET_KEY no está configurado o usa un valor inseguro. "
+            "Por favor, configura SECRET_KEY en el archivo .env con un valor seguro. "
+            "Puedes generar uno con: python3 -c 'import secrets; print(secrets.token_hex(32))'"
+        )
+    SECRET_KEY = _secret_key
     DB_URI = os.getenv("DATABASE_URL", "sqlite:///cafe.db")
     USE_ORM = os.getenv("USE_ORM", "true").lower() == "true"
     
