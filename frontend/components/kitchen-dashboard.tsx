@@ -38,13 +38,14 @@ export default function KitchenDashboard() {
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "paid" | "pending">("all")
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
 
   // Simulación de datos - en producción esto vendría de tu API
   useEffect(() => {
     setLoading(true)
     
     // Fetch orders
-    fetch("http://localhost:5001/order")
+    fetch(`${backendUrl}/order`)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
@@ -94,7 +95,7 @@ export default function KitchenDashboard() {
       })
 
     // Fetch waiter calls
-    fetch("http://localhost:5001/waiter/calls")
+    fetch(`${backendUrl}/waiter/calls`)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
@@ -140,7 +141,7 @@ export default function KitchenDashboard() {
     
     try {
       // Refresh orders
-      const ordersResponse = await fetch("http://localhost:5001/order")
+      const ordersResponse = await fetch(`${backendUrl}/order`)
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json()
         const processedOrders = Array.isArray(ordersData) ? ordersData.map(order => ({
@@ -153,7 +154,7 @@ export default function KitchenDashboard() {
       }
 
       // Refresh waiter calls
-      const callsResponse = await fetch("http://localhost:5001/waiter/calls")
+      const callsResponse = await fetch(`${backendUrl}/waiter/calls`)
       if (callsResponse.ok) {
         const callsData = await callsResponse.json()
         if (callsData.success && Array.isArray(callsData.calls)) {
@@ -173,7 +174,7 @@ export default function KitchenDashboard() {
 
   const acceptOrder = async (orderId: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/payment/accept-order/${orderId}`, {
+      const response = await fetch(`${backendUrl}/payment/accept-order/${orderId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       })
@@ -193,7 +194,7 @@ export default function KitchenDashboard() {
 
   const rejectOrder = async (orderId: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/payment/reject-order/${orderId}`, {
+      const response = await fetch(`${backendUrl}/payment/reject-order/${orderId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       })
@@ -213,7 +214,7 @@ export default function KitchenDashboard() {
 
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
     try {
-      const response = await fetch(`http://localhost:5001/waiter/calls/${callId}/status`, {
+      const response = await fetch(`${backendUrl}/waiter/calls/${callId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

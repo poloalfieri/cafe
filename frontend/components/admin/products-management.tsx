@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { toast } from "@/hooks/use-toast"
 import { 
   Plus, 
   Edit, 
@@ -49,6 +50,8 @@ export default function ProductsManagement() {
     "Especialidades"
   ]
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
   useEffect(() => {
     fetchProducts()
   }, [])
@@ -56,16 +59,18 @@ export default function ProductsManagement() {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      const response = await fetch("http://localhost:5001/menu/")
+      const response = await fetch(`${backendUrl}/menu/`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const data = await response.json()
       setProducts(data)
     } catch (error) {
-      console.error("Error fetching products:", error)
-      // Mostrar error al usuario en lugar de fallback a datos simulados
-      alert("Error al cargar productos. Verifica que el servidor esté funcionando.")
+      toast({
+        title: "Error",
+        description: "Error al cargar productos. Verifica que el servidor esté funcionando.",
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }
@@ -85,7 +90,7 @@ export default function ProductsManagement() {
     try {
       if (editingProduct) {
         // Actualizar producto existente
-        const response = await fetch(`http://localhost:5001/menu/${editingProduct.id}`, {
+        const response = await fetch(`${backendUrl}/menu/${editingProduct.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -101,7 +106,7 @@ export default function ProductsManagement() {
         setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p))
       } else {
         // Crear nuevo producto
-        const response = await fetch("http://localhost:5001/menu/", {
+        const response = await fetch(`${backendUrl}/menu/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -119,11 +124,17 @@ export default function ProductsManagement() {
 
       resetForm()
       setIsDialogOpen(false)
-      alert(editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente")
+      toast({
+        title: "Éxito",
+        description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente"
+      })
     } catch (error) {
-      console.error("Error saving product:", error)
       const errorMessage = error instanceof Error ? error.message : "Error al guardar el producto. Por favor, intenta nuevamente."
-      alert(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
     }
   }
 
@@ -142,7 +153,7 @@ export default function ProductsManagement() {
   const handleDelete = async (productId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
       try {
-        const response = await fetch(`http://localhost:5001/menu/${productId}`, {
+        const response = await fetch(`${backendUrl}/menu/${productId}`, {
           method: "DELETE"
         })
 
@@ -151,18 +162,24 @@ export default function ProductsManagement() {
         }
 
         setProducts(products.filter(p => p.id !== productId))
-        alert("Producto eliminado correctamente")
+        toast({
+          title: "Éxito",
+          description: "Producto eliminado correctamente"
+        })
       } catch (error) {
-        console.error("Error deleting product:", error)
         const errorMessage = error instanceof Error ? error.message : "Error al eliminar el producto. Por favor, intenta nuevamente."
-        alert(errorMessage)
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive"
+        })
       }
     }
   }
 
   const toggleAvailability = async (productId: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/menu/${productId}/toggle`, {
+      const response = await fetch(`${backendUrl}/menu/${productId}/toggle`, {
         method: "PATCH"
       })
 
@@ -174,11 +191,17 @@ export default function ProductsManagement() {
       setProducts(products.map(p => 
         p.id === productId ? { ...p, available: result.available } : p
       ))
-      alert(`Producto ${result.available ? 'activado' : 'desactivado'} correctamente`)
+      toast({
+        title: "Éxito",
+        description: `Producto ${result.available ? 'activado' : 'desactivado'} correctamente`
+      })
     } catch (error) {
-      console.error("Error toggling product availability:", error)
       const errorMessage = error instanceof Error ? error.message : "Error al cambiar la disponibilidad del producto. Por favor, intenta nuevamente."
-      alert(errorMessage)
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
     }
   }
 

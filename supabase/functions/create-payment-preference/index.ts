@@ -13,8 +13,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-console.log("Create Payment Preference Function loaded!")
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -28,12 +26,14 @@ serve(async (req) => {
       throw new Error('mesa_id, items, total_amount y token son requeridos')
     }
 
-    console.log('Datos recibidos:', { mesa_id, items, total_amount })
-
     // Configurar Mercado Pago
     const MP_ACCESS_TOKEN = Deno.env.get('MERCADO_PAGO_ACCESS_TOKEN')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
     const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+    
+    if (!SUPABASE_URL) {
+      throw new Error('SUPABASE_URL no configurado')
+    }
 
     if (!MP_ACCESS_TOKEN) {
       throw new Error('MERCADO_PAGO_ACCESS_TOKEN no configurado')
@@ -58,7 +58,7 @@ serve(async (req) => {
     //   throw new Error('Token de mesa inválido o expirado')
     // }
 
-    console.log('Token validation skipped for testing - mesa_id:', mesa_id, 'token:', token)
+    // TODO: Re-habilitar validación de token en producción
 
     // Inicializar Mercado Pago
     const client = new MercadoPagoConfig({ 
@@ -79,8 +79,6 @@ serve(async (req) => {
       creation_date: new Date().toISOString()
     }
 
-    console.log('Insertando orden con datos:', orderData)
-
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert(orderData)
@@ -88,11 +86,8 @@ serve(async (req) => {
       .single()
 
     if (orderError) {
-      console.error('Error creando pedido:', orderError)
       throw new Error(`Error creando pedido: ${orderError.message}`)
     }
-
-    console.log('Pedido creado:', order)
 
     // Preparar items para Mercado Pago
     const mpItems = items.map((item: any) => ({
@@ -106,11 +101,11 @@ serve(async (req) => {
     const preferenceData = {
       items: mpItems,
       external_reference: order.id,
-      notification_url: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/mercadopago-webhook`,
+      notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
       back_urls: {
-        success: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-success`,
-        failure: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-failure`,
-        pending: `https://jkiqaytofyqrptkzvzei.supabase.co/functions/v1/payment-pending`
+        success: `${SUPABASE_URL}/functions/v1/payment-success`,
+        failure: `${SUPABASE_URL}/functions/v1/payment-failure`,
+        pending: `${SUPABASE_URL}/functions/v1/payment-pending`
       },
       auto_return: "approved",
       statement_descriptor: "CAFE LOCAL",
@@ -123,11 +118,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('Creando preferencia MP con:', preferenceData)
-
     const mpResponse = await preference.create({ body: preferenceData })
-
-    console.log('Respuesta MP:', mpResponse)
 
     return new Response(
       JSON.stringify({
@@ -145,7 +136,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    // Error logging handled by Supabase platform
     return new Response(
       JSON.stringify({ error: error.message }),
       {

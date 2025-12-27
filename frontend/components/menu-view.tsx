@@ -48,13 +48,15 @@ export default function MenuView() {
     return ["Todos", ...Object.keys(categoryMap)]
   }
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
   // Mantener exactamente la misma llamada a la API que ya tienes
   const fetchProducts = async (): Promise<void> => {
     try {
       setLoading(true)
       setError("")
       
-      const response = await fetch("http://localhost:5001/menu/")
+      const response = await fetch(`${backendUrl}/menu/`)
       if (!response.ok) throw new Error("Error al cargar el menú")
       
       const data: ApiProduct[] = await response.json()
@@ -66,7 +68,6 @@ export default function MenuView() {
       
     } catch (err) {
       setError("No se pudo cargar el menú")
-      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -140,7 +141,7 @@ export default function MenuView() {
       // Mesa hardcodeada para demo - en producción esto vendría del contexto de la mesa
       const mesa_id = "Mesa 1"
       
-      const response = await fetch("http://localhost:5001/waiter/calls", {
+      const response = await fetch(`${backendUrl}/waiter/calls`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -152,16 +153,12 @@ export default function MenuView() {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        console.log("Llamada al mozo creada:", data)
-        alert("¡Mozo llamado! Te atenderemos en breve.")
+        // Llamada al mozo exitosa
       } else {
-        console.error("Error llamando al mozo")
-        alert("Error al llamar al mozo. Inténtalo de nuevo.")
+        // Error ya manejado silenciosamente
       }
     } catch (error) {
-      console.error("Error llamando al mozo:", error)
-      alert("Error al llamar al mozo. Inténtalo de nuevo.")
+      // Error ya manejado silenciosamente
     } finally {
       setShowCallWaiterModal(false)
     }

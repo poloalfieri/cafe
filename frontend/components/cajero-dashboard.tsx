@@ -49,11 +49,13 @@ export default function CajeroDashboard() {
     })()
   }, [])
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
   const fetchData = async () => {
     setLoading(true)
     try {
       // Fetch mesas
-      const mesasResponse = await fetch("http://localhost:5001/mesa/list")
+      const mesasResponse = await fetch(`${backendUrl}/mesa/list`)
       if (mesasResponse.ok) {
         const mesasData = await mesasResponse.json()
         setMesas(mesasData.mesas || [])
@@ -70,7 +72,7 @@ export default function CajeroDashboard() {
       }
 
       // Fetch orders
-      const ordersResponse = await fetch("http://localhost:5001/order")
+      const ordersResponse = await fetch(`${backendUrl}/order`)
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json()
         setOrders(ordersData || [])

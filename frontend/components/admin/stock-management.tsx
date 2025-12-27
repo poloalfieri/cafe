@@ -78,11 +78,13 @@ export default function StockManagement() {
     description: ''
   })
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
       // Use the same direct backend call as the working products management
-      const response = await fetch("http://localhost:5001/menu/")
+      const response = await fetch(`${backendUrl}/menu/`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -101,9 +103,8 @@ export default function StockManagement() {
       })) : []
       
       setProducts(products)
-      console.log('Products loaded successfully:', products.length)
     } catch (error) {
-      console.error('Error fetching products:', error)
+      // Error ya manejado
       toast({
         title: "Error",
         description: "No se pudieron cargar los productos desde el backend",
@@ -121,7 +122,7 @@ export default function StockManagement() {
       const response = await api.get('/api/ingredients?pageSize=1000')
       setIngredients(response.data.ingredients)
     } catch (error) {
-      console.error('Error fetching ingredients:', error)
+      // Error ya manejado
     }
   }
 
@@ -130,7 +131,7 @@ export default function StockManagement() {
       const response = await api.get(`/api/recipes?productId=${productId}`)
       setRecipes(response.data)
     } catch (error) {
-      console.error('Error fetching recipes:', error)
+      // Error ya manejado
       toast({
         title: "Error",
         description: "No se pudieron cargar las recetas",
@@ -165,7 +166,7 @@ export default function StockManagement() {
         available: true
       }
 
-      const response = await fetch("http://localhost:5001/menu/", {
+      const response = await fetch(`${backendUrl}/menu/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

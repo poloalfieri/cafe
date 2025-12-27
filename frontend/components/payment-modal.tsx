@@ -81,7 +81,8 @@ export default function PaymentModal({
     }
     
     try {
-      const response = await fetch('http://localhost:5001/payment/init', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+      const response = await fetch(`${backendUrl}/payment/init`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +115,7 @@ export default function PaymentModal({
         throw new Error(data.error || 'Error al generar el link de pago')
       }
     } catch (error) {
-      console.error('Error procesando pago con billetera:', error)
+      // Error ya manejado por setErrorMessage
       setErrorMessage(error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setIsLoading(false)
@@ -146,7 +147,8 @@ export default function PaymentModal({
     }
     
     try {
-      const response = await fetch('http://localhost:5001/waiter/notificar-mozo', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+      const response = await fetch(`${backendUrl}/waiter/notificar-mozo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +178,7 @@ export default function PaymentModal({
         throw new Error(data.error || 'Error al notificar al mozo')
       }
     } catch (error) {
-      console.error('Error notificando al mozo:', error)
+      // Error ya manejado por setErrorMessage
       setErrorMessage(error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setIsLoading(false)

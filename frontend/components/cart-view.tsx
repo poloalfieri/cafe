@@ -19,11 +19,7 @@ export default function CartView() {
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
-
-  // Debug: Log los parámetros
-  console.log("CartView - mesa_id:", mesa_id)
-  console.log("CartView - token:", token)
-  console.log("CartView - searchParams:", Object.fromEntries(searchParams.entries()))
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
 
   const handlePaymentComplete = (orderId: string, status: string) => {
     setSuccess(`Pago procesado. ID del pedido: ${orderId}`)
@@ -43,7 +39,7 @@ export default function CartView() {
       // Mesa hardcodeada para demo - en producción esto vendría del contexto de la mesa
       const mesa_id = "Mesa 1"
       
-      const response = await fetch("http://localhost:5001/waiter/calls", {
+      const response = await fetch(`${backendUrl}/waiter/calls`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -55,16 +51,12 @@ export default function CartView() {
       })
 
       if (response.ok) {
-        const responseData = await response.json()
-        console.log("Llamada al mozo creada desde carrito:", responseData)
-        alert("¡Mozo llamado! Te atenderemos en breve.")
+        // Llamada al mozo exitosa
       } else {
-        console.error("Error llamando al mozo")
-        alert("Error al llamar al mozo. Inténtalo de nuevo.")
+        // Error ya manejado silenciosamente
       }
     } catch (error) {
-      console.error("Error llamando al mozo:", error)
-      alert("Error al llamar al mozo. Inténtalo de nuevo.")
+      // Error ya manejado silenciosamente
     } finally {
       setShowCallWaiterModal(false)
     }

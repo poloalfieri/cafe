@@ -38,8 +38,14 @@ function PaymentSuccessContent() {
   const fetchOrderStatus = async () => {
     try {
       // Usar Supabase para obtener el estado del pedido
-      const SUPABASE_URL = 'https://jkiqaytofyqrptkzvzei.supabase.co'
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraXFheXRvZnlxcnB0a3p2emVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzOTMxMzcsImV4cCI6MjA2ODk2OTEzN30.ElLG1xcsJ5D3N2NXVTX2yH3CY6Jc7pE89qANZ_NCwSM'
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        setError("Error: Variables de entorno de Supabase no configuradas")
+        setLoading(false)
+        return
+      }
       
       const response = await fetch(`${SUPABASE_URL}/rest/v1/orders?id=eq.${orderId}`, {
         headers: {

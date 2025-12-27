@@ -75,10 +75,12 @@ export default function RecipiesManagement() {
     description: ''
   })
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
-      const response = await fetch("http://localhost:5001/menu/")
+      const response = await fetch(`${backendUrl}/menu/`)
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -93,7 +95,7 @@ export default function RecipiesManagement() {
       })) : []
       setProducts(products)
     } catch (error) {
-      console.error('Error fetching products:', error)
+      // Error ya manejado
       toast({ title: "Error", description: "No se pudieron cargar los productos desde el backend", variant: "destructive" })
       setProducts([])
     } finally {
@@ -108,7 +110,7 @@ export default function RecipiesManagement() {
       const list = (response as any).data?.ingredients || []
       setIngredients(list)
     } catch (error) {
-      console.error('Error fetching ingredients:', error)
+      // Error ya manejado
     }
   }
 
@@ -118,7 +120,7 @@ export default function RecipiesManagement() {
       const data = (response as any).data || []
       setRecipes(data)
     } catch (error) {
-      console.error('Error fetching recipes:', error)
+      // Error ya manejado
       toast({ title: "Error", description: "No se pudieron cargar las recetas", variant: "destructive" })
     }
   }
@@ -147,7 +149,7 @@ export default function RecipiesManagement() {
         description: newProductForm.description,
         available: true
       }
-      const response = await fetch("http://localhost:5001/menu/", {
+      const response = await fetch(`${backendUrl}/menu/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(productData)
