@@ -17,8 +17,18 @@ export function MesaQRGenerator({ mesaId }: MesaQRGeneratorProps) {
   const [qrUrl, setQrUrl] = useState<string>('')
   const [copied, setCopied] = useState(false)
 
-  const SUPABASE_URL = 'https://jkiqaytofyqrptkzvzei.supabase.co'
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraXFheXRvZnlxcnB0a3p2emVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzOTMxMzcsImV4cCI6MjA2ODk2OTEzN30.ElLG1xcsJ5D3N2NXVTX2yH3CY6Jc7pE89qANZ_NCwSM'
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardContent className="p-6">
+          <p className="text-red-600">Error: Variables de entorno de Supabase no configuradas</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const generateToken = async () => {
     setLoading(true)
@@ -39,10 +49,10 @@ export function MesaQRGenerator({ mesaId }: MesaQRGeneratorProps) {
         setToken(newToken.replace(/"/g, '')) // Remover comillas
         generateQRUrl(newToken.replace(/"/g, ''))
       } else {
-        console.error('Error generando token')
+        // Error silencioso - el usuario verá que no se generó el token
       }
     } catch (error) {
-      console.error('Error:', error)
+      // Error silencioso - el usuario verá que no se generó el token
     } finally {
       setLoading(false)
     }
@@ -59,7 +69,7 @@ export function MesaQRGenerator({ mesaId }: MesaQRGeneratorProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Error copiando al portapapeles:', error)
+      // Error silencioso al copiar
     }
   }
 
