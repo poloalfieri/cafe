@@ -16,8 +16,19 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: err, data } = await supabase.auth.signInWithPassword({ email, password })
       if (err) throw err
+      
+      if (data.session && data.user) {
+        // Guardar la sesión manualmente en sessionStorage como respaldo
+        sessionStorage.setItem('supabase_session', JSON.stringify({
+          session: data.session,
+          user: data.user
+        }))
+      }
+      
+      // Esperar un momento para que Supabase termine de guardar
+      await new Promise(resolve => setTimeout(resolve, 500))
       router.replace("/")
     } catch (err: any) {
       setError(err?.message ?? "Error de autenticación")
