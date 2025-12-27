@@ -88,7 +88,7 @@ export default function MetricsDashboard() {
               return res.json()
             })
             .catch(err => {
-              console.error(`Error fetching ${endpoint}:`, err)
+              // Error ya manejado por setError
               return { labels: [], values: [] }
             })
         )
@@ -112,7 +112,7 @@ export default function MetricsDashboard() {
         paymentMethods: validatedResults[3]
       })
     } catch (err) {
-      console.error("Error fetching metrics data:", err)
+      // Error ya manejado por setError
       setError("Error al cargar los datos de métricas")
     } finally {
       setLoading(false)

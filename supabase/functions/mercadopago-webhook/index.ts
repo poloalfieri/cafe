@@ -8,13 +8,9 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts"
 import { createClient } from '@supabase/supabase-js'
 import { MercadoPagoConfig, Payment } from 'mercadopago'
 
-console.log("Mercado Pago Webhook Function loaded!")
-
 serve(async (req) => {
   try {
     const { type, data } = await req.json()
-    
-    console.log('Webhook recibido:', { type, data })
 
     if (type !== 'payment') {
       return new Response('OK', { status: 200 })
@@ -154,12 +150,12 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Pedido ${externalReference} actualizado con estado: ${orderStatus}`)
+    // Order status updated successfully
 
     return new Response('OK', { status: 200 })
 
   } catch (error) {
-    console.error('Error en webhook:', error)
+    // Error logging handled by Supabase platform
     return new Response(
       JSON.stringify({ error: error.message }),
       {

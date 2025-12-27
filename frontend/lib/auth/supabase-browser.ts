@@ -7,7 +7,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
   // eslint-disable-next-line no-console
-  console.warn("Supabase env vars are not set. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  // Supabase env vars not set - error will be handled by components
 }
 
 export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "") 
