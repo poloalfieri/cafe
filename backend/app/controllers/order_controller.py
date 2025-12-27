@@ -37,10 +37,26 @@ def create_order(mesa_id):
     """Crear un nuevo pedido para una mesa"""
     try:
         # Obtener token de autenticación
-        token = request.args.get("token")
+        # Prioridad: 1) Header Authorization (Bearer token), 2) Body, 3) Query string (deprecated)
+        token = None
         
-        # Obtener datos del pedido
-        data = request.get_json()
+        # Intentar obtener del header Authorization (formato: "Bearer <token>")
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == 'bearer':
+                token = parts[1]
+        
+        # Obtener datos del pedido (una sola vez)
+        data = request.get_json() or {}
+        
+        # Si no está en el header, intentar del body
+        if not token:
+            token = data.get("token")
+        
+        # Si aún no está, intentar del query string (deprecated - solo para compatibilidad)
+        if not token:
+            token = request.args.get("token")
         
         if not data or "items" not in data:
             return jsonify({"error": "Items requeridos"}), 400

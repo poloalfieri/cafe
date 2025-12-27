@@ -85,11 +85,13 @@ export default function PaymentModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Enviar token en header Authorization para mayor seguridad (no aparece en logs/URLs)
+          'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
           monto: totalAmount,
           mesa_id: mesaId,
-          token: mesaToken,  // Enviar token para validación
+          token: mesaToken,  // También en body para compatibilidad con código legacy
           items: items,  // Enviar items reales del carrito
           descripcion: `Pedido Mesa ${mesaId} - ${items.map(item => `${item.name} x${item.quantity}`).join(', ')}`
         }),
@@ -148,10 +150,12 @@ export default function PaymentModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Enviar token en header Authorization para mayor seguridad
+          'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
           mesa_id: mesaId,
-          token: mesaToken,  // Enviar token para validación
+          token: mesaToken,  // También en body para compatibilidad
           motivo: motivo,
           usuario_id: 'cliente',
           message: `Solicitud de pago - ${motivo}`
