@@ -3,21 +3,22 @@ Controller de Menú - Solo maneja HTTP, delega lógica al servicio
 """
 from flask import Blueprint, request, jsonify
 from ..services.menu_service import menu_service
+from ..middleware.auth import require_auth, require_roles
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/menu")
 
 
 @menu_bp.route("/", methods=["GET", "POST"])
-def menu_items():
-    """Manejar GET y POST para productos del menú"""
+def menu_root():
+    """Manejar GET (público) y POST (protegido) del menú"""
     if request.method == "GET":
         return get_menu()
     elif request.method == "POST":
-        return create_menu_item()
+        return create_menu_item_protected()
 
 
 def get_menu():
-    """Obtener lista de todos los productos del menú"""
+    """Obtener lista de todos los productos del menú (público)"""
     try:
         items = menu_service.get_all_items()
         return jsonify(items), 200
@@ -25,8 +26,10 @@ def get_menu():
         return jsonify({"error": str(e)}), 500
 
 
-def create_menu_item():
-    """Crear un nuevo producto en el menú"""
+@require_auth
+@require_roles('desarrollador', 'admin')
+def create_menu_item_protected():
+    """Crear un nuevo producto en el menú (solo admin)"""
     try:
         data = request.get_json()
         
@@ -47,17 +50,17 @@ def create_menu_item():
 
 @menu_bp.route("/<int:item_id>", methods=["GET", "PUT", "DELETE"])
 def menu_item(item_id):
-    """Manejar GET, PUT y DELETE para un producto específico"""
+    """Manejar GET (público), PUT y DELETE (protegidos) para un producto específico"""
     if request.method == "GET":
         return get_menu_item(item_id)
     elif request.method == "PUT":
-        return update_menu_item(item_id)
+        return update_menu_item_protected(item_id)
     elif request.method == "DELETE":
-        return delete_menu_item(item_id)
+        return delete_menu_item_protected(item_id)
 
 
 def get_menu_item(item_id):
-    """Obtener un producto específico del menú por ID"""
+    """Obtener un producto específico del menú por ID (público)"""
     try:
         item = menu_service.get_item_by_id(item_id)
         
@@ -70,8 +73,10 @@ def get_menu_item(item_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-def update_menu_item(item_id):
-    """Actualizar un producto existente del menú"""
+@require_auth
+@require_roles('desarrollador', 'admin')
+def update_menu_item_protected(item_id):
+    """Actualizar un producto existente del menú (solo admin)"""
     try:
         data = request.get_json()
         
@@ -94,8 +99,10 @@ def update_menu_item(item_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-def delete_menu_item(item_id):
-    """Eliminar un producto del menú"""
+@require_auth
+@require_roles('desarrollador', 'admin')
+def delete_menu_item_protected(item_id):
+    """Eliminar un producto del menú (solo admin)"""
     try:
         # Delegar al servicio
         deleted = menu_service.delete_item(item_id)
@@ -110,8 +117,10 @@ def delete_menu_item(item_id):
 
 
 @menu_bp.route("/<int:item_id>/toggle", methods=["PATCH"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def toggle_menu_item_availability(item_id):
-    """Cambiar la disponibilidad de un producto del menú"""
+    """Cambiar la disponibilidad de un producto del menú (solo admin)"""
     try:
         # Delegar al servicio
         updated_item = menu_service.toggle_availability(item_id)
