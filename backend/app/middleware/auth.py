@@ -280,11 +280,6 @@ def has_permission(resource, action):
             'order': ['read', 'update'],
             'payment': ['create', 'read'],
             'metrics': ['read']
-        },
-        'mozo': {
-            'menu': ['read'],
-            'order': ['create', 'read', 'update'],
-            'waiter_call': ['create', 'read', 'update']
         }
     }
     
