@@ -25,14 +25,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let isMounted = true
+    let timeoutId: NodeJS.Timeout | null = null
+    
+    // Función para finalizar el loading de forma segura
+    const finishLoading = () => {
+      if (isMounted && !initialCheckDone) {
+        setInitialCheckDone(true)
+        setLoading(false)
+      }
+    }
     
     // Primero suscribirse a cambios de auth (esto es lo más confiable)
     const sub = client.onAuthStateChange(async ({ session: s, user: u }) => {
       if (isMounted) {
         setSession(s)
         setUser(u)
-        // Si es la primera vez, marcar como completado
+        // Si es la primera vez, marcar como completado y cancelar timeout
         if (!initialCheckDone) {
+          if (timeoutId) {
+            clearTimeout(timeoutId)
+            timeoutId = null
+          }
           setInitialCheckDone(true)
           setLoading(false)
         }
@@ -55,53 +68,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const { session: storedSession, user: storedUser } = JSON.parse(stored)
               
-              // Convertir a nuestro formato
-              const recoveredSession = {
-                accessToken: storedSession.access_token,
-                expiresAt: storedSession.expires_at
+              // Validar que la sesión no haya expirado
+              const expiresAt = storedSession.expires_at
+              if (expiresAt && expiresAt * 1000 < Date.now()) {
+                // Sesión expirada, limpiar
+                sessionStorage.removeItem('supabase_session')
+              } else {
+                // Convertir a nuestro formato
+                const recoveredSession = {
+                  accessToken: storedSession.access_token,
+                  expiresAt: storedSession.expires_at
+                }
+                
+                const appRole = storedUser.app_metadata?.role
+                const userRole = storedUser.user_metadata?.role
+                const role = appRole || userRole
+                
+                const recoveredUser = {
+                  id: storedUser.id,
+                  email: storedUser.email,
+                  role: (role === "desarrollador" || role === "admin" || role === "caja") ? role : null
+                }
+                
+                setSession(recoveredSession)
+                setUser(recoveredUser)
+                finishLoading()
+                return
               }
-              
-              const appRole = storedUser.app_metadata?.role
-              const userRole = storedUser.user_metadata?.role
-              const role = appRole || userRole
-              
-              const recoveredUser = {
-                id: storedUser.id,
-                email: storedUser.email,
-                role: (role === "desarrollador" || role === "admin" || role === "caja") ? role : null
-              }
-              
-              setSession(recoveredSession)
-              setUser(recoveredUser)
-              setInitialCheckDone(true)
-              setLoading(false)
-              return
             } catch (e) {
+              // Error al parsear, limpiar sessionStorage corrupto
+              sessionStorage.removeItem('supabase_session')
             }
           }
         }
         
         setSession(s)
         setUser(u)
+        finishLoading()
       } catch (error) {
         // En caso de error, asegurar que no hay sesión
         if (isMounted) {
           setSession(null)
           setUser(null)
         }
+        finishLoading()
       } finally {
-        // Siempre terminar el loading después de 2 segundos máximo
-        setTimeout(() => {
-          if (isMounted && !initialCheckDone) {
-            setInitialCheckDone(true)
-            setLoading(false)
-          }
+        // Timeout de seguridad: siempre terminar el loading después de 2 segundos máximo
+        timeoutId = setTimeout(() => {
+          finishLoading()
         }, 2000)
       }
     })()
     
     return () => {
       isMounted = false
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
       sub.unsubscribe()
     }
   }, [client, initialCheckDone])

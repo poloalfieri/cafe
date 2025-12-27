@@ -12,15 +12,16 @@ function mapUserRole(input: unknown): UserRole | null {
 export class SupabaseAuthClient implements AuthClient {
   async getSession(): Promise<AuthSession | null> {
     try {
-      // Reducir timeout a 2 segundos
-      const timeoutPromise = new Promise((_, reject) => 
+      // Timeout de 2 segundos para evitar que se quede colgado
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Timeout: getSession tardó más de 2 segundos")), 2000)
-      )
+      })
       
       const dataPromise = supabase.auth.getSession()
       
-      const { data } = await Promise.race([dataPromise, timeoutPromise]) as any
-      const s = data.session
+      const result = await Promise.race([dataPromise, timeoutPromise])
+      const { data } = result as { data: { session: any } }
+      const s = data?.session
       if (!s) {
         return null
       }
@@ -32,21 +33,23 @@ export class SupabaseAuthClient implements AuthClient {
       }
     } catch (error) {
       // En lugar de lanzar error, retornar null para que la app no se quede colgada
+      // Esto puede ocurrir por timeout o por error de red
       return null
     }
   }
 
   async getUser(): Promise<AuthUser | null> {
     try {
-      // Reducir timeout a 2 segundos
-      const timeoutPromise = new Promise((_, reject) => 
+      // Timeout de 2 segundos para evitar que se quede colgado
+      const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Timeout: getUser tardó más de 2 segundos")), 2000)
-      )
+      })
       
       const dataPromise = supabase.auth.getUser()
       
-      const { data } = await Promise.race([dataPromise, timeoutPromise]) as any
-      const u = data.user
+      const result = await Promise.race([dataPromise, timeoutPromise])
+      const { data } = result as { data: { user: any } }
+      const u = data?.user
       if (!u) {
         return null
       }
@@ -60,6 +63,7 @@ export class SupabaseAuthClient implements AuthClient {
       }
     } catch (error) {
       // En lugar de lanzar error, retornar null para que la app no se quede colgada
+      // Esto puede ocurrir por timeout o por error de red
       return null
     }
   }
