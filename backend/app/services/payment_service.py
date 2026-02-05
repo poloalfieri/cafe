@@ -6,6 +6,7 @@ Separa la lógica de negocio del controller HTTP
 from ..db.connection import get_db
 from ..db.models import Order, OrderStatus, PaymentStatus
 from ..services.mercadopago_service import MercadoPagoService
+from ..services.menu_service import menu_service
 from ..utils.logger import setup_logger
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
@@ -20,7 +21,7 @@ class PaymentService:
     """Servicio para manejar lógica de negocio de pagos"""
     
     @staticmethod
-    def init_payment(monto: float, mesa_id: str, descripcion: str) -> Dict:
+    def init_payment(monto: float, mesa_id: str, descripcion: str, items: list = None) -> Dict:
         """
         Inicializar pago con Mercado Pago Checkout Pro
         
@@ -38,10 +39,12 @@ class PaymentService:
         """
         # Validar datos ANTES del try-except para que ValueError se propague
         PaymentService._validate_required_fields(
-            {"monto": monto, "mesa_id": mesa_id, "descripcion": descripcion},
-            ["monto", "mesa_id", "descripcion"]
+            {"mesa_id": mesa_id, "items": items},
+            ["mesa_id", "items"]
         )
-        PaymentService._validate_amount(monto)
+        PaymentService._validate_items(items)
+        
+        priced_items, total_amount = PaymentService._price_items_from_menu(items)
         
         db = get_db()
         
@@ -52,12 +55,8 @@ class PaymentService:
                 mesa_id=mesa_id,
                 status=OrderStatus.PAYMENT_PENDING,
                 token=order_token,
-                total_amount=monto,
-                items=[{
-                    "name": descripcion,
-                    "quantity": 1,
-                    "price": monto
-                }]
+                total_amount=total_amount,
+                items=priced_items
             )
             
             db.add(new_order)
@@ -67,12 +66,8 @@ class PaymentService:
             # Crear preferencia en Mercado Pago
             order_data = {
                 "order_id": new_order.id,
-                "total_amount": monto,
-                "items": [{
-                    "name": descripcion,
-                    "quantity": 1,
-                    "price": monto
-                }],
+                "total_amount": total_amount,
+                "items": priced_items,
                 "mesa_id": mesa_id
             }
             
@@ -89,7 +84,7 @@ class PaymentService:
             new_order.payment_init_point = mp_response["init_point"]
             db.commit()
             
-            logger.info(f"Pago inicializado - mesa_id: {mesa_id}, monto: {monto}, order_id: {new_order.id}")
+            logger.info(f"Pago inicializado - mesa_id: {mesa_id}, monto: {total_amount}, order_id: {new_order.id}")
             
             return {
                 "success": True,
@@ -126,16 +121,16 @@ class PaymentService:
         """
         # Validar datos ANTES del try-except para que ValueError se propague
         PaymentService._validate_required_fields(
-            {"total_amount": total_amount, "items": items, "mesa_id": mesa_id},
-            ["total_amount", "items", "mesa_id"]
+            {"items": items, "mesa_id": mesa_id},
+            ["items", "mesa_id"]
         )
-        PaymentService._validate_amount(total_amount)
         PaymentService._validate_items(items)
+        priced_items, computed_total = PaymentService._price_items_from_menu(items)
         
         try:
             order_data = {
-                "total_amount": total_amount,
-                "items": items,
+                "total_amount": computed_total,
+                "items": priced_items,
                 "mesa_id": mesa_id
             }
             
@@ -144,12 +139,13 @@ class PaymentService:
             if not mp_response["success"]:
                 raise Exception(mp_response["error"])
             
-            logger.info(f"Preferencia creada - mesa_id: {mesa_id}, monto: {total_amount}")
+            logger.info(f"Preferencia creada - mesa_id: {mesa_id}, monto: {computed_total}")
             
             return {
                 "success": True,
                 "init_point": mp_response["init_point"],
-                "preference_id": mp_response["preference_id"]
+                "preference_id": mp_response["preference_id"],
+                "total_amount": computed_total
             }
             
         except Exception as e:
@@ -308,10 +304,49 @@ class PaymentService:
             if not isinstance(item, dict):
                 raise ValueError(f"Item {idx} debe ser un objeto")
             
-            required_item_fields = ["name", "quantity", "price"]
+            required_item_fields = ["id", "quantity"]
             for field in required_item_fields:
                 if field not in item:
                     raise ValueError(f"Item {idx}: campo requerido '{field}'")
+            
+            try:
+                quantity = int(item.get("quantity", 0))
+                if quantity <= 0:
+                    raise ValueError
+            except Exception:
+                raise ValueError(f"Item {idx}: quantity inválido")
+
+    @staticmethod
+    def _price_items_from_menu(items: list) -> tuple[list, float]:
+        """Recalcular precios usando el menú del servidor"""
+        priced_items = []
+        total = 0.0
+        
+        for idx, item in enumerate(items):
+            try:
+                item_id = int(item.get("id"))
+            except Exception:
+                raise ValueError(f"Item {idx}: id inválido")
+            
+            menu_item = menu_service.get_item_by_id(item_id)
+            if not menu_item:
+                raise ValueError(f"Item {idx}: producto no encontrado")
+            if menu_item.get("available") is False:
+                raise ValueError(f"Item {idx}: producto no disponible")
+            
+            quantity = int(item.get("quantity", 0))
+            price = float(menu_item["price"])
+            line_total = price * quantity
+            total += line_total
+            
+            priced_items.append({
+                "id": str(menu_item["id"]),
+                "name": menu_item["name"],
+                "quantity": quantity,
+                "price": price
+            })
+        
+        return priced_items, round(total, 2)
 
 
 # Instancia singleton

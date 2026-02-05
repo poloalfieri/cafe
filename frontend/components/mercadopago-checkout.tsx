@@ -13,6 +13,7 @@ initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || "");
 
 interface MercadoPagoCheckoutProps {
   items: Array<{
+    id: string;
     name: string;
     quantity: number;
     price: number;
@@ -48,7 +49,10 @@ export function MercadoPagoCheckout({
     try {
       const data = await api.post("/api/payment/create-preference", {
         total_amount: totalAmount,
-        items: items,
+        items: items.map((item) => ({
+          id: item.id,
+          quantity: item.quantity,
+        })),
         mesa_id: mesaId,
       });
 
