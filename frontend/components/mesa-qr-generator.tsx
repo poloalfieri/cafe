@@ -58,8 +58,8 @@ export function MesaQRGenerator({ mesaId }: MesaQRGeneratorProps) {
     }
   }
 
-  const generateQRUrl = (tokenValue: string) => {
-    const url = `${window.location.origin}/usuario?mesa_id=${mesaId}&token=${tokenValue}`
+  const generateQRUrl = (_tokenValue: string) => {
+    const url = `${window.location.origin}/usuario?mesa_id=${mesaId}`
     setQrUrl(url)
   }
 

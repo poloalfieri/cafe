@@ -6,7 +6,7 @@ from datetime import datetime
 from sqlalchemy.exc import SQLAlchemyError
 from ..db.connection import get_db
 from ..db.models import Order, OrderStatus
-from ..utils.token_manager import validate_token, renew_token, generate_token
+from ..utils.token_manager import validate_token, renew_token, generate_token, invalidate_token
 from ..utils.logger import setup_logger
 import uuid
 
@@ -186,6 +186,11 @@ class OrderService:
             # Actualizar timestamp si es pago completado
             if new_status == OrderStatus.PAID:
                 order.paid_at = datetime.utcnow()
+                try:
+                    invalidate_token(order.mesa_id)
+                    logger.info(f"Token de mesa invalidado tras pago manual: mesa_id={order.mesa_id}")
+                except Exception as e:
+                    logger.warning(f"No se pudo invalidar token de mesa {order.mesa_id}: {str(e)}")
             
             db.commit()
             db.refresh(order)
@@ -277,6 +282,11 @@ class OrderService:
             db.refresh(order)
             
             logger.info(f"Pedido {order_id} cancelado. Razón: {reason}")
+            try:
+                invalidate_token(order.mesa_id)
+                logger.info(f"Token de mesa invalidado tras cancelación: mesa_id={order.mesa_id}")
+            except Exception as e:
+                logger.warning(f"No se pudo invalidar token de mesa {order.mesa_id}: {str(e)}")
             
             return self._serialize_order(order)
             

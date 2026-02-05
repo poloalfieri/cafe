@@ -113,3 +113,20 @@ def renew_mesa_token(mesa_id):
         logger.error(f"Error renovando token: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
         return jsonify({"error": str(e)}), 500 
+
+@mesa_bp.route("/session/start", methods=["POST"])
+def start_mesa_session():
+    """Obtener o crear un token de sesión para una mesa (clientes)"""
+    try:
+        data = request.get_json() or {}
+        mesa_id = data.get("mesa_id")
+        if not mesa_id:
+            return jsonify({"error": "mesa_id requerido"}), 400
+
+        result = mesa_service.get_or_create_session(mesa_id, expiry_minutes=30)
+        return jsonify({"success": True, **result}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error iniciando sesión de mesa: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500

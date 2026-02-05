@@ -7,20 +7,33 @@ import { useSearchParams } from "next/navigation"
 function UsuarioPageContent() {
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
-  const token = searchParams.get("token")
 
   useEffect(() => {
-    if (!mesa_id || !token) return
-    try {
-      sessionStorage.setItem("mesa_session", JSON.stringify({ mesa_id, token }))
-      if (typeof window !== "undefined") {
-        const cleanUrl = `${window.location.origin}/usuario`
-        window.history.replaceState({}, "", cleanUrl)
+    if (!mesa_id) return
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+    ;(async () => {
+      try {
+        const res = await fetch(`${backendUrl}/mesa/session/start`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ mesa_id }),
+        })
+        const data = await res.json()
+        if (res.ok && data?.token) {
+          sessionStorage.setItem("mesa_session", JSON.stringify({ mesa_id, token: data.token }))
+        }
+      } catch (_) {
+        // Ignore
+      } finally {
+        if (typeof window !== "undefined") {
+          const cleanUrl = `${window.location.origin}/usuario`
+          window.history.replaceState({}, "", cleanUrl)
+        }
       }
-    } catch (_) {
-      // Ignore storage errors
-    }
-  }, [mesa_id, token])
+    })()
+  }, [mesa_id])
 
   return (
     <div className="min-h-screen bg-background">

@@ -346,6 +346,42 @@ class MesaService:
                 'expires_in_minutes': expiry_minutes,
                 'expires_at': expires_at.isoformat()
             }
+
+    def get_or_create_session(self, mesa_id: str, expiry_minutes: int = 30) -> Dict:
+        """
+        Obtener el token actual de una mesa si es válido; si no, generar uno nuevo.
+        """
+        try:
+            mesa = self.get_mesa_by_id(mesa_id)
+            if not mesa:
+                raise ValueError(f"La mesa {mesa_id} no existe")
+
+            if not mesa.get('is_active', False):
+                raise ValueError(f"La mesa {mesa_id} no está activa")
+
+            current_token = mesa.get('current_token')
+            expires_at = mesa.get('token_expires_at')
+
+            # Si hay token y no expiró, reutilizarlo
+            if current_token and expires_at:
+                if isinstance(expires_at, str):
+                    expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+                if datetime.utcnow() <= expires_at:
+                    return {
+                        'mesa_id': mesa_id,
+                        'token': current_token,
+                        'expires_in_minutes': int((expires_at - datetime.utcnow()).total_seconds() // 60),
+                        'expires_at': expires_at.isoformat()
+                    }
+
+            # Si no hay token válido, generar uno nuevo
+            return self.generate_token_for_mesa(mesa_id, expiry_minutes=expiry_minutes)
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error obteniendo sesión para mesa {mesa_id}: {str(e)}")
+            raise Exception("Error al obtener sesión de mesa")
             
         except ValueError:
             raise

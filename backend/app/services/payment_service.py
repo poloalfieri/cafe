@@ -8,6 +8,7 @@ from ..db.models import Order, OrderStatus, PaymentStatus
 from ..services.mercadopago_service import MercadoPagoService
 from ..services.menu_service import menu_service
 from ..utils.logger import setup_logger
+from ..utils.token_manager import invalidate_token
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 import uuid
@@ -192,6 +193,12 @@ class PaymentService:
             db.commit()
             
             logger.info(f"Pago aprobado - order_id: {order.id}, payment_id: {payment_id}")
+
+            try:
+                invalidate_token(order.mesa_id)
+                logger.info(f"Token de mesa invalidado tras pago aprobado: mesa_id={order.mesa_id}")
+            except Exception as e:
+                logger.warning(f"No se pudo invalidar token de mesa {order.mesa_id}: {str(e)}")
             
             return {
                 "success": True,
