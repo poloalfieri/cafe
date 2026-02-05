@@ -6,6 +6,7 @@ import WaiterCallCard from "@/components/waiter-call-card"
 import { RefreshCw, Clock, CheckCircle, AlertCircle, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getClientAuthHeader } from "@/lib/fetcher"
 
 interface OrderItem {
   id: string
@@ -45,7 +46,11 @@ export default function KitchenDashboard() {
     setLoading(true)
     
     // Fetch orders
-    fetch(`${backendUrl}/order`)
+    fetch(`${backendUrl}/order`, {
+      headers: {
+        ...getClientAuthHeader(),
+      },
+    })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
@@ -95,7 +100,11 @@ export default function KitchenDashboard() {
       })
 
     // Fetch waiter calls
-    fetch(`${backendUrl}/waiter/calls`)
+    fetch(`${backendUrl}/waiter/calls`, {
+      headers: {
+        ...getClientAuthHeader(),
+      },
+    })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`)
@@ -141,7 +150,11 @@ export default function KitchenDashboard() {
     
     try {
       // Refresh orders
-      const ordersResponse = await fetch(`${backendUrl}/order`)
+      const ordersResponse = await fetch(`${backendUrl}/order`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json()
         const processedOrders = Array.isArray(ordersData) ? ordersData.map(order => ({
@@ -154,7 +167,11 @@ export default function KitchenDashboard() {
       }
 
       // Refresh waiter calls
-      const callsResponse = await fetch(`${backendUrl}/waiter/calls`)
+      const callsResponse = await fetch(`${backendUrl}/waiter/calls`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       if (callsResponse.ok) {
         const callsData = await callsResponse.json()
         if (callsData.success && Array.isArray(callsData.calls)) {
@@ -176,7 +193,10 @@ export default function KitchenDashboard() {
     try {
       const response = await fetch(`${backendUrl}/payment/accept-order/${orderId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: {
+          "Content-Type": "application/json",
+          ...getClientAuthHeader(),
+        }
       })
       
       if (response.ok) {
@@ -196,7 +216,10 @@ export default function KitchenDashboard() {
     try {
       const response = await fetch(`${backendUrl}/payment/reject-order/${orderId}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: {
+          "Content-Type": "application/json",
+          ...getClientAuthHeader(),
+        }
       })
       
       if (response.ok) {
@@ -218,6 +241,7 @@ export default function KitchenDashboard() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...getClientAuthHeader(),
         },
         body: JSON.stringify({
           status: newStatus

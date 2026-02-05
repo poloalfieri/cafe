@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MesaQRGenerator } from "./mesa-qr-generator"
+import { api, getClientAuthHeader } from "@/lib/fetcher"
 
 interface Mesa {
   id: string
@@ -38,8 +39,7 @@ export default function CajeroDashboard() {
     fetchData()
     ;(async () => {
       try {
-        const res = await fetch('/api/ingredients?page=1&pageSize=1000')
-        const json = await res.json()
+        const json = await api.get('/api/ingredients?page=1&pageSize=1000')
         const list = json.data?.ingredients || []
         const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
           .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
@@ -55,7 +55,11 @@ export default function CajeroDashboard() {
     setLoading(true)
     try {
       // Fetch mesas
-      const mesasResponse = await fetch(`${backendUrl}/mesa/list`)
+      const mesasResponse = await fetch(`${backendUrl}/mesa/list`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       if (mesasResponse.ok) {
         const mesasData = await mesasResponse.json()
         setMesas(mesasData.mesas || [])
@@ -72,7 +76,11 @@ export default function CajeroDashboard() {
       }
 
       // Fetch orders
-      const ordersResponse = await fetch(`${backendUrl}/order`)
+      const ordersResponse = await fetch(`${backendUrl}/order`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json()
         setOrders(ordersData || [])

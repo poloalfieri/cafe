@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Loader2, CreditCard, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/fetcher";
 
 // Inicializar Mercado Pago con la clave pública
 initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY || "");
@@ -45,23 +46,11 @@ export function MercadoPagoCheckout({
     setError(null);
 
     try {
-      const response = await fetch("/api/payment/create-preference", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          total_amount: totalAmount,
-          items: items,
-          mesa_id: mesaId,
-        }),
+      const data = await api.post("/api/payment/create-preference", {
+        total_amount: totalAmount,
+        items: items,
+        mesa_id: mesaId,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Error al crear la preferencia de pago");
-      }
 
       if (data.success) {
         setPreference({
@@ -74,8 +63,8 @@ export function MercadoPagoCheckout({
       } else {
         throw new Error(data.error || "Error desconocido");
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+    } catch (err: any) {
+      const errorMessage = err?.data?.error || err?.message || "Error desconocido";
       setError(errorMessage);
       toast.error(errorMessage);
       onPaymentError?.(errorMessage);

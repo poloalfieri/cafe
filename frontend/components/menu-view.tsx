@@ -136,19 +136,24 @@ export default function MenuView() {
     setShowCallWaiterModal(true)
   }
 
-  const handleConfirmCallWaiter = async (message?: string): Promise<void> => {
+  const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
-      // Mesa hardcodeada para demo - en producción esto vendría del contexto de la mesa
-      const mesa_id = "Mesa 1"
+      if (!mesa_id || !token) {
+        setShowCallWaiterModal(false)
+        return
+      }
       
       const response = await fetch(`${backendUrl}/waiter/calls`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({
           mesa_id: mesa_id,
-          message: message || ""
+          token: token,
+          payment_method: data.paymentMethod,
+          message: data.message || ""
         }),
       })
 

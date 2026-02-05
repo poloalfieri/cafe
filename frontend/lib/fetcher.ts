@@ -9,15 +9,39 @@ export class FetchError extends Error {
   }
 }
 
+function getClientAccessToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = sessionStorage.getItem('supabase_session')
+    if (!stored) return null
+    const parsed = JSON.parse(stored)
+    const token = parsed?.session?.access_token
+    return typeof token === 'string' ? token : null
+  } catch {
+    return null
+  }
+}
+
+export function getClientAuthHeader(): Record<string, string> {
+  const token = getClientAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export async function fetcher<T = any>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const headers = new Headers(options.headers || {})
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  const token = getClientAccessToken()
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
   const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
     ...options,
   })
 

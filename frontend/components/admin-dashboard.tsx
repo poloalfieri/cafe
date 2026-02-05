@@ -29,6 +29,7 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { api } from "@/lib/fetcher"
 
 interface DashboardMetrics {
   dailySales: number
@@ -65,8 +66,7 @@ export default function AdminDashboard() {
     // Low stock check on each load
     ;(async () => {
       try {
-        const res = await fetch('/api/ingredients?page=1&pageSize=1000')
-        const json = await res.json()
+        const json = await api.get('/api/ingredients?page=1&pageSize=1000')
         const list = json.data?.ingredients || []
         const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
           .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
@@ -80,8 +80,7 @@ export default function AdminDashboard() {
     setLoading(true)
     try {
       // Fetch ingredients data from API
-      const ingredientsResponse = await fetch('/api/ingredients')
-      const ingredientsData = await ingredientsResponse.json()
+      const ingredientsData = await api.get('/api/ingredients')
       
       const totalIngredients = ingredientsData.data?.ingredients?.length || 0
       const lowStockItems = ingredientsData.data?.ingredients?.filter((ing: any) => ing.currentStock < 100).length || 0

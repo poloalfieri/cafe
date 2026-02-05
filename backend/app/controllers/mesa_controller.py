@@ -14,7 +14,7 @@ mesa_bp = Blueprint("mesa", __name__, url_prefix="/mesa")
 
 @mesa_bp.route("/list", methods=["GET"])
 @require_auth
-@require_roles('desarrollador', 'admin')
+@require_roles('desarrollador', 'admin', 'caja')
 def list_mesas():
     """Listar todas las mesas"""
     try:
