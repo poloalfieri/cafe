@@ -1,6 +1,6 @@
 """
 Controller para manejar llamadas y notificaciones al mozo
-Delegado completamente a waiter_service para lógica de negocio
+Delegado completamente a waiter_service para logica de negocio
 """
 
 from flask import Blueprint, request, jsonify
@@ -15,21 +15,21 @@ waiter_bp = Blueprint('waiter', __name__, url_prefix='/waiter')
 
 @waiter_bp.route('/calls', methods=['POST'])
 def create_waiter_call():
-    """Crear una nueva llamada al mozo"""
+    """Crear una nueva llamada al mozo (endpoint principal de creacion)"""
     try:
         data = request.get_json()
         mesa_id = data.get('mesa_id') if data else None
         token = data.get('token') if data else None
         if not mesa_id or not token or not validate_token(mesa_id, token):
-            return jsonify({'error': 'Token de mesa inválido o requerido'}), 401
+            return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
         call = waiter_service.create_waiter_call(data)
-        
+
         return jsonify({
             'success': True,
             'message': 'Llamada al mozo creada exitosamente',
             'call': call
         }), 201
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -44,12 +44,12 @@ def get_waiter_calls():
     try:
         status = request.args.get('status')
         calls = waiter_service.get_all_calls(status)
-        
+
         return jsonify({
             'success': True,
             'calls': calls
         }), 200
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -63,21 +63,21 @@ def update_waiter_call_status(call_id):
     """Actualizar el estado de una llamada al mozo"""
     try:
         data = request.get_json()
-        
+
         if not data or 'status' not in data:
             return jsonify({'error': 'status es requerido'}), 400
-        
+
         updated_call = waiter_service.update_call_status(call_id, data['status'])
-        
+
         if not updated_call:
             return jsonify({'error': 'Llamada no encontrada'}), 404
-        
+
         return jsonify({
             'success': True,
             'message': 'Estado de llamada actualizado exitosamente',
             'call': updated_call
         }), 200
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -88,42 +88,45 @@ def update_waiter_call_status(call_id):
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def delete_waiter_call(call_id):
-    """Eliminar una llamada al mozo"""
+    """Eliminar (soft delete) una llamada al mozo - marca como CANCELLED"""
     try:
         deleted_call = waiter_service.delete_call(call_id)
-        
+
         if not deleted_call:
             return jsonify({'error': 'Llamada no encontrada'}), 404
-        
+
         return jsonify({
             'success': True,
-            'message': 'Llamada eliminada exitosamente',
+            'message': 'Llamada cancelada exitosamente',
             'call': deleted_call
         }), 200
-        
+
     except Exception as e:
-        logger.error(f"Error eliminando llamada: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500 
+        logger.error(f"Error cancelando llamada: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @waiter_bp.route('/notificar-mozo', methods=['POST'])
 def notificar_mozo():
-    """Notificar al mozo con motivo específico (pago_efectivo, pago_tarjeta, pago_qr)"""
+    """
+    Notificar al mozo con motivo especifico (pago_efectivo, pago_tarjeta, pago_qr).
+    Delega a la misma logica de creacion que /waiter/calls.
+    """
     try:
         data = request.get_json()
         mesa_id = data.get('mesa_id') if data else None
         token = data.get('token') if data else None
         if not mesa_id or not token or not validate_token(mesa_id, token):
-            return jsonify({'error': 'Token de mesa inválido o requerido'}), 401
+            return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
         notification = waiter_service.create_notification(data)
-        
+
         return jsonify({
             'success': True,
-            'message': 'Notificación al mozo enviada exitosamente',
+            'message': 'Notificacion al mozo enviada exitosamente',
             'notification': notification
         }), 201
-        
+
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         logger.error(f"Error notificando al mozo: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500 
+        return jsonify({'error': 'Error interno del servidor'}), 500

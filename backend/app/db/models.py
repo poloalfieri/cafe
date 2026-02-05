@@ -27,7 +27,8 @@ class PaymentStatus(enum.Enum):
 
 class WaiterCallStatus(enum.Enum):
     PENDING = "PENDING"
-    ATTENDED = "ATTENDED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
 
 class PaymentMethod(enum.Enum):
     CARD = "CARD"
@@ -66,8 +67,8 @@ class Product(Base):
 
 class WaiterCall(Base):
     __tablename__ = "waiter_calls"
-    id = Column(Integer, primary_key=True)
-    mesa_id = Column(String(50), nullable=False)
+    id = Column(String(36), primary_key=True)  # UUID from Supabase
+    mesa_id = Column(String(36), nullable=False)  # UUID reference to mesas(id)
     payment_method = Column(Enum(PaymentMethod), nullable=False)
     status = Column(Enum(WaiterCallStatus), default=WaiterCallStatus.PENDING)
     usuario_id = Column(String(100), nullable=True)

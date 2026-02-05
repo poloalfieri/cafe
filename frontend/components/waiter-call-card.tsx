@@ -1,13 +1,13 @@
 "use client"
 
-import { Clock, Bell, CheckCircle, Plus, User, CreditCard, Banknote, QrCode } from "lucide-react"
+import { Clock, Bell, CheckCircle, XCircle, CreditCard, Banknote, QrCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface WaiterCall {
   id: string
   mesa_id: string
   created_at: string
-  status: "PENDING" | "ATTENDED"
+  status: "PENDING" | "COMPLETED" | "CANCELLED"
   message?: string
   payment_method: "CARD" | "CASH" | "QR"
 }
@@ -15,10 +15,9 @@ interface WaiterCall {
 interface WaiterCallCardProps {
   call: WaiterCall
   onStatusUpdate: (callId: string, newStatus: WaiterCall["status"]) => void
-  onCreateOrder: (mesa_id: string) => void
 }
 
-export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: WaiterCallCardProps) {
+export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardProps) {
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString("es-ES", {
@@ -63,8 +62,10 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
 
   const timeElapsed = getTimeElapsed(call.created_at)
   const isUrgent =
-    getTimeElapsed(call.created_at).includes("h") ||
-    (getTimeElapsed(call.created_at).includes("m") && Number.parseInt(getTimeElapsed(call.created_at)) > 10)
+    timeElapsed.includes("h") ||
+    (timeElapsed.includes("m") && Number.parseInt(timeElapsed) > 10)
+
+  const isPending = call.status === "PENDING"
 
   return (
     <div
@@ -90,7 +91,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
                 <Bell className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-orange-500"}`} />
                 {call.mesa_id}
               </h3>
-              <p className="text-xs text-gray-600">#{call.id}</p>
+              <p className="text-xs text-gray-600">#{call.id.slice(0, 8)}</p>
             </div>
           </div>
           <div
@@ -118,7 +119,7 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
 
       {/* Contenido */}
       <div className="p-4">
-        {/* Método de Pago */}
+        {/* Metodo de Pago */}
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
           <div className="flex items-center gap-2 text-gray-900">
             {getPaymentMethodIcon(call.payment_method)}
@@ -129,37 +130,31 @@ export default function WaiterCallCard({ call, onStatusUpdate, onCreateOrder }: 
         {call.message && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-900">
-              <span className="font-medium text-gray-600">Motivo:</span> {call.message}
+              <span className="font-medium text-gray-600">Mensaje:</span> {call.message}
             </p>
           </div>
         )}
 
-        {/* Acciones */}
-        <div className="space-y-2">
+        {/* Acciones - solo visibles si esta PENDING */}
+        {isPending && (
           <div className="grid grid-cols-2 gap-2">
             <Button
-              onClick={() => onStatusUpdate(call.id, "ATTENDED")}
+              onClick={() => onStatusUpdate(call.id, "COMPLETED")}
               className="bg-green-600 hover:bg-green-700 text-white"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Atendido
+              Completar
             </Button>
             <Button
-              onClick={() => onCreateOrder(call.mesa_id)}
-              className="bg-gray-900 hover:bg-gray-800 text-white"
+              onClick={() => onStatusUpdate(call.id, "CANCELLED")}
+              variant="outline"
+              className="border-red-300 text-red-600 hover:bg-red-50"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Crear Pedido
+              <XCircle className="w-4 h-4 mr-2" />
+              Cancelar
             </Button>
           </div>
-
-          <div className="text-center py-2">
-            <p className="text-xs text-gray-600 flex items-center justify-center gap-1">
-              <User className="w-3 h-3" />
-              Cliente esperando atención
-            </p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )

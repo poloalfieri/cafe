@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { RefreshCw, Users, CheckCircle, Clock, QrCode, Plus, Minus } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { RefreshCw, Users, CheckCircle, Clock, QrCode, Plus, Minus, Bell } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MesaQRGenerator } from "./mesa-qr-generator"
+import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeader } from "@/lib/fetcher"
 
 interface Mesa {
@@ -27,16 +28,50 @@ interface Order {
   items: any[]
 }
 
+interface WaiterCall {
+  id: string
+  mesa_id: string
+  created_at: string
+  status: "PENDING" | "COMPLETED" | "CANCELLED"
+  message?: string
+  payment_method: "CARD" | "CASH" | "QR"
+}
+
+const POLLING_INTERVAL_MS = 5000
+
 export default function CajeroDashboard() {
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [orders, setOrders] = useState<Order[]>([])
+  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMesa, setSelectedMesa] = useState<string>("1")
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+
+  const fetchWaiterCalls = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendUrl}/waiter/calls?status=PENDING`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.calls)) {
+          setWaiterCalls(data.calls)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching waiter calls:", error)
+    }
+  }, [backendUrl])
 
   useEffect(() => {
     fetchData()
+    fetchWaiterCalls()
     ;(async () => {
       try {
         const json = await api.get('/api/ingredients?page=1&pageSize=1000')
@@ -49,7 +84,18 @@ export default function CajeroDashboard() {
     })()
   }, [])
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  // Polling for waiter calls every 5 seconds
+  useEffect(() => {
+    pollingRef.current = setInterval(() => {
+      fetchWaiterCalls()
+    }, POLLING_INTERVAL_MS)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
+  }, [fetchWaiterCalls])
 
   const fetchData = async () => {
     setLoading(true)
@@ -161,8 +207,31 @@ export default function CajeroDashboard() {
     return mesaOrders.reduce((total, order) => total + order.total_amount, 0)
   }
 
+  const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
+    try {
+      const response = await fetch(`${backendUrl}/waiter/calls/${callId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...getClientAuthHeader(),
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      if (response.ok) {
+        setWaiterCalls(prev => prev.filter(call => call.id !== callId))
+      } else {
+        const errorData = await response.json()
+        console.error("Error actualizando estado de llamada:", errorData.error)
+      }
+    } catch (error) {
+      console.error("Error actualizando estado de llamada:", error)
+    }
+  }
+
   const refreshData = () => {
     fetchData()
+    fetchWaiterCalls()
   }
 
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
@@ -283,21 +352,55 @@ export default function CajeroDashboard() {
             </div>
           </DialogContent>
         </Dialog>
-        <Tabs defaultValue="mesas" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-white border border-gray-200">
+        <Tabs defaultValue="pagos" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-gray-200">
+            <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+              <Bell className="w-4 h-4" />
+              Pagos ({waiterCalls.length})
+              {waiterCalls.length > 0 && (
+                <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {waiterCalls.length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              <span>🪑</span>
               Mesas ({mesas.length})
             </TabsTrigger>
             <TabsTrigger value="qr" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
               <QrCode className="w-4 h-4" />
-              Generar QR
+              QR
             </TabsTrigger>
             <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              <span>📋</span>
               Pedidos ({orders.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="pagos">
+            {loading ? (
+              <div className="text-center py-12">
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
+                <p className="text-gray-600">Cargando solicitudes...</p>
+              </div>
+            ) : waiterCalls.length === 0 ? (
+              <div className="text-center py-12">
+                <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
+                <p className="text-gray-600">Todas las solicitudes de pago fueron atendidas</p>
+                <p className="text-gray-400 text-sm mt-2">Se actualiza automaticamente cada 5 segundos</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">Se actualiza automaticamente cada 5 segundos</p>
+                {waiterCalls.map((call) => (
+                  <WaiterCallCard
+                    key={call.id}
+                    call={call}
+                    onStatusUpdate={updateCallStatus}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
 
           <TabsContent value="mesas">
             {loading ? (

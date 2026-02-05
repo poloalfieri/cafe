@@ -129,38 +129,36 @@ export default function PaymentModal({
     return trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined'
   }
 
-  const handleWaiterNotification = async (motivo: string) => {
+  const handleWaiterNotification = async (paymentMethod: string) => {
     setIsLoading(true)
     setErrorMessage(null)
     
-    // Validar que mesaId y mesaToken sean válidos antes de enviar
+    // Validar que mesaId y mesaToken sean validos antes de enviar
     if (!isValidParam(mesaId)) {
-      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la página escaneando el QR nuevamente.')
+      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la pagina escaneando el QR nuevamente.')
       setIsLoading(false)
       return
     }
     
     if (!isValidParam(mesaToken)) {
-      setErrorMessage('Error: Token de mesa inválido. Recarga la página escaneando el QR nuevamente.')
+      setErrorMessage('Error: Token de mesa invalido. Recarga la pagina escaneando el QR nuevamente.')
       setIsLoading(false)
       return
     }
     
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
-      const response = await fetch(`${backendUrl}/waiter/notificar-mozo`, {
+      const response = await fetch(`${backendUrl}/waiter/calls`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Enviar token en header Authorization para mayor seguridad
           'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
           mesa_id: mesaId,
-          token: mesaToken,  // También en body para compatibilidad
-          motivo: motivo,
-          usuario_id: 'cliente',
-          message: `Solicitud de pago - ${motivo}`
+          token: mesaToken,
+          payment_method: paymentMethod,
+          message: `Solicitud de pago - ${paymentMethod}`
         }),
       })
 
@@ -173,12 +171,11 @@ export default function PaymentModal({
       }
       
       if (data.success) {
-        setSuccessMessage('Ya se notificó al mozo y estará acercándose a su mesa en la brevedad.')
+        setSuccessMessage('Ya se notifico al mozo y estara acercandose a su mesa en la brevedad.')
       } else {
         throw new Error(data.error || 'Error al notificar al mozo')
       }
     } catch (error) {
-      // Error ya manejado por setErrorMessage
       setErrorMessage(error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setIsLoading(false)
@@ -201,7 +198,7 @@ export default function PaymentModal({
       title: 'Tarjeta Física',
       description: 'El mozo traerá el posnet',
       icon: <CreditCard className="w-5 h-5" />,
-      action: () => handleWaiterNotification('pago_tarjeta'),
+      action: () => handleWaiterNotification('CARD'),
       buttonText: 'Solicitar Posnet',
       message: 'Llegará en 2-3 minutos',
       color: 'text-gray-600',
@@ -212,7 +209,7 @@ export default function PaymentModal({
       title: 'Efectivo',
       description: 'El mozo pasará a cobrar',
       icon: <DollarSign className="w-5 h-5" />,
-      action: () => handleWaiterNotification('pago_efectivo'),
+      action: () => handleWaiterNotification('CASH'),
       buttonText: 'Solicitar Cobro',
       message: 'Llegará en 2-3 minutos',
       color: 'text-gray-600',
@@ -223,7 +220,7 @@ export default function PaymentModal({
       title: 'QR del Mozo',
       description: 'Esperá que te acerque el QR',
       icon: <QrCode className="w-5 h-5" />,
-      action: () => handleWaiterNotification('pago_qr'),
+      action: () => handleWaiterNotification('QR'),
       buttonText: 'Solicitar QR',
       message: 'Llegará en 2-3 minutos',
       color: 'text-gray-600',

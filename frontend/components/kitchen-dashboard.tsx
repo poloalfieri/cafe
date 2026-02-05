@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import OrderCard from "@/components/order-card"
 import WaiterCallCard from "@/components/waiter-call-card"
 import { RefreshCw, Clock, CheckCircle, AlertCircle, Bell } from "lucide-react"
@@ -30,9 +30,12 @@ interface WaiterCall {
   id: string
   mesa_id: string
   created_at: string
-  status: "PENDING" | "ATTENDED"
+  status: "PENDING" | "COMPLETED" | "CANCELLED"
   message?: string
+  payment_method: "CARD" | "CASH" | "QR"
 }
+
+const POLLING_INTERVAL_MS = 5000
 
 export default function KitchenDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -40,149 +43,77 @@ export default function KitchenDashboard() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "paid" | "pending">("all")
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Simulación de datos - en producción esto vendría de tu API
+  const fetchWaiterCalls = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendUrl}/waiter/calls?status=PENDING`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      if (data.success && Array.isArray(data.calls)) {
+        setWaiterCalls(data.calls)
+      }
+    } catch (error) {
+      console.error("Error fetching waiter calls:", error)
+    }
+  }, [backendUrl])
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const response = await fetch(`${backendUrl}/order`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      const processedOrders = Array.isArray(data) ? data.map(order => ({
+        ...order,
+        items: order.items || [],
+        total: order.total || 0,
+        paid_at: order.paid_at || undefined
+      })) : []
+      setOrders(processedOrders)
+    } catch (error) {
+      console.error("Error fetching orders:", error)
+    }
+  }, [backendUrl])
+
+  // Initial load
   useEffect(() => {
-    setLoading(true)
-    
-    // Fetch orders
-    fetch(`${backendUrl}/order`, {
-      headers: {
-        ...getClientAuthHeader(),
-      },
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        return res.json()
-      })
-      .then((data) => {
-        // Ensure data is an array and has the expected structure
-        const processedOrders = Array.isArray(data) ? data.map(order => ({
-          ...order,
-          items: order.items || [], // Add empty items array if not present
-          total: order.total || 0, // Add total if not present
-          paid_at: order.paid_at || undefined
-        })) : []
-        setOrders(processedOrders)
-      })
-      .catch((error) => {
-        console.error("Error fetching orders:", error)
-        // Add sample orders data when backend is not available
-        const sampleOrders: Order[] = [
-          {
-            id: "1",
-            mesa_id: "Mesa 1",
-            items: [
-              { id: "1", name: "Café Americano", quantity: 2, price: 3.50 },
-              { id: "2", name: "Croissant", quantity: 1, price: 2.50 }
-            ],
-            total: 9.50,
-            status: "PAYMENT_PENDING",
-            created_at: new Date().toISOString(),
-            paid_at: undefined
-          },
-          {
-            id: "2",
-            mesa_id: "Mesa 2", 
-            items: [
-              { id: "3", name: "Cappuccino", quantity: 1, price: 4.00 },
-              { id: "4", name: "Tarta de Manzana", quantity: 1, price: 5.00 }
-            ],
-            total: 9.00,
-            status: "PAID",
-            created_at: new Date(Date.now() - 600000).toISOString(), // 10 minutes ago
-            paid_at: new Date(Date.now() - 300000).toISOString() // 5 minutes ago
-          }
-        ]
-        setOrders(sampleOrders)
-      })
+    const loadAll = async () => {
+      setLoading(true)
+      await Promise.all([fetchOrders(), fetchWaiterCalls()])
+      setLoading(false)
+    }
+    loadAll()
+  }, [fetchOrders, fetchWaiterCalls])
 
-    // Fetch waiter calls
-    fetch(`${backendUrl}/waiter/calls`, {
-      headers: {
-        ...getClientAuthHeader(),
-      },
-    })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`)
-        }
-        return res.json()
-      })
-      .then((data) => {
-        if (data.success && Array.isArray(data.calls)) {
-          setWaiterCalls(data.calls)
-        } else {
-          console.error("Invalid waiter calls data format:", data)
-          setWaiterCalls([])
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching waiter calls:", error)
-        // Add sample waiter calls data for demonstration when backend is not available
-        const sampleWaiterCalls: WaiterCall[] = [
-          {
-            id: "1",
-            mesa_id: "Mesa 1",
-            created_at: new Date().toISOString(),
-            status: "PENDING",
-            message: "Necesito más servilletas"
-          },
-          {
-            id: "2", 
-            mesa_id: "Mesa 3",
-            created_at: new Date(Date.now() - 300000).toISOString(), // 5 minutes ago
-            status: "PENDING",
-            message: "¿Pueden traer la cuenta?"
-          }
-        ]
-        setWaiterCalls(sampleWaiterCalls)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [])
+  // Polling for waiter calls every 5 seconds
+  useEffect(() => {
+    pollingRef.current = setInterval(() => {
+      fetchWaiterCalls()
+    }, POLLING_INTERVAL_MS)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+      }
+    }
+  }, [fetchWaiterCalls])
 
   const refreshData = async () => {
     setLoading(true)
-    
-    try {
-      // Refresh orders
-      const ordersResponse = await fetch(`${backendUrl}/order`, {
-        headers: {
-          ...getClientAuthHeader(),
-        },
-      })
-      if (ordersResponse.ok) {
-        const ordersData = await ordersResponse.json()
-        const processedOrders = Array.isArray(ordersData) ? ordersData.map(order => ({
-          ...order,
-          items: order.items || [],
-          total: order.total || 0,
-          paid_at: order.paid_at || undefined
-        })) : []
-        setOrders(processedOrders)
-      }
-
-      // Refresh waiter calls
-      const callsResponse = await fetch(`${backendUrl}/waiter/calls`, {
-        headers: {
-          ...getClientAuthHeader(),
-        },
-      })
-      if (callsResponse.ok) {
-        const callsData = await callsResponse.json()
-        if (callsData.success && Array.isArray(callsData.calls)) {
-          setWaiterCalls(callsData.calls)
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing data:", error)
-    } finally {
-      setLoading(false)
-    }
+    await Promise.all([fetchOrders(), fetchWaiterCalls()])
+    setLoading(false)
   }
 
   const updateOrderStatus = (orderId: string, newStatus: Order["status"]) => {
@@ -198,10 +129,10 @@ export default function KitchenDashboard() {
           ...getClientAuthHeader(),
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
-        setOrders(orders.map(order => 
+        setOrders(orders.map(order =>
           order.id === orderId ? { ...order, status: data.status } : order
         ))
       } else {
@@ -221,10 +152,10 @@ export default function KitchenDashboard() {
           ...getClientAuthHeader(),
         }
       })
-      
+
       if (response.ok) {
         const data = await response.json()
-        setOrders(orders.map(order => 
+        setOrders(orders.map(order =>
           order.id === orderId ? { ...order, status: data.status } : order
         ))
       } else {
@@ -249,37 +180,26 @@ export default function KitchenDashboard() {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setWaiterCalls(waiterCalls.map((call) => 
-          call.id === callId ? { ...call, status: newStatus } : call
-        ))
-        console.log("Estado de llamada actualizado:", data)
+        // Remove from local list since we only show PENDING
+        setWaiterCalls(prev => prev.filter(call => call.id !== callId))
       } else {
-        console.error("Error actualizando estado de llamada")
+        const errorData = await response.json()
+        console.error("Error actualizando estado de llamada:", errorData.error)
       }
     } catch (error) {
       console.error("Error actualizando estado de llamada:", error)
-      // Fallback: actualizar localmente si falla la llamada al backend
-      setWaiterCalls(waiterCalls.map((call) => (call.id === callId ? { ...call, status: newStatus } : call)))
     }
   }
 
-  const createOrderFromCall = (mesa_id: string) => {
-    // Aquí implementarías la lógica para crear un nuevo pedido
-    console.log(`Creando pedido para mesa ${mesa_id}`)
-    // Por ejemplo, redirigir a una página de creación de pedido o abrir un modal
-  }
-
   const filteredOrders = orders.filter((order) => {
-    // Excluir pedidos entregados
     if (order.status === "DELIVERED") return false
-
     if (filter === "paid") return order.status === "PAID" || order.status === "IN_PREPARATION" || order.status === "READY"
     if (filter === "pending") return order.status === "PAYMENT_PENDING"
     return true
   })
 
-  const pendingCalls = waiterCalls.filter((call) => call.status === "PENDING")
+  // waiterCalls already filtered to PENDING from the API
+  const pendingCalls = waiterCalls
 
   const getStatusStats = () => {
     const activeOrders = orders.filter((o) => o.status !== "DELIVERED")
@@ -302,10 +222,10 @@ export default function KitchenDashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">🍽️</span>
+                <span className="text-white font-bold text-lg">C</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Panel de Gestión</h1>
+                <h1 className="text-2xl font-bold text-gray-900">Panel de Gestion</h1>
                 <p className="text-gray-600 text-sm">Pedidos y llamadas en tiempo real</p>
               </div>
             </div>
@@ -350,7 +270,7 @@ export default function KitchenDashboard() {
             </div>
             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
-                <span className="text-lg">📊</span>
+                <span className="text-lg">N</span>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
                   <p className="text-xs text-gray-600">Total</p>
@@ -377,12 +297,12 @@ export default function KitchenDashboard() {
         <Tabs defaultValue="orders" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="orders" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
-              <span>📋</span>
+              <span>N</span>
               Pedidos ({stats.total})
             </TabsTrigger>
             <TabsTrigger value="calls" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
-              Llamadas ({pendingCalls.length})
+              Solicitudes de Pago ({pendingCalls.length})
               {pendingCalls.length > 0 && (
                 <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {pendingCalls.length}
@@ -436,7 +356,7 @@ export default function KitchenDashboard() {
               </div>
             ) : filteredOrders.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-6xl mb-4 opacity-30">📋</div>
+                <div className="text-6xl mb-4 opacity-30">N</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay pedidos</h3>
                 <p className="text-gray-600">
                   {filter === "all"
@@ -449,9 +369,9 @@ export default function KitchenDashboard() {
             ) : (
               <div className="space-y-4">
                 {filteredOrders.map((order) => (
-                  <OrderCard 
-                    key={order.id} 
-                    order={order} 
+                  <OrderCard
+                    key={order.id}
+                    order={order}
                     onStatusUpdate={updateOrderStatus}
                     onAcceptOrder={acceptOrder}
                     onRejectOrder={rejectOrder}
@@ -462,26 +382,27 @@ export default function KitchenDashboard() {
           </TabsContent>
 
           <TabsContent value="calls">
-            {/* Lista de llamadas */}
+            {/* Lista de solicitudes de pago */}
             {loading ? (
               <div className="text-center py-12">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-gray-900" />
-                <p className="text-gray-600">Cargando llamadas...</p>
+                <p className="text-gray-600">Cargando solicitudes...</p>
               </div>
             ) : pendingCalls.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-6xl mb-4 opacity-30">🔔</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay llamadas pendientes</h3>
-                <p className="text-gray-600">Todas las mesas están atendidas</p>
+                <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
+                <p className="text-gray-600">Todas las solicitudes de pago fueron atendidas</p>
+                <p className="text-gray-400 text-sm mt-2">Se actualiza automaticamente cada 5 segundos</p>
               </div>
             ) : (
               <div className="space-y-4">
+                <p className="text-sm text-gray-500">Se actualiza automaticamente cada 5 segundos</p>
                 {pendingCalls.map((call) => (
                   <WaiterCallCard
                     key={call.id}
                     call={call}
                     onStatusUpdate={updateCallStatus}
-                    onCreateOrder={createOrderFromCall}
                   />
                 ))}
               </div>
