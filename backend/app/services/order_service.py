@@ -334,7 +334,6 @@ class OrderService:
             "id": order.id,
             "mesa_id": order.mesa_id,
             "status": order.status.value if hasattr(order.status, 'value') else order.status,
-            "token": order.token,
             "items": items,
             "total": float(order.total_amount) if order.total_amount else self._calculate_total(items),
             "created_at": order.created_at.isoformat() if order.created_at else None,

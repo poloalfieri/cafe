@@ -39,6 +39,22 @@ export default function MenuView() {
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
 
+  const getMesaSession = (): { mesa_id: string | null; token: string | null } => {
+    if (mesa_id && token) return { mesa_id, token }
+    if (typeof window === "undefined") return { mesa_id, token }
+    try {
+      const stored = sessionStorage.getItem("mesa_session")
+      if (!stored) return { mesa_id, token }
+      const parsed = JSON.parse(stored)
+      return {
+        mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
+        token: typeof parsed?.token === "string" ? parsed.token : token
+      }
+    } catch {
+      return { mesa_id, token }
+    }
+  }
+
   // Función helper para obtener categorías únicas sin usar Set
   const getUniqueCategories = (products: ApiProduct[]): string[] => {
     const categoryMap: { [key: string]: boolean } = {}
@@ -138,7 +154,8 @@ export default function MenuView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
-      if (!mesa_id || !token) {
+      const session = getMesaSession()
+      if (!session.mesa_id || !session.token) {
         setShowCallWaiterModal(false)
         return
       }
@@ -147,11 +164,11 @@ export default function MenuView() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${session.token}`,
         },
         body: JSON.stringify({
-          mesa_id: mesa_id,
-          token: token,
+          mesa_id: session.mesa_id,
+          token: session.token,
           payment_method: data.paymentMethod,
           message: data.message || ""
         }),
@@ -202,7 +219,7 @@ export default function MenuView() {
                 <span className="hidden sm:inline text-sm font-medium">Mozo</span>
               </Button>
 
-              <Link href={`/usuario/cart?mesa_id=${mesa_id}&token=${token}`}>
+              <Link href={`/usuario/cart`}>
                 <Button variant="ghost" size="icon" className="rounded-full relative hover:bg-gray-100">
                   <ShoppingCart className="w-5 h-5 text-gray-700" />
                   {totalItems > 0 && (

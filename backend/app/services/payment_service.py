@@ -199,8 +199,7 @@ class PaymentService:
             
             return {
                 "success": True,
-                "order_id": order.id,
-                "token": order.token
+                "order_id": order.id
             }
             
         except SQLAlchemyError as e:

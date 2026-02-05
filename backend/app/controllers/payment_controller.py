@@ -68,7 +68,7 @@ def payment_success():
         
         # Redirigir al frontend con información del pedido
         return redirect(
-            f"{Config.FRONTEND_URL}/payment/success?order_id={result['order_id']}&token={result['token']}"
+            f"{Config.FRONTEND_URL}/payment/success?order_id={result['order_id']}"
         )
         
     except ValueError as e:

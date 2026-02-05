@@ -20,7 +20,6 @@ interface OrderStatus {
 function PaymentSuccessContent() {
   const searchParams = useSearchParams()
   const orderId = searchParams.get("order_id")
-  const token = searchParams.get("token")
   
   const [orderStatus, setOrderStatus] = useState<OrderStatus | null>(null)
   const [loading, setLoading] = useState(true)

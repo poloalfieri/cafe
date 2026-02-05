@@ -19,7 +19,24 @@ export default function CartView() {
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
+
+  const getMesaSession = (): { mesa_id: string | null; token: string | null } => {
+    if (mesa_id && token) return { mesa_id, token }
+    if (typeof window === "undefined") return { mesa_id, token }
+    try {
+      const stored = sessionStorage.getItem("mesa_session")
+      if (!stored) return { mesa_id, token }
+      const parsed = JSON.parse(stored)
+      return {
+        mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
+        token: typeof parsed?.token === "string" ? parsed.token : token
+      }
+    } catch {
+      return { mesa_id, token }
+    }
+  }
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const mesaSession = getMesaSession()
 
   const handlePaymentComplete = (orderId: string, status: string) => {
     setSuccess(`Pago procesado. ID del pedido: ${orderId}`)
@@ -36,7 +53,8 @@ export default function CartView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
-      if (!mesa_id || !token) {
+      const session = getMesaSession()
+      if (!session.mesa_id || !session.token) {
         setShowCallWaiterModal(false)
         return
       }
@@ -45,11 +63,11 @@ export default function CartView() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${session.token}`,
         },
         body: JSON.stringify({
-          mesa_id: mesa_id,
-          token: token,
+          mesa_id: session.mesa_id,
+          token: session.token,
           payment_method: data.paymentMethod,
           message: data.message || ""
         }),
@@ -266,7 +284,7 @@ export default function CartView() {
           </div>
 
           {/* Botón de pago */}
-          {mesa_id && token ? (
+          {mesaSession.mesa_id && mesaSession.token ? (
             <Button
               onClick={() => setShowPaymentModal(true)}
               className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold text-lg"
@@ -291,8 +309,8 @@ export default function CartView() {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        mesaId={mesa_id || ''}
-        mesaToken={token || ''}
+        mesaId={mesaSession.mesa_id || ''}
+        mesaToken={mesaSession.token || ''}
         totalAmount={state.total}
         items={state.items.map((item) => ({
           id: item.id,
