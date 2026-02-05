@@ -4,11 +4,14 @@ Controller de Pedidos - Solo maneja HTTP, delega lógica al servicio
 from flask import Blueprint, request, jsonify
 from ..services.order_service import order_service
 from ..db.models import OrderStatus
+from ..middleware.auth import require_auth, require_roles
 
 order_bp = Blueprint("order", __name__, url_prefix="/order")
 
 
 @order_bp.route("", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def list_orders():
     """Listar todos los pedidos"""
     try:
@@ -19,6 +22,8 @@ def list_orders():
 
 
 @order_bp.route("/<int:order_id>", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def get_order(order_id):
     """Obtener un pedido específico"""
     try:
@@ -58,6 +63,9 @@ def create_order(mesa_id):
         if not token:
             token = request.args.get("token")
         
+        if not token:
+            return jsonify({"error": "Token requerido"}), 401
+
         if not data or "items" not in data:
             return jsonify({"error": "Items requeridos"}), 400
         
@@ -83,6 +91,8 @@ def create_order(mesa_id):
 
 
 @order_bp.route("/<int:order_id>/status", methods=["PATCH"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def update_order_status(order_id):
     """Actualizar el estado de un pedido"""
     try:
@@ -117,6 +127,8 @@ def update_order_status(order_id):
 
 
 @order_bp.route("/<int:order_id>/items", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def add_items_to_order(order_id):
     """Agregar items a un pedido existente"""
     try:
@@ -147,6 +159,8 @@ def add_items_to_order(order_id):
 
 
 @order_bp.route("/<int:order_id>/cancel", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def cancel_order(order_id):
     """Cancelar un pedido"""
     try:
@@ -173,6 +187,8 @@ def cancel_order(order_id):
 
 
 @order_bp.route("/mesa/<mesa_id>", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def get_orders_by_mesa(mesa_id):
     """Obtener todos los pedidos de una mesa"""
     try:
@@ -183,6 +199,8 @@ def get_orders_by_mesa(mesa_id):
 
 
 @order_bp.route("/status/<string:status>", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def get_orders_by_status(status):
     """Obtener pedidos por estado"""
     try:
@@ -199,6 +217,8 @@ def get_orders_by_status(status):
 
 
 @order_bp.route("/renew_token/<mesa_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def renew_token_route(mesa_id):
     """Renovar token de acceso de una mesa"""
     try:

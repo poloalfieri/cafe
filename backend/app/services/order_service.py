@@ -113,8 +113,10 @@ class OrderService:
             PermissionError: Si el token es inválido
             Exception: Si hay error al crear
         """
-        # Validar token si se proporciona
-        if token and not validate_token(mesa_id, token):
+        # Requerir token válido de mesa
+        if not token:
+            raise PermissionError("Token requerido")
+        if not validate_token(mesa_id, token):
             raise PermissionError("Token inválido o expirado")
         
         # Validar items

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ingredientSchema, paginationSchema } from '@/lib/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { requireStaffAuth } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { searchParams } = new URL(request.url)
     const { page, pageSize, search } = paginationSchema.parse({
       page: searchParams.get('page'),
@@ -59,6 +65,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const body = await request.json()
     const validatedData = ingredientSchema.parse(body)
     const supabase = getSupabaseAdmin()

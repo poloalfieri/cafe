@@ -6,12 +6,15 @@ Delegado completamente a mesa_service para lógica de negocio
 from flask import Blueprint, request, jsonify
 from ..services.mesa_service import mesa_service
 from ..utils.logger import setup_logger
+from ..middleware.auth import require_auth, require_roles
 
 logger = setup_logger(__name__)
 
 mesa_bp = Blueprint("mesa", __name__, url_prefix="/mesa")
 
 @mesa_bp.route("/list", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def list_mesas():
     """Listar todas las mesas"""
     try:
@@ -27,6 +30,8 @@ def list_mesas():
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @mesa_bp.route("/<mesa_id>/status", methods=["PUT"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def update_mesa_status(mesa_id):
     """Actualizar el estado de una mesa"""
     try:
@@ -49,6 +54,8 @@ def update_mesa_status(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @mesa_bp.route("/generate-token/<mesa_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def generate_mesa_token(mesa_id):
     """Generar un nuevo token para una mesa"""
     try:
@@ -66,6 +73,8 @@ def generate_mesa_token(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @mesa_bp.route("/validate-token/<mesa_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def validate_mesa_token(mesa_id):
     """Validar un token de mesa"""
     try:
@@ -86,6 +95,8 @@ def validate_mesa_token(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @mesa_bp.route("/renew-token/<mesa_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def renew_mesa_token(mesa_id):
     """Renovar el token de una mesa"""
     try:

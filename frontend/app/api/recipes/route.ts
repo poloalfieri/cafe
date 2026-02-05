@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { recipeSchema, recipeUpdateSchema, recipeDeleteSchema } from '@/lib/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { requireStaffAuth } from '@/lib/api-auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('productId')
 
@@ -42,6 +48,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const body = await request.json()
     const validatedData = recipeSchema.parse(body)
 
@@ -112,6 +123,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const body = await request.json()
     const validatedData = recipeUpdateSchema.parse(body)
 
@@ -170,6 +186,11 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const body = await request.json()
     const validatedData = recipeDeleteSchema.parse(body)
 

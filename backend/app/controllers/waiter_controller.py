@@ -6,6 +6,8 @@ Delegado completamente a waiter_service para lógica de negocio
 from flask import Blueprint, request, jsonify
 from ..services.waiter_service import waiter_service
 from ..utils.logger import setup_logger
+from ..middleware.auth import require_auth, require_roles
+from ..utils.token_manager import validate_token
 
 logger = setup_logger(__name__)
 
@@ -16,6 +18,10 @@ def create_waiter_call():
     """Crear una nueva llamada al mozo"""
     try:
         data = request.get_json()
+        mesa_id = data.get('mesa_id') if data else None
+        token = data.get('token') if data else None
+        if not mesa_id or not token or not validate_token(mesa_id, token):
+            return jsonify({'error': 'Token de mesa inválido o requerido'}), 401
         call = waiter_service.create_waiter_call(data)
         
         return jsonify({
@@ -31,6 +37,8 @@ def create_waiter_call():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @waiter_bp.route('/calls', methods=['GET'])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def get_waiter_calls():
     """Obtener todas las llamadas al mozo"""
     try:
@@ -49,6 +57,8 @@ def get_waiter_calls():
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @waiter_bp.route('/calls/<call_id>/status', methods=['PUT'])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def update_waiter_call_status(call_id):
     """Actualizar el estado de una llamada al mozo"""
     try:
@@ -75,6 +85,8 @@ def update_waiter_call_status(call_id):
         return jsonify({'error': 'Error interno del servidor'}), 500
 
 @waiter_bp.route('/calls/<call_id>', methods=['DELETE'])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
 def delete_waiter_call(call_id):
     """Eliminar una llamada al mozo"""
     try:
@@ -98,6 +110,10 @@ def notificar_mozo():
     """Notificar al mozo con motivo específico (pago_efectivo, pago_tarjeta, pago_qr)"""
     try:
         data = request.get_json()
+        mesa_id = data.get('mesa_id') if data else None
+        token = data.get('token') if data else None
+        if not mesa_id or not token or not validate_token(mesa_id, token):
+            return jsonify({'error': 'Token de mesa inválido o requerido'}), 401
         notification = waiter_service.create_notification(data)
         
         return jsonify({

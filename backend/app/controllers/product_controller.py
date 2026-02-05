@@ -6,6 +6,7 @@ Delegado completamente a product_service para lógica de negocio
 from flask import Blueprint, request, jsonify
 from ..services.product_service import product_service
 from ..utils.logger import setup_logger
+from ..middleware.auth import require_auth, require_roles
 
 product_bp = Blueprint("product", __name__, url_prefix="/product")
 products_bp = Blueprint("products", __name__, url_prefix="/products")
@@ -26,6 +27,8 @@ def list_products():
 
 
 @product_bp.route("", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def create_product():
     """Crear un nuevo producto"""
     try:
@@ -58,6 +61,8 @@ def get_product(product_id):
 
 
 @product_bp.route("/<int:product_id>", methods=["PUT"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def update_product(product_id):
     """Actualizar un producto existente"""
     try:
@@ -78,6 +83,8 @@ def update_product(product_id):
 
 
 @product_bp.route("/<int:product_id>", methods=["DELETE"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def delete_product(product_id):
     """Eliminar un producto"""
     try:
@@ -94,6 +101,8 @@ def delete_product(product_id):
 
 
 @product_bp.route("/<int:product_id>/toggle", methods=["PATCH"])
+@require_auth
+@require_roles('desarrollador', 'admin')
 def toggle_product_availability(product_id):
     """Cambiar la disponibilidad de un producto"""
     try:

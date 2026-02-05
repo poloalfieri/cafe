@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaffAuth } from '@/lib/api-auth'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
 
@@ -41,12 +42,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const body = await request.json()
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
     
     const response = await fetch(`${BACKEND_URL}/menu/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
       },
       body: JSON.stringify(body)
     })

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ingredientUpdateSchema } from '@/lib/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
+import { requireStaffAuth } from '@/lib/api-auth'
 
 interface RouteParams {
   params: { id: string }
@@ -8,6 +9,11 @@ interface RouteParams {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const id = params.id
     const body = await request.json()
     const validatedData = ingredientUpdateSchema.parse(body)
@@ -87,6 +93,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const id = params.id
     const supabase = getSupabaseAdmin()
 
