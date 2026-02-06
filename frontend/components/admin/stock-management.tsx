@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { api } from '@/lib/fetcher'
+import { api, getClientAuthHeader } from '@/lib/fetcher'
 import { 
   ChefHat, 
   Package, 
@@ -84,7 +84,11 @@ export default function StockManagement() {
     try {
       setProductsLoading(true)
       // Use the same direct backend call as the working products management
-      const response = await fetch(`${backendUrl}/menu/`)
+      const response = await fetch(`${backendUrl}/menu/`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -170,6 +174,7 @@ export default function StockManagement() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...getClientAuthHeader(),
         },
         body: JSON.stringify(productData)
       })

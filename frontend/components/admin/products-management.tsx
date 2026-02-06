@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
+import { getClientAuthHeader } from "@/lib/fetcher"
 import { 
   Plus, 
   Edit, 
@@ -59,7 +60,11 @@ export default function ProductsManagement() {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`${backendUrl}/menu/`)
+      const response = await fetch(`${backendUrl}/menu/`, {
+        headers: {
+          ...getClientAuthHeader(),
+        },
+      })
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -94,6 +99,7 @@ export default function ProductsManagement() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...getClientAuthHeader(),
           },
           body: JSON.stringify(productData)
         })
@@ -110,6 +116,7 @@ export default function ProductsManagement() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...getClientAuthHeader(),
           },
           body: JSON.stringify(productData)
         })
@@ -154,7 +161,10 @@ export default function ProductsManagement() {
     if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
       try {
         const response = await fetch(`${backendUrl}/menu/${productId}`, {
-          method: "DELETE"
+          method: "DELETE",
+          headers: {
+            ...getClientAuthHeader(),
+          },
         })
 
         if (!response.ok) {
@@ -180,7 +190,10 @@ export default function ProductsManagement() {
   const toggleAvailability = async (productId: string) => {
     try {
       const response = await fetch(`${backendUrl}/menu/${productId}/toggle`, {
-        method: "PATCH"
+        method: "PATCH",
+        headers: {
+          ...getClientAuthHeader(),
+        },
       })
 
       if (!response.ok) {
