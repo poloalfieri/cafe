@@ -346,6 +346,12 @@ class MesaService:
                 'expires_in_minutes': expiry_minutes,
                 'expires_at': expires_at.isoformat()
             }
+        
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error al renovar token para mesa {mesa_id}: {str(e)}")
+            raise Exception("Error al renovar token")
 
     def get_or_create_session(self, mesa_id: str, expiry_minutes: int = 30) -> Dict:
         """
