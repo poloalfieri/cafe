@@ -17,6 +17,7 @@ interface ApiProduct {
   price: number
   category: string
   image?: string
+  image_url?: string
   available?: boolean
 }
 
@@ -76,7 +77,11 @@ export default function MenuView() {
       if (!response.ok) throw new Error("Error al cargar el menú")
       
       const data: ApiProduct[] = await response.json()
-      setProducts(data)
+      const normalized = Array.isArray(data) ? data.map((item: any) => ({
+        ...item,
+        image: item.image || item.image_url || undefined
+      })) : []
+      setProducts(normalized)
       
       // Extraer categorías únicas sin usar Set
       const uniqueCategories = getUniqueCategories(data)

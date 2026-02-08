@@ -83,7 +83,8 @@ class MenuService:
             "category": data["category"].strip(),
             "price": price,
             "description": data.get("description", "").strip(),
-            "available": bool(data.get("available", True))
+            "available": bool(data.get("available", True)),
+            "image_url": data.get("image_url")
         }
         
         try:
@@ -137,6 +138,9 @@ class MenuService:
         
         if "available" in data:
             update_data["available"] = bool(data["available"])
+
+        if "image_url" in data:
+            update_data["image_url"] = data["image_url"]
         
         # Si no hay nada que actualizar
         if not update_data:
@@ -276,6 +280,7 @@ class MenuService:
             "price": float(item["price"]),
             "description": item.get("description", ""),
             "available": bool(item.get("available", True)),
+            "image_url": item.get("image_url"),
             "created_at": item.get("created_at"),
             "updated_at": item.get("updated_at")
         }

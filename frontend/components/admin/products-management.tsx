@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { getClientAuthHeader } from "@/lib/fetcher"
+import { api } from "@/lib/fetcher"
 import { 
   Plus, 
   Edit, 
@@ -25,6 +26,7 @@ interface Product {
   price: number
   available: boolean
   description?: string
+  image_url?: string | null
 }
 
 export default function ProductsManagement() {
@@ -38,8 +40,10 @@ export default function ProductsManagement() {
     category: "",
     price: "",
     description: "",
-    available: true
+    available: true,
+    image_url: ""
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
 
   const categories = [
     "Bebidas",
@@ -84,12 +88,38 @@ export default function ProductsManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    let imageUrl = formData.image_url
+    if (imageFile) {
+      try {
+        const form = new FormData()
+        form.append("file", imageFile)
+        const res = await fetch("/api/upload/menu-image", {
+          method: "POST",
+          body: form
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo subir la imagen")
+        }
+        imageUrl = data.url
+      } catch (e: any) {
+        console.error("Upload error:", e)
+        toast({
+          title: "Aviso",
+          description: e?.message || "No se pudo subir la imagen. Se guardará el producto sin foto.",
+          variant: "destructive"
+        })
+        imageUrl = ""
+      }
+    }
+
     const productData = {
       name: formData.name,
       category: formData.category,
       price: parseFloat(formData.price),
       description: formData.description,
-      available: formData.available
+      available: formData.available,
+      image_url: imageUrl || null
     }
 
     try {
@@ -152,8 +182,10 @@ export default function ProductsManagement() {
       category: product.category,
       price: product.price.toString(),
       description: product.description || "",
-      available: product.available
+      available: product.available,
+      image_url: product.image_url || ""
     })
+    setImageFile(null)
     setIsDialogOpen(true)
   }
 
@@ -224,9 +256,11 @@ export default function ProductsManagement() {
       category: "",
       price: "",
       description: "",
-      available: true
+      available: true,
+      image_url: ""
     })
     setEditingProduct(null)
+    setImageFile(null)
   }
 
   const filteredProducts = products.filter(product =>
@@ -308,6 +342,22 @@ export default function ProductsManagement() {
                   placeholder="Descripción opcional del producto"
                   className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="image" className="text-gray-700">Imagen del producto</Label>
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                />
+                {formData.image_url && !imageFile && (
+                  <p className="text-xs text-gray-500 break-all">
+                    Imagen actual: {formData.image_url}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
