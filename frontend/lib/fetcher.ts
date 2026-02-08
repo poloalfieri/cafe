@@ -1,3 +1,7 @@
+"use client"
+
+import { supabase } from "@/lib/auth/supabase-browser"
+
 export class FetchError extends Error {
   constructor(
     public status: number,
@@ -9,22 +13,46 @@ export class FetchError extends Error {
   }
 }
 
-function getClientAccessToken(): string | null {
+async function getClientAccessToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
   try {
     const stored = sessionStorage.getItem('supabase_session')
-    if (!stored) return null
-    const parsed = JSON.parse(stored)
-    const token = parsed?.session?.access_token
-    return typeof token === 'string' ? token : null
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      const token = parsed?.session?.access_token
+      if (typeof token === 'string') return token
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const { data: sessionRes } = await supabase.auth.getSession()
+    const session = sessionRes?.session
+    if (!session?.access_token) return null
+    const { data: userRes } = await supabase.auth.getUser()
+    const user = userRes?.user ?? null
+    try {
+      sessionStorage.setItem('supabase_session', JSON.stringify({ session, user }))
+    } catch {
+      // ignore storage errors
+    }
+    return session.access_token
   } catch {
     return null
   }
 }
 
 export function getClientAuthHeader(): Record<string, string> {
-  const token = getClientAccessToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  try {
+    const stored = sessionStorage.getItem('supabase_session')
+    if (!stored) return {}
+    const parsed = JSON.parse(stored)
+    const token = parsed?.session?.access_token
+    return typeof token === 'string' ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
 }
 
 export async function fetcher<T = any>(
@@ -35,7 +63,7 @@ export async function fetcher<T = any>(
   if (!headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  const token = getClientAccessToken()
+  const token = await getClientAccessToken()
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`)
   }
