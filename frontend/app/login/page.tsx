@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/auth/supabase-browser"
 
 export default function LoginPage() {
@@ -10,6 +10,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get("next")
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,7 +31,8 @@ export default function LoginPage() {
       
       // Esperar un momento para que Supabase termine de guardar
       await new Promise(resolve => setTimeout(resolve, 500))
-      router.replace("/")
+      const safeNext = next && next.startsWith("/") ? next : "/"
+      router.replace(safeNext)
     } catch (err: any) {
       setError(err?.message ?? "Error de autenticación")
     } finally {
