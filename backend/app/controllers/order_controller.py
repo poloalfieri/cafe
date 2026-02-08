@@ -21,7 +21,7 @@ def list_orders():
         return jsonify({"error": str(e)}), 500
 
 
-@order_bp.route("/<int:order_id>", methods=["GET"])
+@order_bp.route("/<string:order_id>", methods=["GET"])
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def get_order(order_id):
@@ -90,7 +90,7 @@ def create_order(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@order_bp.route("/<int:order_id>/status", methods=["PATCH"])
+@order_bp.route("/<string:order_id>/status", methods=["PATCH"])
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def update_order_status(order_id):
@@ -126,7 +126,7 @@ def update_order_status(order_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@order_bp.route("/<int:order_id>/items", methods=["POST"])
+@order_bp.route("/<string:order_id>/items", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def add_items_to_order(order_id):
@@ -158,7 +158,7 @@ def add_items_to_order(order_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@order_bp.route("/<int:order_id>/cancel", methods=["POST"])
+@order_bp.route("/<string:order_id>/cancel", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def cancel_order(order_id):

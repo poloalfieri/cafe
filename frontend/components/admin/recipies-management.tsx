@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
-import { api, getClientAuthHeader } from '@/lib/fetcher'
+import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
 import { 
   ChefHat, 
   Package, 
@@ -80,9 +80,10 @@ export default function RecipiesManagement() {
   const fetchProducts = async () => {
     try {
       setProductsLoading(true)
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/menu/`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (!response.ok) {
@@ -157,7 +158,7 @@ export default function RecipiesManagement() {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          ...getClientAuthHeader(),
+          ...await getClientAuthHeaderAsync(),
         },
         body: JSON.stringify(productData)
       })
@@ -568,4 +569,3 @@ export default function RecipiesManagement() {
     </div>
   )
 }
-

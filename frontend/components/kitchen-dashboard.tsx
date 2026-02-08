@@ -6,7 +6,7 @@ import WaiterCallCard from "@/components/waiter-call-card"
 import { RefreshCw, Clock, CheckCircle, AlertCircle, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getClientAuthHeader } from "@/lib/fetcher"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 interface OrderItem {
   id: string
@@ -47,9 +47,10 @@ export default function KitchenDashboard() {
 
   const fetchWaiterCalls = useCallback(async () => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/waiter/calls?status=PENDING`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (!response.ok) {
@@ -66,9 +67,10 @@ export default function KitchenDashboard() {
 
   const fetchOrders = useCallback(async () => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/order`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (!response.ok) {
@@ -122,11 +124,12 @@ export default function KitchenDashboard() {
 
   const acceptOrder = async (orderId: string) => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/payment/accept-order/${orderId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...getClientAuthHeader(),
+          ...authHeader,
         }
       })
 
@@ -145,11 +148,12 @@ export default function KitchenDashboard() {
 
   const rejectOrder = async (orderId: string) => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/payment/reject-order/${orderId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...getClientAuthHeader(),
+          ...authHeader,
         }
       })
 
@@ -168,11 +172,12 @@ export default function KitchenDashboard() {
 
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/waiter/calls/${callId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
         body: JSON.stringify({
           status: newStatus

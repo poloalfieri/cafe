@@ -19,7 +19,7 @@ def create_app():
     
     setup_logger(__name__)
     app.logger.info(f"✅ CORS configurado - Origins permitidos: {Config.CORS_ORIGINS}")
-
+    
     # Endpoints básicos
     @app.route("/")
     def index():

@@ -21,6 +21,7 @@ import {
 interface PaymentModalProps {
   isOpen: boolean
   onClose: () => void
+  onWaiterCalled?: (message: string) => void
   mesaId: string
   mesaToken: string
   totalAmount: number
@@ -48,6 +49,7 @@ interface PaymentMethodOption {
 export default function PaymentModal({
   isOpen,
   onClose,
+  onWaiterCalled,
   mesaId,
   mesaToken,
   totalAmount,
@@ -171,7 +173,13 @@ export default function PaymentModal({
       }
       
       if (data.success) {
-        setSuccessMessage('Ya se notifico al mozo y estara acercandose a su mesa en la brevedad.')
+        const message = 'Ya se notifico al mozo y estara acercandose a su mesa en la brevedad.'
+        if (onWaiterCalled) {
+          onWaiterCalled(message)
+          handleClose()
+        } else {
+          setSuccessMessage(message)
+        }
       } else {
         throw new Error(data.error || 'Error al notificar al mozo')
       }
@@ -228,11 +236,14 @@ export default function PaymentModal({
     }
   ]
 
-  const handleMethodSelect = async (method: PaymentMethod) => {
+  const handleMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method)
     setSuccessMessage(null)
     setErrorMessage(null)
-    
+  }
+
+  const handleMethodAction = async (method: PaymentMethod) => {
+    if (isLoading) return
     const selectedOption = paymentMethods.find(m => m.id === method)
     if (selectedOption) {
       await selectedOption.action()
@@ -406,7 +417,7 @@ export default function PaymentModal({
                     <Button
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleMethodSelect(method.id)
+                        handleMethodAction(method.id)
                       }}
                       disabled={isLoading}
                       className="w-full font-semibold py-3 text-sm bg-gray-900 hover:bg-gray-800 text-white"

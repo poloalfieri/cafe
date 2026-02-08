@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, redirect
 from ..services.payment_service import payment_service
 from ..utils.logger import setup_logger
 from ..config import Config
+from ..middleware.auth import require_auth, require_roles
 
 payment_bp = Blueprint("payment", __name__, url_prefix="/payment")
 logger = setup_logger(__name__)
@@ -118,3 +119,54 @@ def payment_pending():
     except Exception as e:
         logger.error(f"Error in payment_pending: {str(e)}")
         return redirect(f"{Config.FRONTEND_URL}/payment/error?message=internal_error")
+
+
+@payment_bp.route("/accept-order/<string:order_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
+def accept_order(order_id):
+    """Aceptar un pedido y pasar a IN_PREPARATION"""
+    try:
+        updated = payment_service.accept_order(order_id)
+        return jsonify({
+            "success": True,
+            "status": updated.get("status"),
+            "order": updated
+        }), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error accepting order {order_id}: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@payment_bp.route("/reject-order/<string:order_id>", methods=["POST"])
+@require_auth
+@require_roles('desarrollador', 'admin', 'caja')
+def reject_order(order_id):
+    """Rechazar un pedido y procesar reembolso si corresponde"""
+    try:
+        updated = payment_service.reject_order(order_id)
+        return jsonify({
+            "success": True,
+            "status": updated.get("status"),
+            "order": updated
+        }), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logger.error(f"Error rejecting order {order_id}: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@payment_bp.route("/order-status/<string:order_id>", methods=["GET"])
+def get_order_status(order_id):
+    """Obtener estado de un pedido"""
+    try:
+        status = payment_service.get_order_status(order_id)
+        if not status:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        return jsonify(status), 200
+    except Exception as e:
+        logger.error(f"Error getting order status {order_id}: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500

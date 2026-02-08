@@ -7,8 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
-import { getClientAuthHeader } from "@/lib/fetcher"
-import { api } from "@/lib/fetcher"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { 
   Plus, 
   Edit, 
@@ -64,9 +63,10 @@ export default function ProductsManagement() {
   const fetchProducts = async () => {
     setLoading(true)
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/menu/`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (!response.ok) {
@@ -125,11 +125,12 @@ export default function ProductsManagement() {
     try {
       if (editingProduct) {
         // Actualizar producto existente
+        const authHeader = await getClientAuthHeaderAsync()
         const response = await fetch(`${backendUrl}/menu/${editingProduct.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            ...getClientAuthHeader(),
+            ...authHeader,
           },
           body: JSON.stringify(productData)
         })
@@ -142,11 +143,12 @@ export default function ProductsManagement() {
         setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p))
       } else {
         // Crear nuevo producto
+        const authHeader = await getClientAuthHeaderAsync()
         const response = await fetch(`${backendUrl}/menu/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...getClientAuthHeader(),
+            ...authHeader,
           },
           body: JSON.stringify(productData)
         })
@@ -192,10 +194,11 @@ export default function ProductsManagement() {
   const handleDelete = async (productId: string) => {
     if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
       try {
+        const authHeader = await getClientAuthHeaderAsync()
         const response = await fetch(`${backendUrl}/menu/${productId}`, {
           method: "DELETE",
           headers: {
-            ...getClientAuthHeader(),
+            ...authHeader,
           },
         })
 
@@ -221,10 +224,11 @@ export default function ProductsManagement() {
 
   const toggleAvailability = async (productId: string) => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/menu/${productId}/toggle`, {
         method: "PATCH",
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
 

@@ -1,15 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { RefreshCw, Users, CheckCircle, Clock, QrCode, Plus, Minus, Bell } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MesaQRGenerator } from "./mesa-qr-generator"
 import WaiterCallCard from "./waiter-call-card"
-import { api, getClientAuthHeader } from "@/lib/fetcher"
+import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 interface Mesa {
   id: string
@@ -44,7 +43,6 @@ export default function CajeroDashboard() {
   const [orders, setOrders] = useState<Order[]>([])
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedMesa, setSelectedMesa] = useState<string>("1")
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -53,9 +51,10 @@ export default function CajeroDashboard() {
 
   const fetchWaiterCalls = useCallback(async () => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/waiter/calls?status=PENDING`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (response.ok) {
@@ -100,31 +99,24 @@ export default function CajeroDashboard() {
   const fetchData = async () => {
     setLoading(true)
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       // Fetch mesas
       const mesasResponse = await fetch(`${backendUrl}/mesa/list`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (mesasResponse.ok) {
         const mesasData = await mesasResponse.json()
         setMesas(mesasData.mesas || [])
       } else {
-        // Fallback data
-        setMesas([
-          { id: "1", mesa_id: "1", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "2", mesa_id: "2", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "3", mesa_id: "3", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "4", mesa_id: "4", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "5", mesa_id: "5", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-          { id: "6", mesa_id: "6", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-        ])
+        setMesas([])
       }
 
       // Fetch orders
       const ordersResponse = await fetch(`${backendUrl}/order`, {
         headers: {
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
       })
       if (ordersResponse.ok) {
@@ -135,15 +127,7 @@ export default function CajeroDashboard() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-      // Fallback data
-      setMesas([
-        { id: "1", mesa_id: "1", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: "2", mesa_id: "2", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: "3", mesa_id: "3", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: "4", mesa_id: "4", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: "5", mesa_id: "5", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: "6", mesa_id: "6", is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      ])
+      setMesas([])
       setOrders([])
     } finally {
       setLoading(false)
@@ -182,6 +166,13 @@ export default function CajeroDashboard() {
       case "preparando": return "bg-yellow-100 text-yellow-800 border-yellow-200"
       case "listo": return "bg-purple-100 text-purple-800 border-purple-200"
       case "ocupada": return "bg-gray-100 text-gray-800 border-gray-200"
+      case "PAYMENT_PENDING": return "bg-red-100 text-red-800 border-red-200"
+      case "PAID": return "bg-green-100 text-green-800 border-green-200"
+      case "PAYMENT_APPROVED": return "bg-green-100 text-green-800 border-green-200"
+      case "PAYMENT_REJECTED": return "bg-gray-100 text-gray-800 border-gray-200"
+      case "IN_PREPARATION": return "bg-yellow-100 text-yellow-800 border-yellow-200"
+      case "READY": return "bg-blue-100 text-blue-800 border-blue-200"
+      case "DELIVERED": return "bg-gray-100 text-gray-500 border-gray-200"
       default: return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
@@ -194,9 +185,20 @@ export default function CajeroDashboard() {
       case "preparando": return "Preparando"
       case "listo": return "Listo para Entregar"
       case "ocupada": return "Ocupada"
+      case "PAYMENT_PENDING": return "Esperando Pago"
+      case "PAID": return "Pagado"
+      case "PAYMENT_APPROVED": return "Pago Aprobado"
+      case "PAYMENT_REJECTED": return "Pago Rechazado"
+      case "IN_PREPARATION": return "En Preparación"
+      case "READY": return "Listo"
+      case "DELIVERED": return "Entregado"
       default: return "Desconocido"
     }
   }
+
+  const activeOrders = orders.filter(order =>
+    order.status !== "DELIVERED" && order.status !== "CANCELLED"
+  )
 
   const getMesaOrders = (mesaId: string) => {
     return orders.filter(order => order.mesa_id === mesaId)
@@ -209,11 +211,12 @@ export default function CajeroDashboard() {
 
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
     try {
+      const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/waiter/calls/${callId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...getClientAuthHeader(),
+          ...authHeader,
         },
         body: JSON.stringify({ status: newStatus }),
       })
@@ -353,7 +356,7 @@ export default function CajeroDashboard() {
           </DialogContent>
         </Dialog>
         <Tabs defaultValue="pagos" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-gray-200">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
               Pagos ({waiterCalls.length})
@@ -366,12 +369,8 @@ export default function CajeroDashboard() {
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
               Mesas ({mesas.length})
             </TabsTrigger>
-            <TabsTrigger value="qr" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              <QrCode className="w-4 h-4" />
-              QR
-            </TabsTrigger>
             <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              Pedidos ({orders.length})
+              Pedidos a Realizar ({activeOrders.length})
             </TabsTrigger>
           </TabsList>
 
@@ -478,57 +477,31 @@ export default function CajeroDashboard() {
             )}
           </TabsContent>
 
-          <TabsContent value="qr">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
-              <div className="max-w-md mx-auto">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-                  Generador de QR Codes
-                </h3>
-                
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Seleccionar Mesa
-                  </label>
-                  <select
-                    value={selectedMesa}
-                    onChange={(e) => setSelectedMesa(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                  >
-                    {mesas.map((mesa) => (
-                      <option key={mesa.id} value={mesa.mesa_id}>
-                        Mesa {mesa.mesa_id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <MesaQRGenerator mesaId={selectedMesa} />
-              </div>
-            </div>
-          </TabsContent>
-
           <TabsContent value="pedidos">
             {loading ? (
               <div className="text-center py-12">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
                 <p className="text-gray-600">Cargando pedidos...</p>
               </div>
-            ) : orders.length === 0 ? (
+            ) : activeOrders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">📋</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay pedidos</h3>
-                <p className="text-gray-600">No se han realizado pedidos aún</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay pedidos a realizar</h3>
+                <p className="text-gray-600">No hay pedidos pendientes en este momento</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {orders.map((order) => (
+                {activeOrders.map((order) => (
                   <Card key={order.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
                           <h3 className="font-semibold text-gray-900">
                             Mesa {order.mesa_id}
                           </h3>
+                          <p className="text-xs text-gray-500">
+                            Pedido #{order.id}
+                          </p>
                           <p className="text-sm text-gray-600">
                             Total: ${order.total_amount.toFixed(2)}
                           </p>
@@ -541,6 +514,21 @@ export default function CajeroDashboard() {
                             {getStatusText(order.status)}
                           </Badge>
                         </div>
+                      </div>
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <p className="text-xs font-semibold text-gray-700 mb-2">Items:</p>
+                        {Array.isArray(order.items) && order.items.length > 0 ? (
+                          <div className="space-y-1">
+                            {order.items.map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between text-xs text-gray-600">
+                                <span className="truncate pr-2">{item.name} x{item.quantity}</span>
+                                <span>${(item.price * item.quantity).toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">Sin items detallados</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

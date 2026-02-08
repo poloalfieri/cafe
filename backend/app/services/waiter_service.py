@@ -3,10 +3,10 @@ Servicio para manejar llamadas al mozo
 Contiene toda la logica de negocio de notificaciones al mozo
 """
 
-from typing import Dict, List, Optional
-from datetime import datetime
-from sqlalchemy import text
-from ..db.connection import get_db
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+import threading
+import uuid
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -37,8 +37,14 @@ class WaiterService:
     def __init__(self):
         """Inicializar el servicio"""
         self.logger = logger
+        self._calls: Dict[str, Dict] = {}
+        self._lock = threading.Lock()
 
-    def create_waiter_call(self, data: Dict) -> Dict:
+    @staticmethod
+    def _now_iso() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def create_waiter_call(self, data: Dict) -> Tuple[Dict, bool]:
         """
         Crear una nueva llamada al mozo.
         Punto unico de creacion usado tanto por /waiter/calls como
@@ -49,11 +55,11 @@ class WaiterService:
                   message y usuario_id opcionales.
 
         Returns:
-            Diccionario con la llamada creada
+            Tupla con (llamada, already_pending)
 
         Raises:
             ValueError: Si los datos son invalidos
-            Exception: Si hay error en la base de datos
+            Exception: Si hay error interno
         """
         try:
             # Validar campos requeridos
@@ -82,42 +88,43 @@ class WaiterService:
 
             usuario_id = data.get('usuario_id', '')
             message = data.get('message', '')
+            with self._lock:
+                # Evitar duplicados: si ya existe una llamada PENDING para la mesa, devolverla
+                for call in self._calls.values():
+                    if call.get('mesa_id') == mesa_id and call.get('status') == 'PENDING':
+                        logger.info(
+                            f"Llamada PENDING ya existente para mesa_id: {mesa_id}. "
+                            "No se crea un duplicado."
+                        )
+                        return dict(call), True
 
-            db = get_db()
-
-            query = text("""
-                INSERT INTO waiter_calls
-                    (mesa_id, payment_method, status, usuario_id, message, motivo)
-                VALUES
-                    (:mesa_id, :payment_method, 'PENDING', :usuario_id, :message, :motivo)
-                RETURNING id, mesa_id, payment_method, status,
-                          usuario_id, message, motivo, created_at, updated_at
-            """)
-
-            result = db.execute(query, {
-                'mesa_id': mesa_id,
-                'payment_method': payment_method,
-                'usuario_id': usuario_id,
-                'message': message,
-                'motivo': motivo or '',
-            })
-
-            new_call = dict(result.fetchone()._mapping)
-            db.commit()
+                call_id = str(uuid.uuid4())
+                now = self._now_iso()
+                new_call = {
+                    'id': call_id,
+                    'mesa_id': mesa_id,
+                    'payment_method': payment_method,
+                    'status': 'PENDING',
+                    'usuario_id': usuario_id,
+                    'message': message,
+                    'motivo': motivo or '',
+                    'created_at': now,
+                    'updated_at': now,
+                }
+                self._calls[call_id] = new_call
 
             logger.info(
                 f"Nueva llamada al mozo creada - mesa_id: {mesa_id}, "
                 f"payment_method: {payment_method}"
             )
 
-            return new_call
+            return dict(new_call), False
 
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error de base de datos al crear llamada: {str(e)}")
-            db.rollback()
-            raise Exception("Error en la base de datos")
+            logger.error(f"Error al crear llamada: {str(e)}")
+            raise Exception("Error interno del servidor")
 
     def get_all_calls(self, status: Optional[str] = None) -> List[Dict]:
         """
@@ -130,41 +137,32 @@ class WaiterService:
             Lista de llamadas
 
         Raises:
-            Exception: Si hay error en la base de datos
+            Exception: Si hay error interno
         """
         try:
-            db = get_db()
-
             if status:
                 if status not in self.VALID_STATUSES:
                     raise ValueError(
                         f"status debe ser uno de: {', '.join(self.VALID_STATUSES)}"
                     )
 
-                query = text("""
-                    SELECT * FROM waiter_calls
-                    WHERE status = :status
-                    ORDER BY created_at DESC
-                """)
-                result = db.execute(query, {'status': status})
-            else:
-                query = text("""
-                    SELECT * FROM waiter_calls
-                    ORDER BY created_at DESC
-                """)
-                result = db.execute(query)
+            with self._lock:
+                calls = list(self._calls.values())
 
-            calls = [dict(row._mapping) for row in result]
+            if status:
+                calls = [call for call in calls if call.get('status') == status]
+
+            calls.sort(key=lambda call: call.get('created_at', ''), reverse=True)
 
             logger.info(f"Obtenidas {len(calls)} llamadas al mozo (status: {status or 'ALL'})")
 
-            return calls
+            return [dict(call) for call in calls]
 
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error de base de datos al obtener llamadas: {str(e)}")
-            raise Exception("Error en la base de datos")
+            logger.error(f"Error al obtener llamadas: {str(e)}")
+            raise Exception("Error interno del servidor")
 
     def update_call_status(self, call_id: str, new_status: str) -> Optional[Dict]:
         """
@@ -183,7 +181,7 @@ class WaiterService:
 
         Raises:
             ValueError: Si el estado o la transicion son invalidos
-            Exception: Si hay error en la base de datos
+            Exception: Si hay error interno
         """
         try:
             if new_status not in self.VALID_STATUSES:
@@ -191,63 +189,38 @@ class WaiterService:
                     f"Status debe ser uno de: {', '.join(self.VALID_STATUSES)}"
                 )
 
-            db = get_db()
+            with self._lock:
+                current = self._calls.get(call_id)
+                if not current:
+                    logger.warning(f"Llamada no encontrada: {call_id}")
+                    return None
 
-            # Obtener estado actual
-            current_query = text("""
-                SELECT status FROM waiter_calls WHERE id = :call_id
-            """)
-            current = db.execute(current_query, {'call_id': call_id}).fetchone()
+                current_status = current.get('status')
 
-            if not current:
-                logger.warning(f"Llamada no encontrada: {call_id}")
-                return None
+                # Validar transicion
+                allowed = self.ALLOWED_TRANSITIONS.get(current_status, [])
+                if new_status not in allowed:
+                    raise ValueError(
+                        f"Transicion no permitida: {current_status} -> {new_status}. "
+                        f"Transiciones validas desde {current_status}: {allowed or 'ninguna'}"
+                    )
 
-            current_status = current.status
-
-            # Validar transicion
-            allowed = self.ALLOWED_TRANSITIONS.get(current_status, [])
-            if new_status not in allowed:
-                raise ValueError(
-                    f"Transicion no permitida: {current_status} -> {new_status}. "
-                    f"Transiciones validas desde {current_status}: {allowed or 'ninguna'}"
-                )
-
-            # Actualizar estado (updated_at se actualiza via trigger en DB)
-            query = text("""
-                UPDATE waiter_calls
-                SET status = :status,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :call_id
-                RETURNING *
-            """)
-
-            result = db.execute(query, {
-                'status': new_status,
-                'call_id': call_id,
-            })
-
-            updated_call = result.fetchone()
-
-            if not updated_call:
-                logger.warning(f"Llamada no encontrada al actualizar: {call_id}")
-                return None
-
-            db.commit()
+                current['status'] = new_status
+                current['updated_at'] = self._now_iso()
+                updated_call = dict(current)
 
             logger.info(
                 f"Estado de llamada actualizado - call_id: {call_id}, "
                 f"{current_status} -> {new_status}"
             )
 
-            return dict(updated_call._mapping)
+            return updated_call
 
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error de base de datos al actualizar llamada: {str(e)}")
-            db.rollback()
-            raise Exception("Error en la base de datos")
+            logger.error(f"Error al actualizar llamada: {str(e)}")
+            raise Exception("Error interno del servidor")
 
     def delete_call(self, call_id: str) -> Optional[Dict]:
         """
@@ -260,52 +233,33 @@ class WaiterService:
             Llamada cancelada o None si no existe
 
         Raises:
-            Exception: Si hay error en la base de datos
+            Exception: Si hay error interno
         """
         try:
-            db = get_db()
+            with self._lock:
+                existing = self._calls.get(call_id)
 
-            # Verificar que exista
-            check_query = text("""
-                SELECT status FROM waiter_calls WHERE id = :call_id
-            """)
-            existing = db.execute(check_query, {'call_id': call_id}).fetchone()
+                if not existing:
+                    logger.warning(f"Llamada no encontrada para eliminar: {call_id}")
+                    return None
 
-            if not existing:
-                logger.warning(f"Llamada no encontrada para eliminar: {call_id}")
-                return None
+                # Si ya esta cancelada o completada, devolver sin cambios
+                if existing.get('status') in ('CANCELLED', 'COMPLETED'):
+                    return dict(existing)
 
-            # Si ya esta cancelada o completada, devolver sin cambios
-            if existing.status in ('CANCELLED', 'COMPLETED'):
-                select_query = text("""
-                    SELECT * FROM waiter_calls WHERE id = :call_id
-                """)
-                row = db.execute(select_query, {'call_id': call_id}).fetchone()
-                return dict(row._mapping)
-
-            # Soft delete: cambiar a CANCELLED
-            query = text("""
-                UPDATE waiter_calls
-                SET status = 'CANCELLED',
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE id = :call_id
-                RETURNING *
-            """)
-
-            result = db.execute(query, {'call_id': call_id})
-            deleted_call = result.fetchone()
-            db.commit()
+                existing['status'] = 'CANCELLED'
+                existing['updated_at'] = self._now_iso()
+                deleted_call = dict(existing)
 
             logger.info(f"Llamada al mozo cancelada (soft delete) - call_id: {call_id}")
 
-            return dict(deleted_call._mapping)
+            return deleted_call
 
         except Exception as e:
-            logger.error(f"Error de base de datos al cancelar llamada: {str(e)}")
-            db.rollback()
-            raise Exception("Error en la base de datos")
+            logger.error(f"Error al cancelar llamada: {str(e)}")
+            raise Exception("Error interno del servidor")
 
-    def create_notification(self, data: Dict) -> Dict:
+    def create_notification(self, data: Dict) -> Tuple[Dict, bool]:
         """
         Crear una notificacion al mozo con motivo especifico.
         Delega a create_waiter_call para usar un unico punto de creacion.

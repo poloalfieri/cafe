@@ -4,8 +4,8 @@ import { Clock, Bell, CheckCircle, XCircle, CreditCard, Banknote, QrCode } from 
 import { Button } from "@/components/ui/button"
 
 interface WaiterCall {
-  id: string
-  mesa_id: string
+  id: string | number
+  mesa_id: string | number
   created_at: string
   status: "PENDING" | "COMPLETED" | "CANCELLED"
   message?: string
@@ -66,6 +66,9 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
     (timeElapsed.includes("m") && Number.parseInt(timeElapsed) > 10)
 
   const isPending = call.status === "PENDING"
+  const callId = typeof call.id === "string" ? call.id : String(call.id ?? "")
+  const mesaLabel = typeof call.mesa_id === "string" ? call.mesa_id : String(call.mesa_id ?? "")
+  const callIdShort = callId ? callId.slice(0, 8) : "--"
 
   return (
     <div
@@ -78,25 +81,25 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isUrgent ? "bg-red-500" : "bg-orange-500"
-              }`}
-            >
-              <span className="text-white font-bold text-lg">
-                {call.mesa_id.replace('Mesa ', '')}
-              </span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Bell className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-orange-500"}`} />
-                {call.mesa_id}
-              </h3>
-              <p className="text-xs text-gray-600">#{call.id.slice(0, 8)}</p>
-            </div>
+            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              isUrgent ? "bg-red-500" : "bg-orange-500"
+            }`}
+          >
+            <span className="text-white font-bold text-lg">
+                {mesaLabel.replace('Mesa ', '')}
+            </span>
           </div>
-          <div
-            className={`flex items-center gap-1 px-3 py-1 rounded-full ${
-              isUrgent ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"
+          <div>
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Bell className={`w-4 h-4 ${isUrgent ? "text-red-500" : "text-orange-500"}`} />
+              {mesaLabel}
+            </h3>
+            <p className="text-xs text-gray-600">#{callIdShort}</p>
+          </div>
+        </div>
+        <div
+          className={`flex items-center gap-1 px-3 py-1 rounded-full ${
+            isUrgent ? "bg-red-50 text-red-700" : "bg-orange-50 text-orange-700"
             }`}
           >
             <Clock className="w-3 h-3" />
@@ -139,16 +142,18 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         {isPending && (
           <div className="grid grid-cols-2 gap-2">
             <Button
-              onClick={() => onStatusUpdate(call.id, "COMPLETED")}
+              onClick={() => onStatusUpdate(callId, "COMPLETED")}
               className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={!callId}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               Completar
             </Button>
             <Button
-              onClick={() => onStatusUpdate(call.id, "CANCELLED")}
+              onClick={() => onStatusUpdate(callId, "CANCELLED")}
               variant="outline"
               className="border-red-300 text-red-600 hover:bg-red-50"
+              disabled={!callId}
             >
               <XCircle className="w-4 h-4 mr-2" />
               Cancelar

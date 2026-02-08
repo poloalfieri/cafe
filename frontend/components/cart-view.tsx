@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ArrowLeft, Minus, Plus, Trash2, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/cart-context"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
@@ -13,10 +13,13 @@ export default function CartView() {
   const { state, updateQuantity, removeItem, clearCart } = useCart()
   const [showCallWaiterModal, setShowCallWaiterModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showWaiterNotice, setShowWaiterNotice] = useState(false)
+  const [waiterNoticeMessage, setWaiterNoticeMessage] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const searchParams = useSearchParams()
+  const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
 
@@ -49,6 +52,13 @@ export default function CartView() {
 
   const handleCallWaiter = () => {
     setShowCallWaiterModal(true)
+  }
+
+  const handleWaiterCalled = (message: string) => {
+    setShowPaymentModal(false)
+    clearCart()
+    setWaiterNoticeMessage(message)
+    setShowWaiterNotice(true)
   }
 
   const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
@@ -309,6 +319,7 @@ export default function CartView() {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+        onWaiterCalled={handleWaiterCalled}
         mesaId={mesaSession.mesa_id || ''}
         mesaToken={mesaSession.token || ''}
         totalAmount={state.total}
@@ -319,6 +330,29 @@ export default function CartView() {
           quantity: item.quantity
         }))}
       />
+
+      {showWaiterNotice && (
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
+            <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center mx-auto mb-3">
+              <Bell className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Mozo en camino</h3>
+            <p className="text-sm text-gray-600 mt-2">
+              {waiterNoticeMessage || "Ya se notificó al mozo. Se acercará a tu mesa en la brevedad."}
+            </p>
+            <Button
+              onClick={() => {
+                setShowWaiterNotice(false)
+                router.push("/usuario")
+              }}
+              className="mt-4 w-full bg-gray-900 hover:bg-gray-800 text-white"
+            >
+              Volver al menú
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

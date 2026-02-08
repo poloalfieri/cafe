@@ -22,13 +22,16 @@ def create_waiter_call():
         token = data.get('token') if data else None
         if not mesa_id or not token or not validate_token(mesa_id, token):
             return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
-        call = waiter_service.create_waiter_call(data)
+        call, already_pending = waiter_service.create_waiter_call(data)
+        status_code = 200 if already_pending else 201
+        message = 'Llamada al mozo ya estaba pendiente' if already_pending else 'Llamada al mozo creada exitosamente'
 
         return jsonify({
             'success': True,
-            'message': 'Llamada al mozo creada exitosamente',
+            'message': message,
+            'already_pending': already_pending,
             'call': call
-        }), 201
+        }), status_code
 
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -117,13 +120,16 @@ def notificar_mozo():
         token = data.get('token') if data else None
         if not mesa_id or not token or not validate_token(mesa_id, token):
             return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
-        notification = waiter_service.create_notification(data)
+        notification, already_pending = waiter_service.create_notification(data)
+        status_code = 200 if already_pending else 201
+        message = 'Llamada al mozo ya estaba pendiente' if already_pending else 'Notificacion al mozo enviada exitosamente'
 
         return jsonify({
             'success': True,
-            'message': 'Notificacion al mozo enviada exitosamente',
+            'message': message,
+            'already_pending': already_pending,
             'notification': notification
-        }), 201
+        }), status_code
 
     except ValueError as e:
         return jsonify({'error': str(e)}), 400

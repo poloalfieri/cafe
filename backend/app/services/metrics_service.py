@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 import random
 from typing import Dict, List, Any
-from ..db.connection import get_db
-from ..db.models import Order, OrderStatus, PaymentStatus
 
 class MetricsService:
     @staticmethod
