@@ -155,6 +155,9 @@
       "analytics": {
         "title": "Estadísticas Avanzadas"
       },
+      "branchSelector": {
+        "label": "Sucursal activa"
+      },
       "mock": {
         "topProducts": {
           "americano": "Café Americano",
@@ -752,6 +755,7 @@
     "dashboard": {
       "header": {
         "title": "Panel de Cajero",
+        "titleWithBranch": "Panel de Cajero — {branch}",
         "subtitle": "Gestión de mesas y pagos"
       },
       "actions": {
@@ -820,6 +824,7 @@
       "errors": {
         "fetchWaiterCalls": "Error fetching waiter calls:",
         "fetchData": "Error fetching data:",
+        "fetchBranch": "Error fetching branch:",
         "updateCallStatus": "Error actualizando estado de llamada:",
         "updateMesaStatus": "Error updating mesa status:"
       },

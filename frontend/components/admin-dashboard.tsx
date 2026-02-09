@@ -29,7 +29,7 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { api } from "@/lib/fetcher"
+import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 
 interface DashboardMetrics {
@@ -62,9 +62,14 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedBranchId, setSelectedBranchId] = useState<string>("")
+
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
   useEffect(() => {
     fetchDashboardData()
+    fetchBranches()
     // Low stock check on each load
     ;(async () => {
       try {
@@ -77,6 +82,28 @@ export default function AdminDashboard() {
       } catch (_) {}
     })()
   }, [])
+
+  const fetchBranches = async () => {
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, {
+        headers: {
+          ...authHeader,
+        },
+      })
+      if (!response.ok) {
+        return
+      }
+      const data = await response.json()
+      const list = Array.isArray(data?.branches) ? data.branches : []
+      setBranches(list)
+      if (!selectedBranchId && list.length > 0) {
+        setSelectedBranchId(list[0].id)
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
 
   const fetchDashboardData = async () => {
     setLoading(true)
@@ -148,14 +175,34 @@ export default function AdminDashboard() {
                 <p className="text-gray-600 text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
-            <Button
-              onClick={refreshData}
-              disabled={loading}
-              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              {t("actions.refresh")}
-            </Button>
+            <div className="flex items-center gap-3">
+              {branches.length > 0 && (
+                <div className="min-w-[220px]">
+                  <label className="block text-xs text-gray-500 mb-1">
+                    {t("branchSelector.label")}
+                  </label>
+                  <select
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  >
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <Button
+                onClick={refreshData}
+                disabled={loading}
+                className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                {t("actions.refresh")}
+              </Button>
+            </div>
           </div>
 
           {/* Métricas principales */}
@@ -317,7 +364,7 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="dashboard">
-            <MetricsDashboard />
+            <MetricsDashboard branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="products">
@@ -333,11 +380,11 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="promotions">
-            <PromotionsManagement />
+            <PromotionsManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="schedule">
-            <ScheduleManagement />
+            <ScheduleManagement branchId={selectedBranchId} />
           </TabsContent>
 
           <TabsContent value="branches">
@@ -347,7 +394,7 @@ export default function AdminDashboard() {
           <TabsContent value="analytics">
             <div className="bg-white rounded-lg p-6 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("analytics.title")}</h3>
-              <MetricsDashboard />
+              <MetricsDashboard branchId={selectedBranchId || undefined} />
             </div>
           </TabsContent>
 

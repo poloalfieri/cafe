@@ -17,6 +17,7 @@ import {
   Tag
 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 interface Promotion {
   id: string
@@ -32,7 +33,11 @@ interface Promotion {
   applicableProducts?: string[]
 }
 
-export default function PromotionsManagement() {
+interface PromotionsManagementProps {
+  branchId?: string
+}
+
+export default function PromotionsManagement({ branchId }: PromotionsManagementProps) {
   const t = useTranslations("admin.promotions")
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,49 +62,41 @@ export default function PromotionsManagement() {
     { value: "timeframe", label: t("types.timeframe"), icon: Clock }
   ]
 
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+
   useEffect(() => {
     fetchPromotions()
-  }, [])
+  }, [branchId])
 
   const fetchPromotions = async () => {
     setLoading(true)
     try {
-      // Simular datos de promociones - en producción esto vendría de tu API
-      const mockPromotions: Promotion[] = [
-        {
-          id: "1",
-          name: t("mock.happyHour.name"),
-          type: "timeframe",
-          value: 20,
-          description: t("mock.happyHour.description"),
-          startDate: "2024-01-01",
-          endDate: "2024-12-31",
-          startTime: "18:00",
-          endTime: "20:00",
-          active: true
+      const authHeader = await getClientAuthHeaderAsync()
+      const query = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetch(`${backendUrl}/promotions${query}`, {
+        headers: {
+          ...authHeader,
         },
-        {
-          id: "2",
-          name: t("mock.twoForOne.name"),
-          type: "2x1",
-          value: 0,
-          description: t("mock.twoForOne.description"),
-          startDate: "2024-01-01",
-          endDate: "2024-12-31",
-          active: true
-        },
-        {
-          id: "3",
-          name: t("mock.students.name"),
-          type: "discount",
-          value: 15,
-          description: t("mock.students.description"),
-          startDate: "2024-01-01",
-          endDate: "2024-12-31",
-          active: false
-        }
-      ]
-      setPromotions(mockPromotions)
+      })
+      if (!response.ok) {
+        throw new Error("No se pudieron cargar promociones")
+      }
+      const data = await response.json()
+      const list = Array.isArray(data?.promotions) ? data.promotions : []
+      const normalized = list.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        value: Number(p.value || 0),
+        description: p.description || "",
+        startDate: p.start_date,
+        endDate: p.end_date,
+        startTime: p.start_time || "",
+        endTime: p.end_time || "",
+        active: !!p.active,
+        applicableProducts: p.applicable_products || []
+      }))
+      setPromotions(normalized)
     } catch (error) {
       console.error("Error fetching promotions:", error)
     } finally {
@@ -117,12 +114,58 @@ export default function PromotionsManagement() {
       type: formData.type as "discount" | "2x1" | "combo" | "timeframe"
     }
 
-    if (editingPromotion) {
-      // Actualizar promoción existente
-      setPromotions(promotions.map(p => p.id === editingPromotion.id ? promotionData : p))
-    } else {
-      // Crear nueva promoción
-      setPromotions([...promotions, promotionData])
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      if (editingPromotion) {
+        const response = await fetch(`${backendUrl}/promotions/${editingPromotion.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader,
+          },
+          body: JSON.stringify({
+            name: promotionData.name,
+            type: promotionData.type,
+            value: promotionData.value,
+            description: promotionData.description,
+            start_date: promotionData.startDate,
+            end_date: promotionData.endDate,
+            start_time: promotionData.startTime,
+            end_time: promotionData.endTime,
+            active: promotionData.active,
+            branch_id: branchId || null
+          }),
+        })
+        if (!response.ok) {
+          throw new Error("No se pudo actualizar promoción")
+        }
+      } else {
+        const response = await fetch(`${backendUrl}/promotions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader,
+          },
+          body: JSON.stringify({
+            name: promotionData.name,
+            type: promotionData.type,
+            value: promotionData.value,
+            description: promotionData.description,
+            start_date: promotionData.startDate,
+            end_date: promotionData.endDate,
+            start_time: promotionData.startTime,
+            end_time: promotionData.endTime,
+            active: promotionData.active,
+            branch_id: branchId || null
+          }),
+        })
+        if (!response.ok) {
+          throw new Error("No se pudo crear promoción")
+        }
+      }
+      await fetchPromotions()
+    } catch (e) {
+      console.error("Error saving promotion:", e)
     }
 
     resetForm()
@@ -146,15 +189,48 @@ export default function PromotionsManagement() {
   }
 
   const handleDelete = (promotionId: string) => {
-    if (confirm(t("confirmDelete"))) {
-      setPromotions(promotions.filter(p => p.id !== promotionId))
-    }
+    if (!confirm(t("confirmDelete"))) return
+    ;(async () => {
+      try {
+        const authHeader = await getClientAuthHeaderAsync()
+        const response = await fetch(`${backendUrl}/promotions/${promotionId}`, {
+          method: "DELETE",
+          headers: {
+            ...authHeader,
+          },
+        })
+        if (!response.ok) {
+          throw new Error("No se pudo eliminar promoción")
+        }
+        setPromotions(promotions.filter(p => p.id !== promotionId))
+      } catch (e) {
+        console.error("Error deleting promotion:", e)
+      }
+    })()
   }
 
   const toggleActive = (promotionId: string) => {
-    setPromotions(promotions.map(p => 
-      p.id === promotionId ? { ...p, active: !p.active } : p
-    ))
+    const current = promotions.find(p => p.id === promotionId)
+    if (!current) return
+    ;(async () => {
+      try {
+        const authHeader = await getClientAuthHeaderAsync()
+        const response = await fetch(`${backendUrl}/promotions/${promotionId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeader,
+          },
+          body: JSON.stringify({ active: !current.active }),
+        })
+        if (!response.ok) {
+          throw new Error("No se pudo actualizar promoción")
+        }
+        await fetchPromotions()
+      } catch (e) {
+        console.error("Error toggling promotion:", e)
+      }
+    })()
   }
 
   const resetForm = () => {

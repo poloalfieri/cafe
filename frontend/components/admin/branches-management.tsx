@@ -11,19 +11,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { useTranslations } from "next-intl"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 interface Branch {
   id: string
   name: string
-  address: string
-  phone: string
-  email: string
-  manager: string
-  status: "activa" | "inactiva"
-  share_menu: boolean
-  created_at: string
-  monthly_sales: number
-  total_orders: number
+  address?: string | null
+  phone?: string | null
+  email?: string | null
+  manager?: string | null
+  active: boolean
+  share_menu?: boolean | null
+  created_at?: string
+  monthly_sales?: number | null
+  total_orders?: number | null
 }
 
 export default function BranchesManagement() {
@@ -33,6 +34,7 @@ export default function BranchesManagement() {
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
   const [shareMenuGlobally, setShareMenuGlobally] = useState(true)
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
   // Estados para crear/editar sucursal
   const [branchForm, setBranchForm] = useState({
@@ -51,49 +53,22 @@ export default function BranchesManagement() {
   const fetchBranches = async () => {
     setLoading(true)
     try {
-      // En producción, esto vendría del backend
-      // Por ahora, uso datos de ejemplo
-      setBranches([
-        {
-          id: "1",
-          name: "Sucursal Centro",
-          address: "Av. Principal 123, Centro",
-          phone: "+54 11 1234-5678",
-          email: "centro@mirestaurante.com",
-          manager: "Ana García",
-          status: "activa",
-          share_menu: true,
-          created_at: "2024-01-15",
-          monthly_sales: 15000,
-          total_orders: 450
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, {
+        headers: {
+          ...authHeader,
         },
-        {
-          id: "2",
-          name: "Sucursal Norte",
-          address: "Calle Norte 456, Zona Norte",
-          phone: "+54 11 8765-4321",
-          email: "norte@mirestaurante.com",
-          manager: "Carlos Ruiz",
-          status: "activa",
-          share_menu: true,
-          created_at: "2024-02-10",
-          monthly_sales: 12000,
-          total_orders: 380
-        },
-        {
-          id: "3",
-          name: "Sucursal Sur",
-          address: "Av. Sur 789, Zona Sur",
-          phone: "+54 11 5555-6666",
-          email: "sur@mirestaurante.com",
-          manager: "María López",
-          status: "inactiva",
-          share_menu: false,
-          created_at: "2024-03-05",
-          monthly_sales: 8500,
-          total_orders: 220
-        }
-      ])
+      })
+      if (!response.ok) {
+        throw new Error("No se pudieron cargar las sucursales")
+      }
+      const data = await response.json()
+      const list = Array.isArray(data?.branches) ? data.branches : []
+      setBranches(list)
+      if (list.length > 0) {
+        const allShared = list.every((b: Branch) => b.share_menu !== false)
+        setShareMenuGlobally(allShared)
+      }
     } catch (error) {
       console.error(t("errors.fetchBranches"), error)
     } finally {
@@ -103,15 +78,23 @@ export default function BranchesManagement() {
 
   const handleCreateBranch = async () => {
     try {
-      const newBranch: Branch = {
-        id: Date.now().toString(),
-        ...branchForm,
-        status: "activa",
-        created_at: new Date().toISOString().split('T')[0],
-        monthly_sales: 0,
-        total_orders: 0
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          ...branchForm,
+          active: true,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error("No se pudo crear la sucursal")
       }
-      
+      const data = await response.json()
+      const newBranch: Branch = data.branch
       setBranches([...branches, newBranch])
       setBranchForm({ name: "", address: "", phone: "", email: "", manager: "", share_menu: true })
       setShowCreateBranch(false)
@@ -124,8 +107,29 @@ export default function BranchesManagement() {
     if (!editingBranch) return
     
     try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches/${editingBranch.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          name: editingBranch.name,
+          address: editingBranch.address,
+          phone: editingBranch.phone,
+          email: editingBranch.email,
+          manager: editingBranch.manager,
+          share_menu: editingBranch.share_menu,
+          active: editingBranch.active,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error("No se pudo actualizar la sucursal")
+      }
+      const data = await response.json()
       setBranches(branches.map(branch => 
-        branch.id === editingBranch.id ? { ...editingBranch } : branch
+        branch.id === editingBranch.id ? data.branch : branch
       ))
       setEditingBranch(null)
     } catch (error) {
@@ -135,10 +139,23 @@ export default function BranchesManagement() {
 
   const handleToggleBranchStatus = async (branchId: string) => {
     try {
+      const current = branches.find(b => b.id === branchId)
+      if (!current) return
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches/${branchId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({ active: !current.active }),
+      })
+      if (!response.ok) {
+        throw new Error("No se pudo actualizar estado")
+      }
+      const data = await response.json()
       setBranches(branches.map(branch => 
-        branch.id === branchId 
-          ? { ...branch, status: branch.status === "activa" ? "inactiva" : "activa" }
-          : branch
+        branch.id === branchId ? data.branch : branch
       ))
     } catch (error) {
       console.error(t("errors.toggleStatus"), error)
@@ -147,10 +164,23 @@ export default function BranchesManagement() {
 
   const handleToggleMenuShare = async (branchId: string) => {
     try {
+      const current = branches.find(b => b.id === branchId)
+      if (!current) return
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches/${branchId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({ share_menu: !current.share_menu }),
+      })
+      if (!response.ok) {
+        throw new Error("No se pudo actualizar compartir carta")
+      }
+      const data = await response.json()
       setBranches(branches.map(branch => 
-        branch.id === branchId 
-          ? { ...branch, share_menu: !branch.share_menu }
-          : branch
+        branch.id === branchId ? data.branch : branch
       ))
     } catch (error) {
       console.error(t("errors.toggleShare"), error)
@@ -159,8 +189,22 @@ export default function BranchesManagement() {
 
   const handleGlobalMenuShare = async () => {
     try {
-      setShareMenuGlobally(!shareMenuGlobally)
-      setBranches(branches.map(branch => ({ ...branch, share_menu: !shareMenuGlobally })))
+      const target = !shareMenuGlobally
+      const authHeader = await getClientAuthHeaderAsync()
+      await Promise.all(
+        branches.map(branch =>
+          fetch(`${backendUrl}/branches/${branch.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              ...authHeader,
+            },
+            body: JSON.stringify({ share_menu: target }),
+          })
+        )
+      )
+      setShareMenuGlobally(target)
+      setBranches(branches.map(branch => ({ ...branch, share_menu: target })))
     } catch (error) {
       console.error(t("errors.toggleGlobalShare"), error)
     }
@@ -174,9 +218,9 @@ export default function BranchesManagement() {
     }
   }
 
-  const activeBranches = branches.filter(b => b.status === "activa").length
-  const totalSales = branches.reduce((sum, branch) => sum + branch.monthly_sales, 0)
-  const totalOrders = branches.reduce((sum, branch) => sum + branch.total_orders, 0)
+  const activeBranches = branches.filter(b => b.active).length
+  const totalSales = branches.reduce((sum, branch) => sum + (branch.monthly_sales || 0), 0)
+  const totalOrders = branches.reduce((sum, branch) => sum + (branch.total_orders || 0), 0)
 
   return (
     <div className="space-y-6">
@@ -335,8 +379,8 @@ export default function BranchesManagement() {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
                     <h3 className="text-lg font-semibold text-gray-900">{branch.name}</h3>
-                    <Badge className={`${getStatusColor(branch.status)} border`}>
-                      {branch.status === "activa" ? t("status.active") : t("status.inactive")}
+                    <Badge className={`${getStatusColor(branch.active ? "activa" : "inactiva")} border`}>
+                      {branch.active ? t("status.active") : t("status.inactive")}
                     </Badge>
                     {branch.share_menu && (
                       <Badge className="bg-blue-100 text-blue-800 border-blue-200">
@@ -352,25 +396,25 @@ export default function BranchesManagement() {
                         <MapPin className="w-4 h-4" />
                         <span className="font-medium">{t("table.address")}</span>
                       </div>
-                      <p className="text-gray-900">{branch.address}</p>
+                      <p className="text-gray-900">{branch.address || "-"}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.manager")}</span>
-                      <p className="text-gray-900">{branch.manager}</p>
+                      <p className="text-gray-900">{branch.manager || "-"}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.monthlySales")}</span>
-                      <p className="text-gray-900">${branch.monthly_sales.toLocaleString()}</p>
+                      <p className="text-gray-900">${(branch.monthly_sales || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.orders")}</span>
-                      <p className="text-gray-900">{branch.total_orders}</p>
+                      <p className="text-gray-900">{branch.total_orders || 0}</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
-                    <span>📞 {branch.phone}</span>
-                    <span>📧 {branch.email}</span>
+                    <span>📞 {branch.phone || "-"}</span>
+                    <span>📧 {branch.email || "-"}</span>
                   </div>
                 </div>
                 
@@ -397,7 +441,7 @@ export default function BranchesManagement() {
                     size="sm"
                     onClick={() => handleToggleBranchStatus(branch.id)}
                   >
-                    {branch.status === "activa" ? (
+                    {branch.active ? (
                       <ToggleRight className="w-4 h-4 text-green-600" />
                     ) : (
                       <ToggleLeft className="w-4 h-4 text-gray-600" />

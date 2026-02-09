@@ -36,14 +36,27 @@ class PaymentService:
         now_iso = PaymentService._now_iso()
 
         try:
+            mesa_resp = (
+                supabase.table("mesas")
+                .select("restaurant_id, branch_id")
+                .eq("mesa_id", mesa_id)
+                .limit(1)
+                .execute()
+            )
+            mesa = (mesa_resp.data or [None])[0]
+            if not mesa:
+                raise ValueError("Mesa no encontrada")
             insert_data = {
                 "mesa_id": mesa_id,
                 "status": OrderStatus.PAYMENT_PENDING.value,
                 "token": order_token,
                 "total_amount": total_amount,
                 "items": priced_items,
+                "payment_method": "BILLETERA",
                 "creation_date": now_iso,
                 "updated_at": now_iso,
+                "restaurant_id": mesa.get("restaurant_id"),
+                "branch_id": mesa.get("branch_id"),
             }
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:

@@ -47,6 +47,7 @@ export default function CajeroDashboard() {
   const [loading, setLoading] = useState(true)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
+  const [branchName, setBranchName] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
@@ -73,6 +74,7 @@ export default function CajeroDashboard() {
   useEffect(() => {
     fetchData()
     fetchWaiterCalls()
+    fetchBranch()
     ;(async () => {
       try {
         const json = await api.get('/api/ingredients?page=1&pageSize=1000')
@@ -84,6 +86,26 @@ export default function CajeroDashboard() {
       } catch (_) {}
     })()
   }, [])
+
+  const fetchBranch = async () => {
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches/me`, {
+        headers: {
+          ...authHeader,
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const name = data?.branch?.name
+        if (name) {
+          setBranchName(name)
+        }
+      }
+    } catch (error) {
+      console.error(t("errors.fetchBranch"), error)
+    }
+  }
 
   // Polling for waiter calls every 5 seconds
   useEffect(() => {
@@ -279,7 +301,11 @@ export default function CajeroDashboard() {
                 <span className="text-white font-bold text-lg">💰</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{t("header.title")}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {branchName
+                    ? t("header.titleWithBranch", { branch: branchName })
+                    : t("header.title")}
+                </h1>
                 <p className="text-gray-600 text-sm">{t("header.subtitle")}</p>
               </div>
             </div>

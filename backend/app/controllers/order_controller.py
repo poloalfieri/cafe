@@ -15,7 +15,8 @@ order_bp = Blueprint("order", __name__, url_prefix="/order")
 def list_orders():
     """Listar todos los pedidos"""
     try:
-        orders = order_service.get_all_orders()
+        branch_id = request.args.get("branch_id")
+        orders = order_service.get_all_orders(branch_id=branch_id)
         return jsonify(orders), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

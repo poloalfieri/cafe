@@ -16,7 +16,7 @@ logger = setup_logger(__name__)
 class OrderService:
     """Servicio para manejar operaciones de pedidos"""
 
-    def get_all_orders(self) -> List[Dict]:
+    def get_all_orders(self, branch_id: Optional[str] = None) -> List[Dict]:
         """
         Obtener todos los pedidos
 
@@ -27,7 +27,10 @@ class OrderService:
             Exception: Si hay error al consultar la base de datos
         """
         try:
-            response = supabase.table("orders").select("*").execute()
+            query = supabase.table("orders").select("*")
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = query.execute()
             orders = response.data or []
             orders.sort(
                 key=lambda order: order.get("created_at")
@@ -122,6 +125,29 @@ class OrderService:
             logger.error(f"Error al obtener pedidos por estado {status}: {str(e)}")
             raise Exception(f"Error al consultar pedidos: {str(e)}")
 
+    def set_payment_method_for_latest_order(self, mesa_id: str, payment_method: str) -> None:
+        """
+        Actualizar el método de pago del último pedido de una mesa.
+        """
+        try:
+            response = (
+                supabase.table("orders")
+                .select("id, creation_date, created_at")
+                .eq("mesa_id", mesa_id)
+                .order("creation_date", desc=True)
+                .limit(1)
+                .execute()
+            )
+            data = response.data or []
+            if not data:
+                return
+            order_id = data[0].get("id")
+            if not order_id:
+                return
+            supabase.table("orders").update({"payment_method": payment_method}).eq("id", order_id).execute()
+        except Exception as e:
+            logger.warning(f"No se pudo actualizar payment_method para mesa {mesa_id}: {str(e)}")
+
     def create_order(self, mesa_id: str, items: List[Dict], token: str = None) -> Dict:
         """
         Crear un nuevo pedido
@@ -152,6 +178,16 @@ class OrderService:
         now_iso = self._now_iso()
 
         try:
+            mesa_resp = (
+                supabase.table("mesas")
+                .select("restaurant_id, branch_id")
+                .eq("mesa_id", mesa_id)
+                .limit(1)
+                .execute()
+            )
+            mesa = (mesa_resp.data or [None])[0]
+            if not mesa:
+                raise ValueError("Mesa no encontrada")
             insert_data = {
                 "mesa_id": mesa_id,
                 "status": OrderStatus.PAYMENT_PENDING.value,
@@ -160,6 +196,8 @@ class OrderService:
                 "total_amount": total_amount,
                 "creation_date": now_iso,
                 "updated_at": now_iso,
+                "restaurant_id": mesa.get("restaurant_id"),
+                "branch_id": mesa.get("branch_id"),
             }
 
             response = supabase.table("orders").insert(insert_data).execute()

@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request, g
 from ..services.metrics_service import MetricsService
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
+from ..db.supabase_client import supabase
 
 metrics_bp = Blueprint("metrics", __name__, url_prefix="/api/metrics")
 logger = setup_logger(__name__)
@@ -13,7 +14,19 @@ def get_sales_monthly():
     """Endpoint para obtener ventas mensuales"""
     logger.info("Iniciando petición para obtener ventas mensuales")
     try:
-        data = MetricsService.get_sales_monthly()
+        branch_id = request.args.get("branch_id")
+        membership_resp = (
+            supabase.table("restaurant_users")
+            .select("restaurant_id")
+            .eq("user_id", g.user_id)
+            .limit(1)
+            .execute()
+        )
+        membership = (membership_resp.data or [None])[0]
+        if not membership:
+            return jsonify({"labels": [], "values": []})
+        restaurant_id = membership.get("restaurant_id")
+        data = MetricsService.get_sales_monthly(restaurant_id, branch_id)
         logger.info(f"Ventas mensuales obtenidas exitosamente: {len(data['values'])} meses")
         return jsonify(data)
     except Exception as e:
@@ -27,7 +40,19 @@ def get_orders_status():
     """Endpoint para obtener estado de pedidos (aceptados vs rechazados)"""
     logger.info("Iniciando petición para obtener estado de pedidos")
     try:
-        data = MetricsService.get_orders_status()
+        branch_id = request.args.get("branch_id")
+        membership_resp = (
+            supabase.table("restaurant_users")
+            .select("restaurant_id")
+            .eq("user_id", g.user_id)
+            .limit(1)
+            .execute()
+        )
+        membership = (membership_resp.data or [None])[0]
+        if not membership:
+            return jsonify({"labels": [], "values": []})
+        restaurant_id = membership.get("restaurant_id")
+        data = MetricsService.get_orders_status(restaurant_id, branch_id)
         logger.info(f"Estado de pedidos obtenido exitosamente: {data['values']}")
         return jsonify(data)
     except Exception as e:
@@ -41,7 +66,19 @@ def get_daily_revenue():
     """Endpoint para obtener ingresos diarios de la última semana"""
     logger.info("Iniciando petición para obtener ingresos diarios")
     try:
-        data = MetricsService.get_daily_revenue()
+        branch_id = request.args.get("branch_id")
+        membership_resp = (
+            supabase.table("restaurant_users")
+            .select("restaurant_id")
+            .eq("user_id", g.user_id)
+            .limit(1)
+            .execute()
+        )
+        membership = (membership_resp.data or [None])[0]
+        if not membership:
+            return jsonify({"labels": [], "values": []})
+        restaurant_id = membership.get("restaurant_id")
+        data = MetricsService.get_daily_revenue(restaurant_id, branch_id)
         logger.info(f"Ingresos diarios obtenidos exitosamente: {len(data['values'])} días")
         return jsonify(data)
     except Exception as e:
@@ -55,7 +92,19 @@ def get_payment_methods():
     """Endpoint para obtener métodos de pago más usados"""
     logger.info("Iniciando petición para obtener métodos de pago")
     try:
-        data = MetricsService.get_payment_methods()
+        branch_id = request.args.get("branch_id")
+        membership_resp = (
+            supabase.table("restaurant_users")
+            .select("restaurant_id")
+            .eq("user_id", g.user_id)
+            .limit(1)
+            .execute()
+        )
+        membership = (membership_resp.data or [None])[0]
+        if not membership:
+            return jsonify({"labels": [], "values": []})
+        restaurant_id = membership.get("restaurant_id")
+        data = MetricsService.get_payment_methods(restaurant_id, branch_id)
         logger.info(f"Métodos de pago obtenidos exitosamente: {data['values']}")
         return jsonify(data)
     except Exception as e:

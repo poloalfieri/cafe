@@ -20,12 +20,15 @@ class MesaService:
     def __init__(self):
         self.logger = logger
 
-    def get_all_mesas(self) -> List[Dict]:
+    def get_all_mesas(self, branch_id: Optional[str] = None) -> List[Dict]:
         """
         Obtener todas las mesas
         """
         try:
-            response = supabase.table("mesas").select("*").execute()
+            query = supabase.table("mesas").select("*")
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = query.execute()
             mesas = response.data or []
 
             def mesa_sort_key(mesa: Dict):

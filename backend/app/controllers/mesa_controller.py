@@ -18,7 +18,8 @@ mesa_bp = Blueprint("mesa", __name__, url_prefix="/mesa")
 def list_mesas():
     """Listar todas las mesas"""
     try:
-        mesas = mesa_service.get_all_mesas()
+        branch_id = request.args.get("branch_id")
+        mesas = mesa_service.get_all_mesas(branch_id=branch_id)
         
         return jsonify({
             "success": True,

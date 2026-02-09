@@ -44,7 +44,11 @@ const COLORS = {
   warning: "#FFBB28",
 }
 
-export default function MetricsDashboard() {
+interface MetricsDashboardProps {
+  branchId?: string
+}
+
+export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   const t = useTranslations("admin.metrics")
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -55,7 +59,7 @@ export default function MetricsDashboard() {
     if (session?.accessToken) {
       fetchMetricsData()
     }
-  }, [session])
+  }, [session, branchId])
 
   const fetchMetricsData = async () => {
     if (!session?.accessToken) {
@@ -75,9 +79,10 @@ export default function MetricsDashboard() {
         "payment-methods"
       ]
       
+      const query = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : ""
       const results = await Promise.all(
         endpoints.map(endpoint => 
-          fetch(`${API_BASE_URL}/api/metrics/${endpoint}`, {
+          fetch(`${API_BASE_URL}/api/metrics/${endpoint}${query}`, {
             headers: {
               'Authorization': `Bearer ${session.accessToken}`,
               'Content-Type': 'application/json'

@@ -28,7 +28,11 @@ interface Mesa {
   updated_at?: string
 }
 
-export default function ScheduleManagement() {
+interface ScheduleManagementProps {
+  branchId?: string
+}
+
+export default function ScheduleManagement({ branchId }: ScheduleManagementProps) {
   const t = useTranslations("admin.schedule")
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [mesas, setMesas] = useState<Mesa[]>([])
@@ -60,7 +64,8 @@ export default function ScheduleManagement() {
       setSchedules(mockSchedules)
 
       const authHeader = await getClientAuthHeaderAsync()
-      const mesasResponse = await fetch(`${backendUrl}/mesa/list`, {
+      const query = branchId ? `?branch_id=${branchId}` : ""
+      const mesasResponse = await fetch(`${backendUrl}/mesa/list${query}`, {
         headers: {
           ...authHeader,
         },

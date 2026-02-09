@@ -5,6 +5,7 @@ Delegado completamente a waiter_service para logica de negocio
 
 from flask import Blueprint, request, jsonify
 from ..services.waiter_service import waiter_service
+from ..services.order_service import order_service
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
 from ..utils.token_manager import validate_token
@@ -23,6 +24,12 @@ def create_waiter_call():
         if not mesa_id or not token or not validate_token(mesa_id, token):
             return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
         call, already_pending = waiter_service.create_waiter_call(data)
+        try:
+            payment_method = data.get("payment_method")
+            if payment_method:
+                order_service.set_payment_method_for_latest_order(mesa_id, payment_method)
+        except Exception:
+            pass
         status_code = 200 if already_pending else 201
         message = 'Llamada al mozo ya estaba pendiente' if already_pending else 'Llamada al mozo creada exitosamente'
 
