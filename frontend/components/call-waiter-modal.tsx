@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { useTranslations } from "next-intl"
 
 interface CallWaiterModalProps {
   isOpen: boolean
@@ -15,6 +16,7 @@ interface CallWaiterModalProps {
 export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWaiterModalProps) {
   const [message, setMessage] = useState("")
   const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'CASH' | 'QR'>('CASH')
+  const t = useTranslations("usuario.waiter")
 
   if (!isOpen) return null
 
@@ -40,7 +42,7 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
             <div className="w-10 h-10 bg-gray-900/10 rounded-full flex items-center justify-center">
               <Bell className="w-5 h-5 text-gray-900" />
             </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Llamar al Mozo</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t("title")}</h2>
           </div>
           <Button
             onClick={handleCancel}
@@ -55,13 +57,13 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
         {/* Contenido del modal */}
         <div className="p-4 sm:p-6">
           <p className="text-gray-600 text-sm sm:text-base mb-4 leading-relaxed">
-            ¿Necesitas ayuda con tu pedido o tienes alguna consulta? Un mozo se acercará a tu mesa en breve.
+            {t("subtitle")}
           </p>
 
           {/* Selección de método de pago */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-3">
-              Método de Pago
+              {t("paymentMethod")}
             </label>
             <RadioGroup
               value={paymentMethod}
@@ -70,15 +72,15 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="CASH" id="cash" />
-                <Label htmlFor="cash">Efectivo</Label>
+                <Label htmlFor="cash">{t("cash")}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="CARD" id="card" />
-                <Label htmlFor="card">Tarjeta</Label>
+                <Label htmlFor="card">{t("card")}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="QR" id="qr" />
-                <Label htmlFor="qr">QR</Label>
+                <Label htmlFor="qr">{t("qr")}</Label>
               </div>
             </RadioGroup>
           </div>
@@ -86,13 +88,13 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
           {/* Campo de mensaje opcional */}
           <div className="mb-6">
             <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
-              Motivo (opcional)
+              {t("reason")}
             </label>
             <textarea
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Ej: Necesito más servilletas, ¿Pueden traer la cuenta?, etc."
+              placeholder={t("reasonPlaceholder")}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
               rows={3}
               maxLength={200}
@@ -109,13 +111,13 @@ export default function CallWaiterModal({ isOpen, onConfirm, onCancel }: CallWai
               variant="outline"
               className="flex-1 py-3 text-sm sm:text-base touch-manipulation bg-white border-gray-300 hover:bg-gray-50 text-gray-700 hover:text-gray-900"
             >
-              Cancelar
+              {t("cancel")}
             </Button>
             <Button
               onClick={handleConfirm}
               className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 text-sm sm:text-base touch-manipulation"
             >
-              Sí, llamar mozo
+              {t("confirm")}
             </Button>
           </div>
         </div>

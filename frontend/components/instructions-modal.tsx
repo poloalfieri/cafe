@@ -2,6 +2,7 @@
 
 import { X, ShoppingCart, Plus, Minus, Bell, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTranslations } from "next-intl"
 
 interface InstructionsModalProps {
   isOpen: boolean
@@ -9,6 +10,7 @@ interface InstructionsModalProps {
 }
 
 export default function InstructionsModal({ isOpen, onClose }: InstructionsModalProps) {
+  const t = useTranslations("usuario.instructions")
   if (!isOpen) return null
 
   return (
@@ -20,7 +22,7 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
             <div className="w-10 h-10 bg-gray-900/10 rounded-full flex items-center justify-center">
               <span className="text-gray-900 font-bold text-lg">?</span>
             </div>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">¿Cómo usar la app?</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{t("title")}</h2>
           </div>
         </div>
 
@@ -28,8 +30,8 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
         <div className="p-4 sm:p-6 space-y-6">
           {/* Bienvenida */}
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">¡Bienvenido!</h3>
-            <p className="text-gray-600 text-sm">Hacer tu pedido es muy fácil. Sigue estos simples pasos:</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("welcome")}</h3>
+            <p className="text-gray-600 text-sm">{t("intro")}</p>
           </div>
 
           {/* Paso 1: Seleccionar productos */}
@@ -38,12 +40,12 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <span className="text-white font-bold text-sm">1</span>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Selecciona tus productos</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">{t("step1Title")}</h4>
               <p className="text-gray-600 text-sm mb-2">
-                Navega por las categorías y encuentra tus platos favoritos.
+                {t("step1Body")}
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                <span>Usa los filtros:</span>
+                <span>{t("step1Hint")}</span>
                 <span className="bg-gray-900 text-white px-2 py-1 rounded-full">Pizzas</span>
                 <span className="bg-white border border-gray-200 px-2 py-1 rounded-full">Pastas</span>
               </div>
@@ -56,9 +58,9 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <span className="text-white font-bold text-sm">2</span>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Selecciona la cantidad</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">{t("step2Title")}</h4>
               <p className="text-gray-600 text-sm mb-2">
-                Usa los botones + y - para seleccionar cuántos quieres de cada producto.
+                {t("step2Body")}
               </p>
               <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
                 <Button size="sm" variant="outline" className="w-6 h-6 p-0 rounded-full bg-white border-gray-300">
@@ -78,13 +80,13 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <span className="text-white font-bold text-sm">3</span>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Revisa tu pedido</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">{t("step3Title")}</h4>
               <p className="text-gray-600 text-sm mb-2">
-                Presiona el botón del carrito para ver todos tus productos seleccionados.
+                {t("step3Body")}
               </p>
               <div className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm">
                 <ShoppingCart className="w-4 h-4" />
-                <span>Ver carrito (3)</span>
+                <span>{t("step3Cta")}</span>
               </div>
             </div>
           </div>
@@ -95,13 +97,13 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <span className="text-white font-bold text-sm">4</span>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 mb-1">Procede al pago</h4>
+              <h4 className="font-semibold text-gray-900 mb-1">{t("step4Title")}</h4>
               <p className="text-gray-600 text-sm mb-2">
-                Cuando estés listo, presiona "Ir a pagar" para finalizar tu pedido.
+                {t("step4Body")}
               </p>
               <div className="inline-flex items-center gap-2 bg-red-600 text-white px-3 py-2 rounded-lg text-sm">
                 <CreditCard className="w-4 h-4" />
-                <span>Ir a pagar</span>
+                <span>{t("step4Cta")}</span>
               </div>
             </div>
           </div>
@@ -110,11 +112,10 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Bell className="w-4 h-4 text-orange-600" />
-              <h4 className="font-semibold text-orange-800">¿Necesitas ayuda?</h4>
+              <h4 className="font-semibold text-orange-800">{t("helpTitle")}</h4>
             </div>
             <p className="text-orange-700 text-sm">
-              Si tienes alguna duda o problema, presiona el botón "Mozo" y un miembro de nuestro equipo se acercará a tu
-              mesa.
+              {t("helpBody")}
             </p>
           </div>
 
@@ -123,8 +124,8 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
             onClick={onClose}
             className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 text-base font-medium touch-manipulation"
           >
-            ¡Entendido, empezar!
-          </Button>
+          {t("close")}
+        </Button>
         </div>
       </div>
     </div>

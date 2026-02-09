@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { useTranslations } from 'next-intl'
 import { 
   Wallet, 
   CreditCard, 
@@ -46,19 +47,20 @@ interface PaymentMethodOption {
   features: string[]
 }
 
-export default function PaymentModal({
-  isOpen,
-  onClose,
-  onWaiterCalled,
-  mesaId,
-  mesaToken,
-  totalAmount,
-  items
+export default function PaymentModal({ 
+  isOpen, 
+  onClose, 
+  onWaiterCalled, 
+  mesaId, 
+  mesaToken, 
+  totalAmount, 
+  items 
 }: PaymentModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const t = useTranslations('usuario.payment')
   
   // Detectar si los parámetros de mesa son inválidos
   const hasInvalidParams = !mesaId || !mesaToken || 
@@ -71,13 +73,13 @@ export default function PaymentModal({
     
     // Validar que mesaId y mesaToken sean válidos
     if (!isValidParam(mesaId)) {
-      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la página escaneando el QR nuevamente.')
+      setErrorMessage(t('errorMesa'))
       setIsLoading(false)
       return
     }
     
     if (!isValidParam(mesaToken)) {
-      setErrorMessage('Error: Token de mesa inválido. Recarga la página escaneando el QR nuevamente.')
+      setErrorMessage(t('errorToken'))
       setIsLoading(false)
       return
     }
@@ -112,13 +114,13 @@ export default function PaymentModal({
       
       if (data.success && paymentUrl) {
         window.open(paymentUrl, '_blank')
-        setSuccessMessage('¡Perfecto! Se abrió tu billetera digital.')
+        setSuccessMessage(t('walletSuccess'))
       } else {
-        throw new Error(data.error || 'Error al generar el link de pago')
+        throw new Error(data.error || t('payLinkError'))
       }
     } catch (error) {
       // Error ya manejado por setErrorMessage
-      setErrorMessage(error instanceof Error ? error.message : 'Error desconocido')
+      setErrorMessage(error instanceof Error ? error.message : t('unknownError'))
     } finally {
       setIsLoading(false)
     }
@@ -137,13 +139,13 @@ export default function PaymentModal({
     
     // Validar que mesaId y mesaToken sean validos antes de enviar
     if (!isValidParam(mesaId)) {
-      setErrorMessage('Error: No se pudo identificar la mesa. Recarga la pagina escaneando el QR nuevamente.')
+      setErrorMessage(t('errorMesa'))
       setIsLoading(false)
       return
     }
     
     if (!isValidParam(mesaToken)) {
-      setErrorMessage('Error: Token de mesa invalido. Recarga la pagina escaneando el QR nuevamente.')
+      setErrorMessage(t('errorToken'))
       setIsLoading(false)
       return
     }
@@ -173,7 +175,7 @@ export default function PaymentModal({
       }
       
       if (data.success) {
-        const message = 'Ya se notifico al mozo y estara acercandose a su mesa en la brevedad.'
+        const message = t('successWaiter')
         if (onWaiterCalled) {
           onWaiterCalled(message)
           handleClose()
@@ -181,10 +183,10 @@ export default function PaymentModal({
           setSuccessMessage(message)
         }
       } else {
-        throw new Error(data.error || 'Error al notificar al mozo')
+        throw new Error(data.error || t('waiterNotifyError'))
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Error desconocido')
+      setErrorMessage(error instanceof Error ? error.message : t('unknownError'))
     } finally {
       setIsLoading(false)
     }
@@ -193,46 +195,46 @@ export default function PaymentModal({
   const paymentMethods: PaymentMethodOption[] = [
     {
       id: 'billetera',
-      title: 'Billetera Digital',
-      description: 'Mercado Pago, Ualá, etc.',
+      title: t('walletTitle'),
+      description: t('walletDescription'),
       icon: <Wallet className="w-5 h-5" />,
       action: handleBilleteraPayment,
-      buttonText: 'Pagar Ahora',
+      buttonText: t('payNow'),
       color: 'text-gray-600',
-      features: ['Pago instantáneo', '100% seguro']
+      features: [t('instantPay'), t('secure')]
     },
     {
       id: 'tarjeta',
-      title: 'Tarjeta Física',
-      description: 'El mozo traerá el posnet',
+      title: t('cardTitle'),
+      description: t('cardDescription'),
       icon: <CreditCard className="w-5 h-5" />,
       action: () => handleWaiterNotification('CARD'),
-      buttonText: 'Solicitar Posnet',
-      message: 'Llegará en 2-3 minutos',
+      buttonText: t('requestPos'),
+      message: t('posMessage'),
       color: 'text-gray-600',
-      features: ['Acepta todas las tarjetas', 'Pago en cuotas']
+      features: [t('allCards'), t('installments')]
     },
     {
       id: 'efectivo',
-      title: 'Efectivo',
-      description: 'El mozo pasará a cobrar',
+      title: t('cashTitle'),
+      description: t('cashDescription'),
       icon: <DollarSign className="w-5 h-5" />,
       action: () => handleWaiterNotification('CASH'),
-      buttonText: 'Solicitar Cobro',
-      message: 'Llegará en 2-3 minutos',
+      buttonText: t('requestCash'),
+      message: t('cashMessage'),
       color: 'text-gray-600',
-      features: ['Pago directo', 'Sin comisiones']
+      features: [t('directPay'), t('noFees')]
     },
     {
       id: 'qr',
-      title: 'QR del Mozo',
-      description: 'Esperá que te acerque el QR',
+      title: t('qrTitle'),
+      description: t('qrDescription'),
       icon: <QrCode className="w-5 h-5" />,
       action: () => handleWaiterNotification('QR'),
-      buttonText: 'Solicitar QR',
-      message: 'Llegará en 2-3 minutos',
+      buttonText: t('requestCash'),
+      message: t('cashMessage'),
       color: 'text-gray-600',
-      features: ['Pago móvil', 'Escaneo rápido']
+      features: [t('mobilePay'), t('fastScan')]
     }
   ]
 
@@ -269,10 +271,10 @@ export default function PaymentModal({
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold">
-                  Método de Pago
+                  {t('methodTitle')}
                 </DialogTitle>
                 <p className="text-gray-500 text-xs">
-                  Elige cómo pagar
+                  {t('methodSubtitle')}
                 </p>
               </div>
             </div>
@@ -293,9 +295,9 @@ export default function PaymentModal({
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3">
               <X className="w-5 h-5 text-red-500 flex-shrink-0" />
               <div>
-                <p className="font-medium text-sm">Error de configuración</p>
+                <p className="font-medium text-sm">{t('configErrorTitle')}</p>
                 <p className="text-xs text-red-600 mt-1">
-                  No se pudo identificar la mesa. Por favor, escanea el código QR nuevamente.
+                  {t('configErrorBody')}
                 </p>
               </div>
             </div>
@@ -305,7 +307,7 @@ export default function PaymentModal({
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2">
               <ShoppingCart className="w-4 h-4 text-gray-600" />
-              Resumen
+              {t('summaryTitle')}
             </h3>
             <div className="space-y-2">
               {items.slice(0, 3).map((item, index) => (
@@ -320,12 +322,12 @@ export default function PaymentModal({
               ))}
               {items.length > 3 && (
                 <div className="text-xs text-gray-500 text-center py-1">
-                  +{items.length - 3} productos más
+                  {t('moreItems', {count: items.length - 3})}
                 </div>
               )}
               <div className="border-t border-gray-300 pt-2 mt-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-bold text-gray-900">Total</span>
+                  <span className="text-sm font-bold text-gray-900">{t('total')}</span>
                   <span className="text-lg font-bold text-gray-900">
                     ${totalAmount.toFixed(2)}
                   </span>
@@ -342,8 +344,8 @@ export default function PaymentModal({
                 <p className="font-medium text-sm">{successMessage}</p>
                 <p className="text-xs text-gray-600 mt-1">
                   {selectedMethod === 'billetera' 
-                    ? 'Completa el pago en la nueva pestaña' 
-                    : 'Por favor aguarde en su mesa'
+                    ? t('successPayNewTab') 
+                    : t('successWait')
                   }
                 </p>
               </div>
@@ -354,7 +356,7 @@ export default function PaymentModal({
             <div className="bg-gray-50 border border-gray-200 text-gray-700 px-4 py-3 rounded-xl flex items-center gap-3">
               <X className="w-5 h-5 text-gray-600 flex-shrink-0" />
               <div>
-                <p className="font-medium text-sm">Error en el pago</p>
+                <p className="font-medium text-sm">{t('errorPaymentTitle')}</p>
                 <p className="text-xs text-gray-600 mt-1">{errorMessage}</p>
               </div>
             </div>
@@ -363,7 +365,7 @@ export default function PaymentModal({
           {/* Opciones de pago con iconos más visibles */}
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 text-base mb-3">
-              ¿Cómo quieres pagar?
+              {t('howPay')}
             </h3>
             
             {paymentMethods.map((method) => (
@@ -426,7 +428,7 @@ export default function PaymentModal({
                       {isLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Procesando...
+                          {t('processing')}
                         </>
                       ) : (
                         <>
@@ -449,10 +451,10 @@ export default function PaymentModal({
               </div>
               <div>
                 <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                  Pago Seguro
+                  {t('secureTitle')}
                 </h4>
                 <p className="text-gray-600 text-xs leading-relaxed">
-                  Todos los métodos están protegidos. Tus datos están seguros.
+                  {t('secureBody')}
                 </p>
               </div>
             </div>

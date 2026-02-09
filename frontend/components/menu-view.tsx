@@ -8,6 +8,7 @@ import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import { useSearchParams } from "next/navigation"
 import InstructionsModal from "./instructions-modal"
+import { useTranslations } from "next-intl"
 
 // Tipo para los productos que vienen de la API
 interface ApiProduct {
@@ -32,6 +33,10 @@ export default function MenuView() {
   const [showInstructionsModal, setShowInstructionsModal] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [likedItems, setLikedItems] = useState<string[]>([])
+  const t = useTranslations("usuario.menu")
+  useEffect(() => {
+    setSelectedCategory(t("all"))
+  }, [t])
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
   
@@ -62,7 +67,7 @@ export default function MenuView() {
     products.forEach(product => {
       categoryMap[product.category] = true
     })
-    return ["Todos", ...Object.keys(categoryMap)]
+    return [t("all"), ...Object.keys(categoryMap)]
   }
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
@@ -100,7 +105,7 @@ export default function MenuView() {
 
   // Filtrar productos basado en categoría, búsqueda y disponibilidad
   const filteredProducts = products.filter((product: ApiProduct) => {
-    const matchesCategory = selectedCategory === "Todos" || product.category === selectedCategory
+    const matchesCategory = selectedCategory === t("all") || product.category === selectedCategory
     const matchesSearch = !searchQuery || 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -110,7 +115,7 @@ export default function MenuView() {
 
   const handleSearch = (query: string): void => {
     setSearchQuery(query)
-    setSelectedCategory("Todos")
+    setSelectedCategory(t("all"))
   }
 
   const handleAddToCart = (product: ApiProduct): void => {
@@ -207,7 +212,7 @@ export default function MenuView() {
               <Search className="w-4 h-4 text-gray-500 mr-2" />
               <input 
                 type="text" 
-                placeholder="Buscar productos..." 
+                placeholder={t("searchDesktopPlaceholder")}
                 value={searchQuery}
                 onChange={handleSearchChange}
                 className="bg-transparent border-none outline-none flex-1 text-sm text-gray-900 placeholder-gray-500"
@@ -221,7 +226,7 @@ export default function MenuView() {
                 className="rounded-full bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <Bell className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Mozo</span>
+                <span className="hidden sm:inline text-sm font-medium">{t("waiter")}</span>
               </Button>
 
               <Link href={`/usuario/cart`}>
@@ -243,7 +248,7 @@ export default function MenuView() {
               <Search className="w-4 h-4 text-gray-500 mr-2" />
               <input 
                 type="text" 
-                placeholder="Buscar..." 
+                placeholder={t("searchMobilePlaceholder")}
                 value={searchQuery}
                 onChange={handleSearchChange}
                 className="bg-transparent border-none outline-none flex-1 text-sm text-gray-900 placeholder-gray-500"
@@ -257,8 +262,8 @@ export default function MenuView() {
         {/* Welcome Section */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Explora</h1>
-            <p className="text-gray-600 text-sm">Descubre nuestros deliciosos platillos</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("exploreTitle")}</h1>
+            <p className="text-gray-600 text-sm">{t("exploreSubtitle")}</p>
           </div>
           <Button
             onClick={fetchProducts}
@@ -293,7 +298,7 @@ export default function MenuView() {
         {loading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando menú...</p>
+            <p className="text-gray-600">{t("loadingMenu")}</p>
           </div>
         )}
 
@@ -302,7 +307,7 @@ export default function MenuView() {
           <div className="text-center py-12">
             <div className="text-red-600 mb-4">❌ {error}</div>
             <Button onClick={fetchProducts} variant="outline" className="border-gray-300 hover:bg-gray-50">
-              Intentar de nuevo
+              {t("retry")}
             </Button>
           </div>
         )}
@@ -313,8 +318,8 @@ export default function MenuView() {
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-4xl mb-4 opacity-30">🍽️</div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No se encontraron productos</h3>
-                <p className="text-gray-600">Intenta con una búsqueda diferente o selecciona otra categoría</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("noResultsTitle")}</h3>
+                <p className="text-gray-600">{t("noResultsSubtitle")}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -348,7 +353,7 @@ export default function MenuView() {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-900 text-lg mb-1">{product.name}</h3>
                           <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {product.description || "Delicioso platillo preparado con ingredientes frescos"}
+                            {product.description || t("defaultDescription")}
                           </p>
                           <div className="flex items-center justify-between">
                             <span className="text-xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
@@ -360,7 +365,7 @@ export default function MenuView() {
                                 className="rounded-full bg-gray-900 hover:bg-gray-800 text-white px-6 py-2 flex items-center gap-2"
                               >
                                 <Plus className="w-4 h-4" />
-                                Agregar
+                                {t("add")}
                               </Button>
                             ) : (
                               <div className="flex items-center gap-3 bg-gray-50 rounded-full px-3 py-2">
@@ -403,7 +408,7 @@ export default function MenuView() {
             {/* Best Selling Section mejorada */}
             {products.length > 0 && (
               <div className="mt-12">
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Más Vendidos</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-6">{t("bestSellers")}</h2>
                 <div className="space-y-4">
                   {products.slice(0, 3).map((product: ApiProduct) => {
                     const quantity = getProductQuantity(product.id)
@@ -434,7 +439,7 @@ export default function MenuView() {
                             className="rounded-full bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 flex items-center gap-2"
                           >
                             <Plus className="w-3 h-3" />
-                            Agregar
+                            {t("add")}
                           </Button>
                         ) : (
                           <div className="flex items-center gap-2 bg-gray-50 rounded-full px-2 py-1">

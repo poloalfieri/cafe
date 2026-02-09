@@ -8,6 +8,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
+import { useTranslations } from "next-intl"
 
 export default function CartView() {
   const { state, updateQuantity, removeItem, clearCart } = useCart()
@@ -18,6 +19,7 @@ export default function CartView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const t = useTranslations("usuario.cart")
   const searchParams = useSearchParams()
   const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
@@ -42,7 +44,7 @@ export default function CartView() {
   const mesaSession = getMesaSession()
 
   const handlePaymentComplete = (orderId: string, status: string) => {
-    setSuccess(`Pago procesado. ID del pedido: ${orderId}`)
+    setSuccess(t("paymentProcessed", { orderId }))
     // Aquí podrías limpiar el carrito o hacer otras acciones
   }
 
@@ -108,7 +110,7 @@ export default function CartView() {
                     <ArrowLeft className="w-5 h-5 text-gray-700" />
                   </Button>
                 </Link>
-                <h1 className="text-xl font-bold text-gray-900">Carrito</h1>
+                <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
               </div>
               <Button 
                 onClick={handleCallWaiter}
@@ -125,11 +127,11 @@ export default function CartView() {
         {/* Empty state */}
         <div className="container mx-auto px-4 py-12 text-center">
           <div className="text-6xl mb-4 opacity-30">🛒</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Tu carrito está vacío</h2>
-          <p className="text-gray-600 mb-6">Agrega algunos productos deliciosos para comenzar</p>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">{t("emptyTitle")}</h2>
+          <p className="text-gray-600 mb-6">{t("emptySubtitle")}</p>
           <Link href="/usuario">
             <Button className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-full">
-              Ver Menú
+              {t("backToMenu")}
             </Button>
           </Link>
         </div>
@@ -158,7 +160,7 @@ export default function CartView() {
                   <ArrowLeft className="w-5 h-5 text-gray-700" />
                 </Button>
               </Link>
-              <h1 className="text-xl font-bold text-gray-900">Carrito</h1>
+              <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
             </div>
             <div className="flex items-center gap-2">
               <span className="bg-red-600 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium">
@@ -268,26 +270,26 @@ export default function CartView() {
           {/* Resumen del pedido */}
           <div className="space-y-3 mb-4">
             <div className="flex justify-between">
-              <span className="text-gray-600">Subtotal</span>
+              <span className="text-gray-600">{t("subtotal")}</span>
               <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
             </div>
             
             {/* Fila de descuentos - solo visible si existen */}
             {state.discounts > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Descuentos</span>
+                <span className="text-gray-600">{t("discounts")}</span>
                 <span className="font-semibold text-green-600">-${state.discounts.toFixed(2)}</span>
               </div>
             )}
             
             <div className="flex justify-between">
-              <span className="text-gray-600">Tarifa de servicio</span>
+              <span className="text-gray-600">{t("serviceFee")}</span>
               <span className="font-semibold text-gray-900">${state.serviceCharge.toFixed(2)}</span>
             </div>
             
             <div className="border-t border-gray-200 pt-3">
               <div className="flex justify-between">
-                <span className="text-lg font-bold text-gray-900">Total</span>
+                <span className="text-lg font-bold text-gray-900">{t("total")}</span>
                 <span className="text-lg font-bold text-red-600">${state.total.toFixed(2)}</span>
               </div>
             </div>
@@ -300,11 +302,11 @@ export default function CartView() {
               className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold text-lg"
               size="lg"
             >
-              Pagar ${state.total.toFixed(2)}
+              {t("pay")} ${state.total.toFixed(2)}
             </Button>
           ) : (
             <div className="text-center text-red-600 p-4">
-              Error: Faltan datos de la mesa o token QR.
+              {t("missingMesa")}
             </div>
           )}
         </div>

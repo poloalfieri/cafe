@@ -3,10 +3,12 @@
 import MenuView from "@/components/menu-view"
 import { Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 
 function UsuarioPageContent() {
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
+  const t = useTranslations("usuario.page")
 
   useEffect(() => {
     if (!mesa_id) return
@@ -37,7 +39,7 @@ function UsuarioPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Suspense fallback={<div>Cargando menú...</div>}>
+      <Suspense fallback={<div>{t("loading")}</div>}>
         <MenuView />
       </Suspense>
     </div>
@@ -45,8 +47,9 @@ function UsuarioPageContent() {
 }
 
 export default function UsuarioPage() {
+  const t = useTranslations("usuario.page")
   return (
-    <Suspense fallback={<div>Cargando...</div>}>
+    <Suspense fallback={<div>{t("loading")}</div>}>
       <UsuarioPageContent />
     </Suspense>
   )
