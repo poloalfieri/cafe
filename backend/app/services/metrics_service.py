@@ -4,6 +4,95 @@ from ..db.supabase_client import supabase
 
 class MetricsService:
     @staticmethod
+    def get_dashboard_summary(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, Any]:
+        """Resumen de métricas para el dashboard"""
+        try:
+            now = datetime.now(timezone.utc)
+            day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_start = now - timedelta(days=6)
+            month_start = now - timedelta(days=30)
+
+            query = supabase.table("orders").select(
+                "total_amount, items, creation_date, status, restaurant_id, branch_id"
+            ).eq("restaurant_id", restaurant_id)
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = query.execute()
+            orders = response.data or []
+
+            daily_sales = 0.0
+            weekly_sales = 0.0
+            monthly_sales = 0.0
+            paid_orders_month = 0
+            total_orders_month = 0
+            top_products: Dict[str, Dict[str, float]] = {}
+
+            for order in orders:
+                dt = _parse_order_datetime(order.get("creation_date"))
+                if not dt:
+                    continue
+                if dt >= month_start:
+                    total_orders_month += 1
+
+                if order.get("status") != "PAID":
+                    continue
+                total = _get_order_total(order)
+                if dt >= day_start:
+                    daily_sales += total
+                if dt >= week_start:
+                    weekly_sales += total
+                if dt >= month_start:
+                    monthly_sales += total
+                    paid_orders_month += 1
+                    _accumulate_top_products(top_products, order.get("items"))
+
+            avg_order_value = monthly_sales / paid_orders_month if paid_orders_month else 0.0
+
+            top_list = list(top_products.values())
+            top_list.sort(key=lambda x: (-x["quantity"], -x["revenue"], x["name"]))
+            top_list = top_list[:5]
+
+            ingredients_resp = (
+                supabase.table("ingredients")
+                .select("current_stock, min_stock, track_stock, restaurant_id")
+                .eq("restaurant_id", restaurant_id)
+                .execute()
+            )
+            ingredients = ingredients_resp.data or []
+            total_ingredients = len(ingredients)
+            low_stock_items = 0
+            for ing in ingredients:
+                track = ing.get("track_stock", True)
+                if not track:
+                    continue
+                current = _safe_float(ing.get("current_stock"))
+                minimum = _safe_float(ing.get("min_stock"))
+                if current <= minimum:
+                    low_stock_items += 1
+
+            return {
+                "dailySales": round(daily_sales, 2),
+                "weeklySales": round(weekly_sales, 2),
+                "monthlySales": round(monthly_sales, 2),
+                "totalOrders": total_orders_month,
+                "averageOrderValue": round(avg_order_value, 2),
+                "totalIngredients": total_ingredients,
+                "lowStockItems": low_stock_items,
+                "topProducts": top_list,
+            }
+        except Exception as e:
+            print(f"Error getting dashboard summary: {e}")
+            return {
+                "dailySales": 0,
+                "weeklySales": 0,
+                "monthlySales": 0,
+                "totalOrders": 0,
+                "averageOrderValue": 0,
+                "totalIngredients": 0,
+                "lowStockItems": 0,
+                "topProducts": [],
+            }
+    @staticmethod
     def get_sales_monthly(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, List]:
         """Obtiene las ventas mensuales del último año"""
         try:
@@ -182,3 +271,39 @@ def _get_order_total(order: Dict[str, Any]) -> float:
         except Exception:
             continue
     return acc
+
+
+def _safe_float(value: Any) -> float:
+    try:
+        if value is None:
+            return 0.0
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def _accumulate_top_products(bucket: Dict[str, Dict[str, float]], items: Any) -> None:
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        name = (
+            item.get("name")
+            or item.get("title")
+            or item.get("product_name")
+            or item.get("producto")
+        )
+        if not name:
+            pid = item.get("product_id") or item.get("item_id") or item.get("id")
+            name = f"Producto {pid}" if pid is not None else "Producto"
+
+        qty = _safe_float(item.get("quantity") or item.get("qty") or 0)
+        price = _safe_float(item.get("price") or item.get("unit_price") or 0)
+        revenue = price * qty
+
+        key = str(name)
+        if key not in bucket:
+            bucket[key] = {"name": str(name), "quantity": 0.0, "revenue": 0.0}
+        bucket[key]["quantity"] += qty
+        bucket[key]["revenue"] += revenue

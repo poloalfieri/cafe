@@ -68,7 +68,6 @@ export default function AdminDashboard() {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
   useEffect(() => {
-    fetchDashboardData()
     fetchBranches()
     // Low stock check on each load
     ;(async () => {
@@ -82,6 +81,10 @@ export default function AdminDashboard() {
       } catch (_) {}
     })()
   }, [])
+
+  useEffect(() => {
+    fetchDashboardData(selectedBranchId)
+  }, [selectedBranchId])
 
   const fetchBranches = async () => {
     try {
@@ -105,51 +108,41 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (branchId?: string) => {
     setLoading(true)
     try {
-      // Fetch ingredients data from API
-      const ingredientsData = await api.get('/api/ingredients')
-      
-      const totalIngredients = ingredientsData.data?.ingredients?.length || 0
-      const lowStockItems = ingredientsData.data?.ingredients?.filter((ing: any) => ing.currentStock < 100).length || 0
-
-      // Simular datos del dashboard - en producción esto vendría de tu API
-      const mockData: DashboardMetrics = {
-        dailySales: 1250.50,
-        weeklySales: 8750.25,
-        monthlySales: 32500.75,
-        totalOrders: 45,
-        averageOrderValue: 27.78,
-        totalIngredients,
-        lowStockItems,
-        topProducts: [
-          { name: t("mock.topProducts.americano"), quantity: 28, revenue: 98.00 },
-          { name: t("mock.topProducts.croissant"), quantity: 22, revenue: 55.00 },
-          { name: t("mock.topProducts.cappuccino"), quantity: 18, revenue: 72.00 },
-          { name: t("mock.topProducts.applePie"), quantity: 15, revenue: 75.00 },
-          { name: t("mock.topProducts.latte"), quantity: 12, revenue: 48.00 }
-        ]
+      const authHeader = await getClientAuthHeaderAsync()
+      const query = branchId ? `?branch_id=${branchId}` : ""
+      const summaryResponse = await fetch(`${backendUrl}/api/metrics/summary${query}`, {
+        headers: {
+          ...authHeader,
+        },
+      })
+      if (!summaryResponse.ok) {
+        throw new Error(`Summary error: ${summaryResponse.status}`)
       }
-      setMetrics(mockData)
+      const summary = await summaryResponse.json()
+      setMetrics({
+        dailySales: summary.dailySales || 0,
+        weeklySales: summary.weeklySales || 0,
+        monthlySales: summary.monthlySales || 0,
+        totalOrders: summary.totalOrders || 0,
+        averageOrderValue: summary.averageOrderValue || 0,
+        totalIngredients: summary.totalIngredients || 0,
+        lowStockItems: summary.lowStockItems || 0,
+        topProducts: Array.isArray(summary.topProducts) ? summary.topProducts : [],
+      })
     } catch (error) {
       console.error(t("errors.fetchDashboard"), error)
-      // Fallback to mock data
       setMetrics({
-        dailySales: 1250.50,
-        weeklySales: 8750.25,
-        monthlySales: 32500.75,
-        totalOrders: 45,
-        averageOrderValue: 27.78,
-        totalIngredients: 5,
-        lowStockItems: 1,
-        topProducts: [
-          { name: t("mock.topProducts.americano"), quantity: 28, revenue: 98.00 },
-          { name: t("mock.topProducts.croissant"), quantity: 22, revenue: 55.00 },
-          { name: t("mock.topProducts.cappuccino"), quantity: 18, revenue: 72.00 },
-          { name: t("mock.topProducts.applePie"), quantity: 15, revenue: 75.00 },
-          { name: t("mock.topProducts.latte"), quantity: 12, revenue: 48.00 }
-        ]
+        dailySales: 0,
+        weeklySales: 0,
+        monthlySales: 0,
+        totalOrders: 0,
+        averageOrderValue: 0,
+        totalIngredients: 0,
+        lowStockItems: 0,
+        topProducts: []
       })
     } finally {
       setLoading(false)
@@ -157,7 +150,7 @@ export default function AdminDashboard() {
   }
 
   const refreshData = () => {
-    fetchDashboardData()
+    fetchDashboardData(selectedBranchId)
   }
 
   return (

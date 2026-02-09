@@ -7,6 +7,39 @@ from ..db.supabase_client import supabase
 metrics_bp = Blueprint("metrics", __name__, url_prefix="/api/metrics")
 logger = setup_logger(__name__)
 
+@metrics_bp.route("/summary", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin')
+def get_dashboard_summary():
+    """Resumen de métricas para el dashboard"""
+    try:
+        branch_id = request.args.get("branch_id")
+        membership_resp = (
+            supabase.table("restaurant_users")
+            .select("restaurant_id")
+            .eq("user_id", g.user_id)
+            .limit(1)
+            .execute()
+        )
+        membership = (membership_resp.data or [None])[0]
+        if not membership:
+            return jsonify({
+                "dailySales": 0,
+                "weeklySales": 0,
+                "monthlySales": 0,
+                "totalOrders": 0,
+                "averageOrderValue": 0,
+                "totalIngredients": 0,
+                "lowStockItems": 0,
+                "topProducts": [],
+            })
+        restaurant_id = membership.get("restaurant_id")
+        data = MetricsService.get_dashboard_summary(restaurant_id, branch_id)
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error obteniendo summary: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 @metrics_bp.route("/sales-monthly", methods=["GET"])
 @require_auth
 @require_roles('desarrollador', 'admin')

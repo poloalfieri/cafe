@@ -2,23 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { 
-  Clock,
   MapPin,
-  Save,
   X
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-
-interface Schedule {
-  day: string
-  open: boolean
-  openTime: string
-  closeTime: string
-}
 
 interface Mesa {
   id: string
@@ -34,37 +23,18 @@ interface ScheduleManagementProps {
 
 export default function ScheduleManagement({ branchId }: ScheduleManagementProps) {
   const t = useTranslations("admin.schedule")
-  const [schedules, setSchedules] = useState<Schedule[]>([])
   const [mesas, setMesas] = useState<Mesa[]>([])
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
-  const daysOfWeek = [
-    t("days.monday"),
-    t("days.tuesday"),
-    t("days.wednesday"),
-    t("days.thursday"),
-    t("days.friday"),
-    t("days.saturday"),
-    t("days.sunday")
-  ]
-
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [branchId])
 
   const fetchData = async () => {
     try {
-      // Simular datos de horarios - en producción esto vendría de tu API
-      const mockSchedules: Schedule[] = daysOfWeek.map(day => ({
-        day,
-        open: day !== t("days.sunday"),
-        openTime: "08:00",
-        closeTime: day === t("days.saturday") ? "23:00" : "22:00"
-      }))
-      setSchedules(mockSchedules)
-
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
+
       const mesasResponse = await fetch(`${backendUrl}/mesa/list${query}`, {
         headers: {
           ...authHeader,
@@ -82,101 +52,14 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
     }
   }
 
-  const handleScheduleChange = (day: string, field: keyof Schedule, value: any) => {
-    setSchedules(schedules.map(schedule => 
-      schedule.day === day ? { ...schedule, [field]: value } : schedule
-    ))
-  }
-
   const getStatusInfo = (isActive: boolean) => {
     return isActive
       ? { label: t("tables.active"), color: "bg-green-100 text-green-700 border-green-200" }
       : { label: t("tables.inactive"), color: "bg-gray-100 text-gray-700 border-gray-200" }
   }
 
-  const saveSchedules = async () => {
-    // Aquí iría la lógica para guardar los horarios en la API
-    console.log(t("logs.saveSchedules"), schedules)
-    alert(t("alerts.saved"))
-  }
-
   return (
     <div className="space-y-8">
-      {/* Gestión de Horarios */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{t("opening.title")}</h2>
-            <p className="text-gray-600">{t("opening.subtitle")}</p>
-          </div>
-          <Button onClick={saveSchedules} className="bg-gray-900 hover:bg-gray-800 text-white">
-            <Save className="w-4 h-4 mr-2" />
-            {t("actions.saveSchedules")}
-          </Button>
-        </div>
-
-        <div className="bg-white rounded-xl border-2 border-gray-200 p-6 shadow-sm">
-          <div className="space-y-4">
-            {schedules.map((schedule) => (
-              <div key={schedule.day} className="flex items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="w-24">
-                  <Label className="font-bold text-gray-900 text-sm">{schedule.day}</Label>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id={`open-${schedule.day}`}
-                    checked={schedule.open}
-                    onChange={(e) => handleScheduleChange(schedule.day, "open", e.target.checked)}
-                    className="w-5 h-5 rounded border-2 border-gray-300 focus:ring-gray-900 focus:ring-2"
-                  />
-                  <Label htmlFor={`open-${schedule.day}`} className="text-sm font-medium text-gray-700">
-                    {t("opening.open")}
-                  </Label>
-                </div>
-
-                {schedule.open && (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Clock className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <Input
-                        type="time"
-                        value={schedule.openTime}
-                        onChange={(e) => handleScheduleChange(schedule.day, "openTime", e.target.value)}
-                        className="w-32 border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
-                      />
-                    </div>
-                    
-                    <span className="text-gray-600 font-medium">{t("opening.to")}</span>
-                    
-                    <div className="flex items-center gap-3">
-                      <Input
-                        type="time"
-                        value={schedule.closeTime}
-                        onChange={(e) => handleScheduleChange(schedule.day, "closeTime", e.target.value)}
-                        className="w-32 border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {!schedule.open && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                      <X className="w-4 h-4 text-red-600" />
-                    </div>
-                    <span className="text-red-600 font-medium text-sm">{t("opening.closed")}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Gestión de Mesas */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">

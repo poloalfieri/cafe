@@ -60,15 +60,8 @@ export default function RecipePage() {
 
   const fetchProduct = async () => {
     try {
-      // This would need to be implemented based on your existing menu API
-      // For now, we'll create a mock product
-      setProduct({
-        id: productId,
-        name: `Product ${productId}`,
-        category: 'Sample',
-        price: 10.00,
-        description: 'Sample product'
-      })
+      const productResponse = await api.get(`/api/products/${productId}`)
+      setProduct(productResponse.data)
     } catch (error) {
       console.error('Failed to fetch product:', error)
     }

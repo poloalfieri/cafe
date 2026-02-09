@@ -147,7 +147,7 @@
         "stock": "Stock",
         "recipes": "Recetas",
         "promotions": "Promociones",
-        "schedule": "Horarios & Mesas",
+        "schedule": "Mesas",
         "branches": "Sucursales",
         "analytics": "Analytics",
         "banking": "Cuenta Bancaria"
@@ -532,7 +532,8 @@
         "startDate": "Fecha de Inicio",
         "endDate": "Fecha de Fin",
         "startTime": "Hora de Inicio",
-        "endTime": "Hora de Fin"
+        "endTime": "Hora de Fin",
+        "allDay": "Promoción todo el día"
       },
       "status": {
         "active": "🟢 Activa",
@@ -549,22 +550,6 @@
       }
     },
     "schedule": {
-      "days": {
-        "monday": "Lunes",
-        "tuesday": "Martes",
-        "wednesday": "Miércoles",
-        "thursday": "Jueves",
-        "friday": "Viernes",
-        "saturday": "Sábado",
-        "sunday": "Domingo"
-      },
-      "opening": {
-        "title": "Horarios de Apertura",
-        "subtitle": "Configura los horarios de apertura y cierre por día",
-        "open": "Abierto",
-        "closed": "Cerrado",
-        "to": "a"
-      },
       "tables": {
         "title": "Gestión de Mesas",
         "subtitle": "Mesas sincronizadas desde la base de datos",
@@ -576,14 +561,7 @@
         "emptySubtitle": "Agrega mesas en la base de datos para que aparezcan aquí"
       },
       "actions": {
-        "saveSchedules": "Guardar Horarios",
         "refresh": "Actualizar"
-      },
-      "alerts": {
-        "saved": "Horarios guardados correctamente"
-      },
-      "logs": {
-        "saveSchedules": "Guardando horarios:"
       }
     },
     "branches": {

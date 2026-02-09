@@ -52,7 +52,8 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
     endDate: "",
     startTime: "",
     endTime: "",
-    active: true
+    active: true,
+    allDay: false
   })
 
   const promotionTypes = [
@@ -107,12 +108,12 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    const promotionData: Promotion = {
-      ...formData,
-      value: parseFloat(formData.value),
-      id: editingPromotion?.id || Date.now().toString(),
-      type: formData.type as "discount" | "2x1" | "combo" | "timeframe"
-    }
+      const promotionData: Promotion = {
+        ...formData,
+        value: parseFloat(formData.value),
+        id: editingPromotion?.id || Date.now().toString(),
+        type: formData.type as "discount" | "2x1" | "combo" | "timeframe"
+      }
 
     try {
       const authHeader = await getClientAuthHeaderAsync()
@@ -243,7 +244,8 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
       endDate: "",
       startTime: "",
       endTime: "",
-      active: true
+      active: true,
+      allDay: false
     })
     setEditingPromotion(null)
   }
@@ -398,9 +400,10 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                     <Input
                       id="startTime"
                       type="time"
-                      value={formData.startTime}
+                      value={formData.allDay ? "" : formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                      disabled={formData.allDay}
                     />
                   </div>
                   <div className="space-y-2">
@@ -408,10 +411,29 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                     <Input
                       id="endTime"
                       type="time"
-                      value={formData.endTime}
+                      value={formData.allDay ? "" : formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                       className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                      disabled={formData.allDay}
                     />
+                  </div>
+                  <div className="col-span-2 flex items-center gap-2 pt-1">
+                    <input
+                      id="allDay"
+                      type="checkbox"
+                      checked={formData.allDay}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          allDay: e.target.checked,
+                          startTime: e.target.checked ? "" : formData.startTime,
+                          endTime: e.target.checked ? "" : formData.endTime
+                        })
+                      }
+                    />
+                    <Label htmlFor="allDay" className="text-gray-700 font-medium">
+                      {t("form.allDay")}
+                    </Label>
                   </div>
                 </div>
               )}
