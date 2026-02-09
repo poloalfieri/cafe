@@ -153,6 +153,28 @@ export default function PaymentModal({
     
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+      const orderResponse = await fetch(`${backendUrl}/order/create/${mesaId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${mesaToken}`,
+        },
+        body: JSON.stringify({
+          items: items.map(item => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
+          token: mesaToken,
+        }),
+      })
+
+      if (!orderResponse.ok) {
+        const orderData = await orderResponse.json().catch(() => null)
+        const orderMsg = orderData?.error || `Error ${orderResponse.status}: ${orderResponse.statusText}`
+        throw new Error(orderMsg)
+      }
+
       const response = await fetch(`${backendUrl}/waiter/calls`, {
         method: 'POST',
         headers: {

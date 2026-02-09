@@ -82,6 +82,14 @@ def update_waiter_call_status(call_id):
         if not updated_call:
             return jsonify({'error': 'Llamada no encontrada'}), 404
 
+        if data['status'] == 'COMPLETED':
+            try:
+                mesa_id = updated_call.get('mesa_id')
+                if mesa_id:
+                    order_service.mark_latest_order_paid_for_mesa(mesa_id)
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'message': 'Estado de llamada actualizado exitosamente',

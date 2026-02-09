@@ -112,7 +112,11 @@ export default function AdminDashboard() {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const query = branchId ? `?branch_id=${branchId}` : ""
+      const tzOffset = -new Date().getTimezoneOffset()
+      const params = new URLSearchParams()
+      if (branchId) params.set("branch_id", branchId)
+      params.set("tzOffset", String(tzOffset))
+      const query = params.toString() ? `?${params.toString()}` : ""
       const summaryResponse = await fetch(`${backendUrl}/api/metrics/summary${query}`, {
         headers: {
           ...authHeader,

@@ -79,7 +79,11 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         "payment-methods"
       ]
       
-      const query = branchId ? `?branch_id=${encodeURIComponent(branchId)}` : ""
+      const tzOffset = -new Date().getTimezoneOffset()
+      const params = new URLSearchParams()
+      if (branchId) params.set("branch_id", branchId)
+      params.set("tzOffset", String(tzOffset))
+      const query = params.toString() ? `?${params.toString()}` : ""
       const results = await Promise.all(
         endpoints.map(endpoint => 
           fetch(`${API_BASE_URL}/api/metrics/${endpoint}${query}`, {

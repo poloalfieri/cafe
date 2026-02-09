@@ -247,6 +247,9 @@ export default function CajeroDashboard() {
 
       if (response.ok) {
         setWaiterCalls(prev => prev.filter(call => call.id !== callId))
+        if (newStatus === "COMPLETED") {
+          fetchData()
+        }
       } else {
         const errorData = await response.json()
         console.error(t("errors.updateCallStatus"), errorData.error)

@@ -148,6 +148,30 @@ class OrderService:
         except Exception as e:
             logger.warning(f"No se pudo actualizar payment_method para mesa {mesa_id}: {str(e)}")
 
+    def mark_latest_order_paid_for_mesa(self, mesa_id: str) -> Optional[Dict]:
+        """
+        Marcar como PAID el último pedido de una mesa.
+        """
+        try:
+            response = (
+                supabase.table("orders")
+                .select("*")
+                .eq("mesa_id", mesa_id)
+                .order("creation_date", desc=True)
+                .limit(1)
+                .execute()
+            )
+            order = (response.data or [None])[0]
+            if not order:
+                return None
+            if order.get("status") == OrderStatus.PAID.value:
+                return self._serialize_order(order)
+
+            return self.update_order_status(order.get("id"), OrderStatus.PAID)
+        except Exception as e:
+            logger.error(f"No se pudo marcar PAID el último pedido de mesa {mesa_id}: {str(e)}")
+            return None
+
     def create_order(self, mesa_id: str, items: List[Dict], token: str = None) -> Dict:
         """
         Crear un nuevo pedido
@@ -195,7 +219,6 @@ class OrderService:
                 "items": items,
                 "total_amount": total_amount,
                 "creation_date": now_iso,
-                "updated_at": now_iso,
                 "restaurant_id": mesa.get("restaurant_id"),
                 "branch_id": mesa.get("branch_id"),
             }

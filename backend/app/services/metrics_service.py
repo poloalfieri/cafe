@@ -4,13 +4,19 @@ from ..db.supabase_client import supabase
 
 class MetricsService:
     @staticmethod
-    def get_dashboard_summary(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_dashboard_summary(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None
+    ) -> Dict[str, Any]:
         """Resumen de métricas para el dashboard"""
         try:
-            now = datetime.now(timezone.utc)
-            day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            week_start = now - timedelta(days=6)
-            month_start = now - timedelta(days=30)
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            day_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_start = now_local - timedelta(days=6)
+            month_start = now_local - timedelta(days=30)
 
             query = supabase.table("orders").select(
                 "total_amount, items, creation_date, status, restaurant_id, branch_id"
@@ -31,17 +37,18 @@ class MetricsService:
                 dt = _parse_order_datetime(order.get("creation_date"))
                 if not dt:
                     continue
-                if dt >= month_start:
+                local_dt = _apply_tz_offset(dt, offset_minutes)
+                if local_dt >= month_start:
                     total_orders_month += 1
 
                 if order.get("status") != "PAID":
                     continue
                 total = _get_order_total(order)
-                if dt >= day_start:
+                if local_dt >= day_start:
                     daily_sales += total
-                if dt >= week_start:
+                if local_dt >= week_start:
                     weekly_sales += total
-                if dt >= month_start:
+                if local_dt >= month_start:
                     monthly_sales += total
                     paid_orders_month += 1
                     _accumulate_top_products(top_products, order.get("items"))
@@ -93,11 +100,17 @@ class MetricsService:
                 "topProducts": [],
             }
     @staticmethod
-    def get_sales_monthly(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, List]:
+    def get_sales_monthly(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None
+    ) -> Dict[str, List]:
         """Obtiene las ventas mensuales del último año"""
         try:
-            now = datetime.now(timezone.utc)
-            start = now - timedelta(days=365)
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            start = now_local - timedelta(days=365)
             query = supabase.table("orders").select(
                 "total_amount, items, creation_date, status, restaurant_id, branch_id"
             ).eq("restaurant_id", restaurant_id)
@@ -110,7 +123,7 @@ class MetricsService:
             month_labels = []
             month_keys = []
             for i in range(12):
-                dt = (now.replace(day=1) - timedelta(days=30 * (11 - i)))
+                dt = (now_local.replace(day=1) - timedelta(days=30 * (11 - i)))
                 key = dt.strftime("%Y-%m")
                 label = dt.strftime("%b").capitalize()
                 month_labels.append(label)
@@ -124,9 +137,10 @@ class MetricsService:
                 dt = _parse_order_datetime(order.get("creation_date"))
                 if not dt:
                     continue
-                if dt < start:
+                local_dt = _apply_tz_offset(dt, offset_minutes)
+                if local_dt < start:
                     continue
-                key = dt.strftime("%Y-%m")
+                key = local_dt.strftime("%Y-%m")
                 if key in totals:
                     totals[key] += _get_order_total(order)
 
@@ -137,7 +151,11 @@ class MetricsService:
             return {"labels": [], "values": []}
 
     @staticmethod
-    def get_orders_status(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, List]:
+    def get_orders_status(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None
+    ) -> Dict[str, List]:
         """Obtiene el conteo de pedidos por estado"""
         try:
             query = supabase.table("orders").select(
@@ -163,11 +181,17 @@ class MetricsService:
             return {"labels": [], "values": []}
 
     @staticmethod
-    def get_daily_revenue(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, List]:
+    def get_daily_revenue(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None
+    ) -> Dict[str, List]:
         """Obtiene los ingresos diarios de la última semana"""
         try:
-            now = datetime.now(timezone.utc)
-            start = now - timedelta(days=6)
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            start = now_local - timedelta(days=6)
             query = supabase.table("orders").select(
                 "total_amount, items, creation_date, status, restaurant_id, branch_id"
             ).eq("restaurant_id", restaurant_id)
@@ -191,7 +215,8 @@ class MetricsService:
                 dt = _parse_order_datetime(order.get("creation_date"))
                 if not dt:
                     continue
-                key = dt.strftime("%Y-%m-%d")
+                local_dt = _apply_tz_offset(dt, offset_minutes)
+                key = local_dt.strftime("%Y-%m-%d")
                 if key in totals:
                     totals[key] += _get_order_total(order)
 
@@ -202,7 +227,11 @@ class MetricsService:
             return {"labels": [], "values": []}
 
     @staticmethod
-    def get_payment_methods(restaurant_id: str, branch_id: Optional[str] = None) -> Dict[str, List]:
+    def get_payment_methods(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None
+    ) -> Dict[str, List]:
         """Obtiene el uso de métodos de pago"""
         try:
             query = supabase.table("orders").select(
@@ -271,6 +300,17 @@ def _get_order_total(order: Dict[str, Any]) -> float:
         except Exception:
             continue
     return acc
+
+
+def _ensure_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _apply_tz_offset(dt: datetime, offset_minutes: int) -> datetime:
+    utc_dt = _ensure_utc(dt)
+    return utc_dt + timedelta(minutes=offset_minutes)
 
 
 def _safe_float(value: Any) -> float:
