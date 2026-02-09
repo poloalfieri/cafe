@@ -17,6 +17,7 @@ import {
   CheckCircle,
   XCircle
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 interface Product {
   id: string
@@ -29,6 +30,7 @@ interface Product {
 }
 
 export default function ProductsManagement() {
+  const t = useTranslations("admin.products")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -45,13 +47,13 @@ export default function ProductsManagement() {
   const [imageFile, setImageFile] = useState<File | null>(null)
 
   const categories = [
-    "Bebidas",
-    "Café",
-    "Pastelería",
-    "Platos Principales",
-    "Entradas",
-    "Postres",
-    "Especialidades"
+    { key: "beverages", label: t("categories.beverages") },
+    { key: "coffee", label: t("categories.coffee") },
+    { key: "bakery", label: t("categories.bakery") },
+    { key: "mainDishes", label: t("categories.mainDishes") },
+    { key: "starters", label: t("categories.starters") },
+    { key: "desserts", label: t("categories.desserts") },
+    { key: "specialties", label: t("categories.specialties") }
   ]
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
@@ -76,8 +78,8 @@ export default function ProductsManagement() {
       setProducts(data)
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Error al cargar productos. Verifica que el servidor esté funcionando.",
+        title: t("toast.errorTitle"),
+        description: t("toast.loadError"),
         variant: "destructive"
       })
     } finally {
@@ -99,14 +101,14 @@ export default function ProductsManagement() {
         })
         const data = await res.json()
         if (!res.ok) {
-          throw new Error(data.error || "No se pudo subir la imagen")
+          throw new Error(data.error || t("toast.uploadError"))
         }
         imageUrl = data.url
       } catch (e: any) {
         console.error("Upload error:", e)
         toast({
-          title: "Aviso",
-          description: e?.message || "No se pudo subir la imagen. Se guardará el producto sin foto.",
+          title: t("toast.warningTitle"),
+          description: e?.message || t("toast.uploadFallback"),
           variant: "destructive"
         })
         imageUrl = ""
@@ -164,13 +166,13 @@ export default function ProductsManagement() {
       resetForm()
       setIsDialogOpen(false)
       toast({
-        title: "Éxito",
-        description: editingProduct ? "Producto actualizado correctamente" : "Producto creado correctamente"
+        title: t("toast.successTitle"),
+        description: editingProduct ? t("toast.updated") : t("toast.created")
       })
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error al guardar el producto. Por favor, intenta nuevamente."
+      const errorMessage = error instanceof Error ? error.message : t("toast.saveError")
       toast({
-        title: "Error",
+        title: t("toast.errorTitle"),
         description: errorMessage,
         variant: "destructive"
       })
@@ -192,7 +194,7 @@ export default function ProductsManagement() {
   }
 
   const handleDelete = async (productId: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
+    if (confirm(t("confirmDelete"))) {
       try {
         const authHeader = await getClientAuthHeaderAsync()
         const response = await fetch(`${backendUrl}/menu/${productId}`, {
@@ -208,13 +210,13 @@ export default function ProductsManagement() {
 
         setProducts(products.filter(p => p.id !== productId))
         toast({
-          title: "Éxito",
-          description: "Producto eliminado correctamente"
+          title: t("toast.successTitle"),
+          description: t("toast.deleted")
         })
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Error al eliminar el producto. Por favor, intenta nuevamente."
+        const errorMessage = error instanceof Error ? error.message : t("toast.deleteError")
         toast({
-          title: "Error",
+          title: t("toast.errorTitle"),
           description: errorMessage,
           variant: "destructive"
         })
@@ -241,13 +243,13 @@ export default function ProductsManagement() {
         p.id === productId ? { ...p, available: result.available } : p
       ))
       toast({
-        title: "Éxito",
-        description: `Producto ${result.available ? 'activado' : 'desactivado'} correctamente`
+        title: t("toast.successTitle"),
+        description: t(result.available ? "toast.activated" : "toast.deactivated")
       })
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error al cambiar la disponibilidad del producto. Por favor, intenta nuevamente."
+      const errorMessage = error instanceof Error ? error.message : t("toast.toggleError")
       toast({
-        title: "Error",
+        title: t("toast.errorTitle"),
         description: errorMessage,
         variant: "destructive"
       })
@@ -277,45 +279,45 @@ export default function ProductsManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Productos</h2>
-          <p className="text-gray-600">Administra el catálogo de productos del local</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
               <Plus className="w-4 h-4 mr-2" />
-              Nuevo Producto
+              {t("actions.newProduct")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] bg-white border border-gray-200">
             <DialogHeader>
               <DialogTitle className="text-gray-900">
-                {editingProduct ? "Editar Producto" : "Crear Nuevo Producto"}
+                {editingProduct ? t("dialog.editTitle") : t("dialog.createTitle")}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name" className="text-gray-700">Nombre</Label>
+                  <Label htmlFor="name" className="text-gray-700">{t("form.name")}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ej: Café Americano"
+                    placeholder={t("form.namePlaceholder")}
                     required
                     className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category" className="text-gray-700">Categoría</Label>
+                  <Label htmlFor="category" className="text-gray-700">{t("form.category")}</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                     <SelectTrigger className="border-gray-300 focus:border-gray-900 focus:ring-gray-900">
-                      <SelectValue placeholder="Seleccionar categoría" />
+                      <SelectValue placeholder={t("form.categoryPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                        <SelectItem key={category.key} value={category.label}>
+                          {category.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -324,32 +326,32 @@ export default function ProductsManagement() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="price" className="text-gray-700">Precio</Label>
+                <Label htmlFor="price" className="text-gray-700">{t("form.price")}</Label>
                 <Input
                   id="price"
                   type="number"
                   step="0.01"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="0.00"
+                  placeholder={t("form.pricePlaceholder")}
                   required
                   className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-gray-700">Descripción</Label>
+                <Label htmlFor="description" className="text-gray-700">{t("form.description")}</Label>
                 <Input
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descripción opcional del producto"
+                  placeholder={t("form.descriptionPlaceholder")}
                   className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="image" className="text-gray-700">Imagen del producto</Label>
+                <Label htmlFor="image" className="text-gray-700">{t("form.image")}</Label>
                 <Input
                   id="image"
                   type="file"
@@ -359,7 +361,7 @@ export default function ProductsManagement() {
                 />
                 {formData.image_url && !imageFile && (
                   <p className="text-xs text-gray-500 break-all">
-                    Imagen actual: {formData.image_url}
+                    {t("form.currentImage")}: {formData.image_url}
                   </p>
                 )}
               </div>
@@ -372,15 +374,15 @@ export default function ProductsManagement() {
                   onChange={(e) => setFormData({ ...formData, available: e.target.checked })}
                   className="rounded border-gray-300 focus:ring-gray-900"
                 />
-                <Label htmlFor="available" className="text-gray-700">Disponible</Label>
+                <Label htmlFor="available" className="text-gray-700">{t("form.available")}</Label>
               </div>
 
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 hover:bg-gray-50 text-gray-700">
-                  Cancelar
+                  {t("actions.cancel")}
                 </Button>
                 <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white">
-                  {editingProduct ? "Actualizar" : "Crear"}
+                  {editingProduct ? t("actions.update") : t("actions.create")}
                 </Button>
               </div>
             </form>
@@ -392,7 +394,7 @@ export default function ProductsManagement() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
         <Input
-          placeholder="Buscar productos por nombre o categoría..."
+          placeholder={t("searchPlaceholder")}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
@@ -405,11 +407,11 @@ export default function ProductsManagement() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Producto</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Categoría</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Precio</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Estado</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Acciones</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t("table.product")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t("table.category")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t("table.price")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t("table.status")}</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">{t("table.actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -436,12 +438,12 @@ export default function ProductsManagement() {
                       {product.available ? (
                         <>
                           <CheckCircle className="w-4 h-4 text-green-500" />
-                          <span className="text-sm text-green-600">Disponible</span>
+                          <span className="text-sm text-green-600">{t("status.available")}</span>
                         </>
                       ) : (
                         <>
                           <XCircle className="w-4 h-4 text-red-500" />
-                          <span className="text-sm text-red-600">No disponible</span>
+                          <span className="text-sm text-red-600">{t("status.unavailable")}</span>
                         </>
                       )}
                     </div>
@@ -458,7 +460,7 @@ export default function ProductsManagement() {
                             : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 bg-green-50/50"
                         }`}
                       >
-                        {product.available ? "Desactivar" : "Activar"}
+                        {product.available ? t("actions.deactivate") : t("actions.activate")}
                       </Button>
                       <Button
                         variant="outline"
@@ -488,7 +490,7 @@ export default function ProductsManagement() {
           <div className="text-center py-8">
             <Package className="w-12 h-12 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-600">
-              {searchTerm ? "No se encontraron productos" : "No hay productos registrados"}
+              {searchTerm ? t("empty.search") : t("empty.default")}
             </p>
           </div>
         )}

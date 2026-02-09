@@ -11,6 +11,7 @@ import {
   Save,
   X
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 interface Schedule {
   day: string
@@ -28,12 +29,19 @@ interface Mesa {
 }
 
 export default function ScheduleManagement() {
+  const t = useTranslations("admin.schedule")
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [mesas, setMesas] = useState<Mesa[]>([])
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
   const daysOfWeek = [
-    "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"
+    t("days.monday"),
+    t("days.tuesday"),
+    t("days.wednesday"),
+    t("days.thursday"),
+    t("days.friday"),
+    t("days.saturday"),
+    t("days.sunday")
   ]
 
   useEffect(() => {
@@ -45,9 +53,9 @@ export default function ScheduleManagement() {
       // Simular datos de horarios - en producción esto vendría de tu API
       const mockSchedules: Schedule[] = daysOfWeek.map(day => ({
         day,
-        open: day !== "Domingo",
+        open: day !== t("days.sunday"),
         openTime: "08:00",
-        closeTime: day === "Sábado" ? "23:00" : "22:00"
+        closeTime: day === t("days.saturday") ? "23:00" : "22:00"
       }))
       setSchedules(mockSchedules)
 
@@ -77,14 +85,14 @@ export default function ScheduleManagement() {
 
   const getStatusInfo = (isActive: boolean) => {
     return isActive
-      ? { label: "Activa", color: "bg-green-100 text-green-700 border-green-200" }
-      : { label: "Inactiva", color: "bg-gray-100 text-gray-700 border-gray-200" }
+      ? { label: t("tables.active"), color: "bg-green-100 text-green-700 border-green-200" }
+      : { label: t("tables.inactive"), color: "bg-gray-100 text-gray-700 border-gray-200" }
   }
 
   const saveSchedules = async () => {
     // Aquí iría la lógica para guardar los horarios en la API
-    console.log("Guardando horarios:", schedules)
-    alert("Horarios guardados correctamente")
+    console.log(t("logs.saveSchedules"), schedules)
+    alert(t("alerts.saved"))
   }
 
   return (
@@ -93,12 +101,12 @@ export default function ScheduleManagement() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Horarios de Apertura</h2>
-            <p className="text-gray-600">Configura los horarios de apertura y cierre por día</p>
+            <h2 className="text-2xl font-bold text-gray-900">{t("opening.title")}</h2>
+            <p className="text-gray-600">{t("opening.subtitle")}</p>
           </div>
           <Button onClick={saveSchedules} className="bg-gray-900 hover:bg-gray-800 text-white">
             <Save className="w-4 h-4 mr-2" />
-            Guardar Horarios
+            {t("actions.saveSchedules")}
           </Button>
         </div>
 
@@ -119,7 +127,7 @@ export default function ScheduleManagement() {
                     className="w-5 h-5 rounded border-2 border-gray-300 focus:ring-gray-900 focus:ring-2"
                   />
                   <Label htmlFor={`open-${schedule.day}`} className="text-sm font-medium text-gray-700">
-                    Abierto
+                    {t("opening.open")}
                   </Label>
                 </div>
 
@@ -137,7 +145,7 @@ export default function ScheduleManagement() {
                       />
                     </div>
                     
-                    <span className="text-gray-600 font-medium">a</span>
+                    <span className="text-gray-600 font-medium">{t("opening.to")}</span>
                     
                     <div className="flex items-center gap-3">
                       <Input
@@ -155,7 +163,7 @@ export default function ScheduleManagement() {
                     <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
                       <X className="w-4 h-4 text-red-600" />
                     </div>
-                    <span className="text-red-600 font-medium text-sm">Cerrado</span>
+                    <span className="text-red-600 font-medium text-sm">{t("opening.closed")}</span>
                   </div>
                 )}
               </div>
@@ -168,11 +176,11 @@ export default function ScheduleManagement() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Gestión de Mesas</h2>
-            <p className="text-gray-600">Mesas sincronizadas desde la base de datos</p>
+            <h2 className="text-2xl font-bold text-gray-900">{t("tables.title")}</h2>
+            <p className="text-gray-600">{t("tables.subtitle")}</p>
           </div>
           <Button onClick={fetchData} className="bg-gray-900 hover:bg-gray-800 text-white">
-            Actualizar
+            {t("actions.refresh")}
           </Button>
         </div>
 
@@ -189,7 +197,7 @@ export default function ScheduleManagement() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-bold text-lg text-gray-900">Mesa {mesa.mesa_id}</h3>
-                    <p className="text-gray-600 text-sm">ID: {mesa.id}</p>
+                    <p className="text-gray-600 text-sm">{t("tables.idLabel", { id: mesa.id })}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border-2 ${statusInfo.color}`}>
                     {statusInfo.label}
@@ -197,8 +205,9 @@ export default function ScheduleManagement() {
                 </div>
 
                 <div className="text-sm text-gray-600">
-                  Última actualización:{" "}
-                  {mesa.updated_at ? new Date(mesa.updated_at).toLocaleString() : "—"}
+                  {t("tables.lastUpdate", {
+                    value: mesa.updated_at ? new Date(mesa.updated_at).toLocaleString() : "—"
+                  })}
                 </div>
               </div>
             )
@@ -210,8 +219,8 @@ export default function ScheduleManagement() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <MapPin className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay mesas registradas</h3>
-            <p className="text-gray-600">Agrega mesas en la base de datos para que aparezcan aquí</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("tables.emptyTitle")}</h3>
+            <p className="text-gray-600">{t("tables.emptySubtitle")}</p>
           </div>
         )}
       </div>

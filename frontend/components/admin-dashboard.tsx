@@ -30,6 +30,7 @@ import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api } from "@/lib/fetcher"
+import { useTranslations } from "next-intl"
 
 interface DashboardMetrics {
   dailySales: number
@@ -47,6 +48,7 @@ interface DashboardMetrics {
 }
 
 export default function AdminDashboard() {
+  const t = useTranslations("admin.dashboard")
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     dailySales: 0,
     weeklySales: 0,
@@ -95,16 +97,16 @@ export default function AdminDashboard() {
         totalIngredients,
         lowStockItems,
         topProducts: [
-          { name: "Café Americano", quantity: 28, revenue: 98.00 },
-          { name: "Croissant", quantity: 22, revenue: 55.00 },
-          { name: "Cappuccino", quantity: 18, revenue: 72.00 },
-          { name: "Tarta de Manzana", quantity: 15, revenue: 75.00 },
-          { name: "Café Latte", quantity: 12, revenue: 48.00 }
+          { name: t("mock.topProducts.americano"), quantity: 28, revenue: 98.00 },
+          { name: t("mock.topProducts.croissant"), quantity: 22, revenue: 55.00 },
+          { name: t("mock.topProducts.cappuccino"), quantity: 18, revenue: 72.00 },
+          { name: t("mock.topProducts.applePie"), quantity: 15, revenue: 75.00 },
+          { name: t("mock.topProducts.latte"), quantity: 12, revenue: 48.00 }
         ]
       }
       setMetrics(mockData)
     } catch (error) {
-      console.error("Error fetching dashboard data:", error)
+      console.error(t("errors.fetchDashboard"), error)
       // Fallback to mock data
       setMetrics({
         dailySales: 1250.50,
@@ -115,11 +117,11 @@ export default function AdminDashboard() {
         totalIngredients: 5,
         lowStockItems: 1,
         topProducts: [
-          { name: "Café Americano", quantity: 28, revenue: 98.00 },
-          { name: "Croissant", quantity: 22, revenue: 55.00 },
-          { name: "Cappuccino", quantity: 18, revenue: 72.00 },
-          { name: "Tarta de Manzana", quantity: 15, revenue: 75.00 },
-          { name: "Café Latte", quantity: 12, revenue: 48.00 }
+          { name: t("mock.topProducts.americano"), quantity: 28, revenue: 98.00 },
+          { name: t("mock.topProducts.croissant"), quantity: 22, revenue: 55.00 },
+          { name: t("mock.topProducts.cappuccino"), quantity: 18, revenue: 72.00 },
+          { name: t("mock.topProducts.applePie"), quantity: 15, revenue: 75.00 },
+          { name: t("mock.topProducts.latte"), quantity: 12, revenue: 48.00 }
         ]
       })
     } finally {
@@ -142,8 +144,8 @@ export default function AdminDashboard() {
                 <Settings className="text-white w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
-                <p className="text-gray-600 text-sm">Gestión completa del local gastronómico</p>
+                <h1 className="text-3xl font-bold text-gray-900">{t("header.title")}</h1>
+                <p className="text-gray-600 text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
             <Button
@@ -152,7 +154,7 @@ export default function AdminDashboard() {
               className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 flex items-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("actions.refresh")}
             </Button>
           </div>
 
@@ -165,7 +167,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.dailySales.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ventas del Día</p>
+                  <p className="text-xs text-gray-600">{t("metrics.dailySales")}</p>
                 </div>
               </div>
             </div>
@@ -177,7 +179,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.weeklySales.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ventas Semanales</p>
+                  <p className="text-xs text-gray-600">{t("metrics.weeklySales")}</p>
                 </div>
               </div>
             </div>
@@ -189,7 +191,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.monthlySales.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ventas Mensuales</p>
+                  <p className="text-xs text-gray-600">{t("metrics.monthlySales")}</p>
                 </div>
               </div>
             </div>
@@ -201,7 +203,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{metrics.totalOrders}</p>
-                  <p className="text-xs text-gray-600">Pedidos Totales</p>
+                  <p className="text-xs text-gray-600">{t("metrics.totalOrders")}</p>
                 </div>
               </div>
             </div>
@@ -213,7 +215,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">${metrics.averageOrderValue.toFixed(2)}</p>
-                  <p className="text-xs text-gray-600">Ticket Promedio</p>
+                  <p className="text-xs text-gray-600">{t("metrics.averageTicket")}</p>
                 </div>
               </div>
             </div>
@@ -225,7 +227,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{metrics.totalIngredients}</p>
-                  <p className="text-xs text-gray-600">Ingredientes</p>
+                  <p className="text-xs text-gray-600">{t("metrics.ingredients")}</p>
                 </div>
               </div>
             </div>
@@ -241,7 +243,7 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{metrics.lowStockItems}</p>
-                  <p className="text-xs text-gray-600">Stock Bajo</p>
+                  <p className="text-xs text-gray-600">{t("metrics.lowStock")}</p>
                 </div>
               </div>
             </div>
@@ -254,9 +256,9 @@ export default function AdminDashboard() {
         <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Stock mínimo alcanzado</DialogTitle>
+              <DialogTitle>{t("lowStock.title")}</DialogTitle>
               <DialogDescription>
-                Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.
+                {t("lowStock.description")}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
@@ -264,7 +266,10 @@ export default function AdminDashboard() {
                 <div key={idx} className="flex justify-between text-sm">
                   <span className="font-medium">{i.name}</span>
                   <span>
-                    {i.currentStock.toFixed(2)} / min {i.minStock.toFixed(2)}
+                    {t("lowStock.stockLine", {
+                      current: i.currentStock.toFixed(2),
+                      min: i.minStock.toFixed(2)
+                    })}
                   </span>
                 </div>
               ))}
@@ -275,39 +280,39 @@ export default function AdminDashboard() {
           <TabsList className="grid w-full grid-cols-9 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4" />
-              Dashboard
+              {t("tabs.dashboard")}
             </TabsTrigger>
             <TabsTrigger value="products" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Package className="w-4 h-4" />
-              Productos
+              {t("tabs.products")}
             </TabsTrigger>
             <TabsTrigger value="stock" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Archive className="w-4 h-4" />
-              Stock
+              {t("tabs.stock")}
             </TabsTrigger>
             <TabsTrigger value="recipes" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <ChefHat className="w-4 h-4" />
-              Recetas
+              {t("tabs.recipes")}
             </TabsTrigger>
             <TabsTrigger value="promotions" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <TrendingUp className="w-4 h-4" />
-              Promociones
+              {t("tabs.promotions")}
             </TabsTrigger>
             <TabsTrigger value="schedule" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Clock className="w-4 h-4" />
-              Horarios & Mesas
+              {t("tabs.schedule")}
             </TabsTrigger>
             <TabsTrigger value="branches" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <Building className="w-4 h-4" />
-              Sucursales
+              {t("tabs.branches")}
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4" />
-              Analytics
+              {t("tabs.analytics")}
             </TabsTrigger>
             <TabsTrigger value="banking" className="flex items-center gap-2 data-[state=active]:bg-gray-900 data-[state=active]:text-white">
               <CreditCard className="w-4 h-4" />
-              Cuenta Bancaria
+              {t("tabs.banking")}
             </TabsTrigger>
           </TabsList>
 
@@ -341,7 +346,7 @@ export default function AdminDashboard() {
 
           <TabsContent value="analytics">
             <div className="bg-white rounded-lg p-6 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Estadísticas Avanzadas</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t("analytics.title")}</h3>
               <MetricsDashboard />
             </div>
           </TabsContent>

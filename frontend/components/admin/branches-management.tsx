@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
+import { useTranslations } from "next-intl"
 
 interface Branch {
   id: string
@@ -26,6 +27,7 @@ interface Branch {
 }
 
 export default function BranchesManagement() {
+  const t = useTranslations("admin.branches")
   const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
@@ -93,7 +95,7 @@ export default function BranchesManagement() {
         }
       ])
     } catch (error) {
-      console.error("Error fetching branches:", error)
+      console.error(t("errors.fetchBranches"), error)
     } finally {
       setLoading(false)
     }
@@ -114,7 +116,7 @@ export default function BranchesManagement() {
       setBranchForm({ name: "", address: "", phone: "", email: "", manager: "", share_menu: true })
       setShowCreateBranch(false)
     } catch (error) {
-      console.error("Error creating branch:", error)
+      console.error(t("errors.createBranch"), error)
     }
   }
 
@@ -127,7 +129,7 @@ export default function BranchesManagement() {
       ))
       setEditingBranch(null)
     } catch (error) {
-      console.error("Error updating branch:", error)
+      console.error(t("errors.updateBranch"), error)
     }
   }
 
@@ -139,7 +141,7 @@ export default function BranchesManagement() {
           : branch
       ))
     } catch (error) {
-      console.error("Error toggling branch status:", error)
+      console.error(t("errors.toggleStatus"), error)
     }
   }
 
@@ -151,7 +153,7 @@ export default function BranchesManagement() {
           : branch
       ))
     } catch (error) {
-      console.error("Error toggling menu share:", error)
+      console.error(t("errors.toggleShare"), error)
     }
   }
 
@@ -160,7 +162,7 @@ export default function BranchesManagement() {
       setShareMenuGlobally(!shareMenuGlobally)
       setBranches(branches.map(branch => ({ ...branch, share_menu: !shareMenuGlobally })))
     } catch (error) {
-      console.error("Error setting global menu share:", error)
+      console.error(t("errors.toggleGlobalShare"), error)
     }
   }
 
@@ -182,66 +184,66 @@ export default function BranchesManagement() {
       <div className="bg-white rounded-lg p-6 border border-gray-200">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Gestión de Sucursales</h2>
-            <p className="text-gray-600">Administra las ubicaciones de tu negocio</p>
+            <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+            <p className="text-gray-600">{t("header.subtitle")}</p>
           </div>
           <Dialog open={showCreateBranch} onOpenChange={setShowCreateBranch}>
             <DialogTrigger asChild>
               <Button className="bg-gray-900 hover:bg-gray-800 text-white">
                 <Plus className="w-4 h-4 mr-2" />
-                Agregar Sucursal
+                {t("actions.add")}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Crear Nueva Sucursal</DialogTitle>
+                <DialogTitle>{t("dialog.createTitle")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nombre de la Sucursal</Label>
+                  <Label htmlFor="name">{t("form.name")}</Label>
                   <Input
                     id="name"
                     value={branchForm.name}
                     onChange={(e) => setBranchForm({...branchForm, name: e.target.value})}
-                    placeholder="Ej: Sucursal Centro"
+                    placeholder={t("form.namePlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="address">Dirección</Label>
+                  <Label htmlFor="address">{t("form.address")}</Label>
                   <Textarea
                     id="address"
                     value={branchForm.address}
                     onChange={(e) => setBranchForm({...branchForm, address: e.target.value})}
-                    placeholder="Dirección completa"
+                    placeholder={t("form.addressPlaceholder")}
                     rows={2}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="phone">Teléfono</Label>
+                  <Label htmlFor="phone">{t("form.phone")}</Label>
                   <Input
                     id="phone"
                     value={branchForm.phone}
                     onChange={(e) => setBranchForm({...branchForm, phone: e.target.value})}
-                    placeholder="+54 11 1234-5678"
+                    placeholder={t("form.phonePlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("form.email")}</Label>
                   <Input
                     id="email"
                     type="email"
                     value={branchForm.email}
                     onChange={(e) => setBranchForm({...branchForm, email: e.target.value})}
-                    placeholder="sucursal@ejemplo.com"
+                    placeholder={t("form.emailPlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="manager">Encargado</Label>
+                  <Label htmlFor="manager">{t("form.manager")}</Label>
                   <Input
                     id="manager"
                     value={branchForm.manager}
                     onChange={(e) => setBranchForm({...branchForm, manager: e.target.value})}
-                    placeholder="Nombre del encargado"
+                    placeholder={t("form.managerPlaceholder")}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
@@ -250,10 +252,10 @@ export default function BranchesManagement() {
                     checked={branchForm.share_menu}
                     onCheckedChange={(checked) => setBranchForm({...branchForm, share_menu: checked})}
                   />
-                  <Label htmlFor="share_menu">Compartir carta con otras sucursales</Label>
+                  <Label htmlFor="share_menu">{t("form.shareMenu")}</Label>
                 </div>
                 <Button onClick={handleCreateBranch} className="w-full">
-                  Crear Sucursal
+                  {t("actions.create")}
                 </Button>
               </div>
             </DialogContent>
@@ -266,13 +268,13 @@ export default function BranchesManagement() {
             <div className="flex items-center gap-3">
               <Share className="w-5 h-5 text-blue-600" />
               <div>
-                <h3 className="font-semibold text-blue-900">Configuración Global de Carta</h3>
-                <p className="text-sm text-blue-600">Compartir o no la carta entre todas las sucursales</p>
+                <h3 className="font-semibold text-blue-900">{t("globalMenu.title")}</h3>
+                <p className="text-sm text-blue-600">{t("globalMenu.subtitle")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Label htmlFor="global-share" className="text-sm text-blue-900">
-                {shareMenuGlobally ? "Carta compartida" : "Cartas independientes"}
+                {shareMenuGlobally ? t("globalMenu.shared") : t("globalMenu.independent")}
               </Label>
               <Switch
                 id="global-share"
@@ -290,7 +292,7 @@ export default function BranchesManagement() {
               <Building className="w-5 h-5 text-gray-600" />
               <div>
                 <p className="text-2xl font-bold text-gray-900">{branches.length}</p>
-                <p className="text-xs text-gray-600">Total Sucursales</p>
+                <p className="text-xs text-gray-600">{t("stats.total")}</p>
               </div>
             </div>
           </div>
@@ -299,7 +301,7 @@ export default function BranchesManagement() {
               <Building className="w-5 h-5 text-green-600" />
               <div>
                 <p className="text-2xl font-bold text-green-600">{activeBranches}</p>
-                <p className="text-xs text-gray-600">Sucursales Activas</p>
+                <p className="text-xs text-gray-600">{t("stats.active")}</p>
               </div>
             </div>
           </div>
@@ -308,7 +310,7 @@ export default function BranchesManagement() {
               <span className="text-lg">💰</span>
               <div>
                 <p className="text-2xl font-bold text-blue-600">${totalSales.toLocaleString()}</p>
-                <p className="text-xs text-gray-600">Ventas Totales</p>
+                <p className="text-xs text-gray-600">{t("stats.sales")}</p>
               </div>
             </div>
           </div>
@@ -317,7 +319,7 @@ export default function BranchesManagement() {
               <span className="text-lg">📊</span>
               <div>
                 <p className="text-2xl font-bold text-purple-600">{totalOrders}</p>
-                <p className="text-xs text-gray-600">Pedidos Totales</p>
+                <p className="text-xs text-gray-600">{t("stats.orders")}</p>
               </div>
             </div>
           </div>
@@ -334,12 +336,12 @@ export default function BranchesManagement() {
                   <div className="flex items-center gap-3 mb-3">
                     <h3 className="text-lg font-semibold text-gray-900">{branch.name}</h3>
                     <Badge className={`${getStatusColor(branch.status)} border`}>
-                      {branch.status}
+                      {branch.status === "activa" ? t("status.active") : t("status.inactive")}
                     </Badge>
                     {branch.share_menu && (
                       <Badge className="bg-blue-100 text-blue-800 border-blue-200">
                         <Share className="w-3 h-3 mr-1" />
-                        Carta compartida
+                        {t("status.sharedMenu")}
                       </Badge>
                     )}
                   </div>
@@ -348,20 +350,20 @@ export default function BranchesManagement() {
                     <div>
                       <div className="flex items-center gap-2 text-gray-600 mb-1">
                         <MapPin className="w-4 h-4" />
-                        <span className="font-medium">Dirección:</span>
+                        <span className="font-medium">{t("table.address")}</span>
                       </div>
                       <p className="text-gray-900">{branch.address}</p>
                     </div>
                     <div>
-                      <span className="font-medium text-gray-600">Encargado:</span>
+                      <span className="font-medium text-gray-600">{t("table.manager")}</span>
                       <p className="text-gray-900">{branch.manager}</p>
                     </div>
                     <div>
-                      <span className="font-medium text-gray-600">Ventas Mensuales:</span>
+                      <span className="font-medium text-gray-600">{t("table.monthlySales")}</span>
                       <p className="text-gray-900">${branch.monthly_sales.toLocaleString()}</p>
                     </div>
                     <div>
-                      <span className="font-medium text-gray-600">Pedidos:</span>
+                      <span className="font-medium text-gray-600">{t("table.orders")}</span>
                       <p className="text-gray-900">{branch.total_orders}</p>
                     </div>
                   </div>
@@ -372,10 +374,10 @@ export default function BranchesManagement() {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm">
+                      <Eye className="w-4 h-4" />
+                    </Button>
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -412,12 +414,12 @@ export default function BranchesManagement() {
       <Dialog open={!!editingBranch} onOpenChange={(open) => !open && setEditingBranch(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar Sucursal</DialogTitle>
+            <DialogTitle>{t("dialog.editTitle")}</DialogTitle>
           </DialogHeader>
           {editingBranch && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="edit-name">Nombre de la Sucursal</Label>
+                <Label htmlFor="edit-name">{t("form.name")}</Label>
                 <Input
                   id="edit-name"
                   value={editingBranch.name}
@@ -425,7 +427,7 @@ export default function BranchesManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-address">Dirección</Label>
+                <Label htmlFor="edit-address">{t("form.address")}</Label>
                 <Textarea
                   id="edit-address"
                   value={editingBranch.address}
@@ -434,7 +436,7 @@ export default function BranchesManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-manager">Encargado</Label>
+                <Label htmlFor="edit-manager">{t("form.manager")}</Label>
                 <Input
                   id="edit-manager"
                   value={editingBranch.manager}
@@ -447,10 +449,10 @@ export default function BranchesManagement() {
                   checked={editingBranch.share_menu}
                   onCheckedChange={(checked) => setEditingBranch({...editingBranch, share_menu: checked})}
                 />
-                <Label htmlFor="edit-share-menu">Compartir carta</Label>
+                <Label htmlFor="edit-share-menu">{t("form.shareMenuShort")}</Label>
               </div>
               <Button onClick={handleUpdateBranch} className="w-full">
-                Guardar Cambios
+                {t("actions.save")}
               </Button>
             </div>
           )}

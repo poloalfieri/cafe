@@ -16,6 +16,7 @@ import {
   Percent,
   Tag
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 interface Promotion {
   id: string
@@ -32,6 +33,7 @@ interface Promotion {
 }
 
 export default function PromotionsManagement() {
+  const t = useTranslations("admin.promotions")
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -49,10 +51,10 @@ export default function PromotionsManagement() {
   })
 
   const promotionTypes = [
-    { value: "discount", label: "Descuento Porcentual", icon: Percent },
-    { value: "2x1", label: "2x1", icon: Tag },
-    { value: "combo", label: "Combo", icon: TrendingUp },
-    { value: "timeframe", label: "Descuento por Horario", icon: Clock }
+    { value: "discount", label: t("types.discount"), icon: Percent },
+    { value: "2x1", label: t("types.twoForOne"), icon: Tag },
+    { value: "combo", label: t("types.combo"), icon: TrendingUp },
+    { value: "timeframe", label: t("types.timeframe"), icon: Clock }
   ]
 
   useEffect(() => {
@@ -66,10 +68,10 @@ export default function PromotionsManagement() {
       const mockPromotions: Promotion[] = [
         {
           id: "1",
-          name: "Happy Hour",
+          name: t("mock.happyHour.name"),
           type: "timeframe",
           value: 20,
-          description: "20% de descuento en bebidas de 18:00 a 20:00",
+          description: t("mock.happyHour.description"),
           startDate: "2024-01-01",
           endDate: "2024-12-31",
           startTime: "18:00",
@@ -78,20 +80,20 @@ export default function PromotionsManagement() {
         },
         {
           id: "2",
-          name: "2x1 en Cafés",
+          name: t("mock.twoForOne.name"),
           type: "2x1",
           value: 0,
-          description: "Lleva 2 cafés por el precio de 1",
+          description: t("mock.twoForOne.description"),
           startDate: "2024-01-01",
           endDate: "2024-12-31",
           active: true
         },
         {
           id: "3",
-          name: "Descuento Estudiantes",
+          name: t("mock.students.name"),
           type: "discount",
           value: 15,
-          description: "15% de descuento para estudiantes",
+          description: t("mock.students.description"),
           startDate: "2024-01-01",
           endDate: "2024-12-31",
           active: false
@@ -144,7 +146,7 @@ export default function PromotionsManagement() {
   }
 
   const handleDelete = (promotionId: string) => {
-    if (confirm("¿Estás seguro de que quieres eliminar esta promoción?")) {
+    if (confirm(t("confirmDelete"))) {
       setPromotions(promotions.filter(p => p.id !== promotionId))
     }
   }
@@ -194,39 +196,39 @@ export default function PromotionsManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Promociones</h2>
-          <p className="text-gray-600">Administra las promociones y ofertas del local</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
               <Plus className="w-4 h-4 mr-2" />
-              Nueva Promoción
+              {t("actions.new")}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px] bg-white border border-gray-200">
             <DialogHeader>
               <DialogTitle className="text-gray-900">
-                {editingPromotion ? "Editar Promoción" : "Crear Nueva Promoción"}
+                {editingPromotion ? t("dialog.editTitle") : t("dialog.newTitle")}
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nombre de la Promoción</Label>
+                  <Label htmlFor="name">{t("form.name")}</Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ej: Happy Hour"
+                    placeholder={t("form.namePlaceholder")}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="type">Tipo de Promoción</Label>
+                  <Label htmlFor="type">{t("form.type")}</Label>
                   <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
+                      <SelectValue placeholder={t("form.typePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
                       {promotionTypes.map((type) => (
@@ -245,8 +247,11 @@ export default function PromotionsManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="value" className="text-gray-700 font-medium">
-                    {formData.type === "discount" || formData.type === "timeframe" ? "Porcentaje de Descuento" :
-                     formData.type === "combo" ? "Precio del Combo" : "Valor"}
+                    {formData.type === "discount" || formData.type === "timeframe"
+                      ? t("form.discountPercent")
+                      : formData.type === "combo"
+                        ? t("form.comboPrice")
+                        : t("form.value")}
                   </Label>
                   <Input
                     id="value"
@@ -254,32 +259,32 @@ export default function PromotionsManagement() {
                     step="0.01"
                     value={formData.value}
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                    placeholder={formData.type === "discount" || formData.type === "timeframe" ? "20" : "0.00"}
+                    placeholder={formData.type === "discount" || formData.type === "timeframe" ? t("form.percentPlaceholder") : t("form.valuePlaceholder")}
                     required
                     className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="active" className="text-gray-700 font-medium">Estado</Label>
+                  <Label htmlFor="active" className="text-gray-700 font-medium">{t("form.status")}</Label>
                   <Select value={formData.active.toString()} onValueChange={(value) => setFormData({ ...formData, active: value === "true" })}>
                     <SelectTrigger className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">🟢 Activa</SelectItem>
-                      <SelectItem value="false">⚪ Inactiva</SelectItem>
+                      <SelectItem value="true">{t("status.active")}</SelectItem>
+                      <SelectItem value="false">{t("status.inactive")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-gray-700 font-medium">Descripción</Label>
+                <Label htmlFor="description" className="text-gray-700 font-medium">{t("form.description")}</Label>
                 <Input
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descripción detallada de la promoción"
+                  placeholder={t("form.descriptionPlaceholder")}
                   required
                   className="border-2 border-gray-300 focus:border-gray-900 focus:ring-gray-900"
                 />
@@ -287,7 +292,7 @@ export default function PromotionsManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate" className="text-gray-700 font-medium">Fecha de Inicio</Label>
+                  <Label htmlFor="startDate" className="text-gray-700 font-medium">{t("form.startDate")}</Label>
                   <Input
                     id="startDate"
                     type="date"
@@ -298,7 +303,7 @@ export default function PromotionsManagement() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="endDate" className="text-gray-700 font-medium">Fecha de Fin</Label>
+                  <Label htmlFor="endDate" className="text-gray-700 font-medium">{t("form.endDate")}</Label>
                   <Input
                     id="endDate"
                     type="date"
@@ -313,7 +318,7 @@ export default function PromotionsManagement() {
               {(formData.type === "timeframe") && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startTime" className="text-gray-700 font-medium">Hora de Inicio</Label>
+                    <Label htmlFor="startTime" className="text-gray-700 font-medium">{t("form.startTime")}</Label>
                     <Input
                       id="startTime"
                       type="time"
@@ -323,7 +328,7 @@ export default function PromotionsManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime" className="text-gray-700 font-medium">Hora de Fin</Label>
+                    <Label htmlFor="endTime" className="text-gray-700 font-medium">{t("form.endTime")}</Label>
                     <Input
                       id="endTime"
                       type="time"
@@ -342,13 +347,13 @@ export default function PromotionsManagement() {
                   onClick={() => setIsDialogOpen(false)}
                   className="border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-medium"
                 >
-                  Cancelar
+                  {t("actions.cancel")}
                 </Button>
                 <Button 
                   type="submit"
                   className="bg-gray-900 hover:bg-gray-800 text-white font-medium"
                 >
-                  {editingPromotion ? "Actualizar" : "Crear"}
+                  {editingPromotion ? t("actions.update") : t("actions.create")}
                 </Button>
               </div>
             </form>
@@ -391,7 +396,7 @@ export default function PromotionsManagement() {
                           ? "bg-green-100 text-green-700 border border-green-200" 
                           : "bg-gray-100 text-gray-700 border border-gray-200"
                       }`}>
-                        {promotion.active ? "🟢 Activa" : "⚪ Inactiva"}
+                        {promotion.active ? t("status.active") : t("status.inactive")}
                       </span>
                     </div>
                     
@@ -403,7 +408,7 @@ export default function PromotionsManagement() {
                           <Calendar className="w-4 h-4 text-blue-600" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Período</p>
+                          <p className="font-medium text-gray-900">{t("card.period")}</p>
                           <p className="text-gray-600 text-xs">{promotion.startDate} - {promotion.endDate}</p>
                         </div>
                       </div>
@@ -414,7 +419,7 @@ export default function PromotionsManagement() {
                             <Clock className="w-4 h-4 text-purple-600" />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">Horario</p>
+                            <p className="font-medium text-gray-900">{t("card.schedule")}</p>
                             <p className="text-gray-600 text-xs">{promotion.startTime} - {promotion.endTime}</p>
                           </div>
                         </div>
@@ -425,7 +430,7 @@ export default function PromotionsManagement() {
                           <Tag className="w-4 h-4 text-orange-600" />
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">Valor</p>
+                          <p className="font-medium text-gray-900">{t("card.value")}</p>
                           <p className="text-gray-900 font-bold text-sm">{formatPromotionValue(promotion)}</p>
                         </div>
                       </div>
@@ -444,7 +449,7 @@ export default function PromotionsManagement() {
                         : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 bg-green-50/50"
                     }`}
                   >
-                    {promotion.active ? "Desactivar" : "Activar"}
+                    {promotion.active ? t("actions.deactivate") : t("actions.activate")}
                   </Button>
                   <Button
                     variant="outline"
@@ -473,18 +478,18 @@ export default function PromotionsManagement() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay promociones</h3>
-            <p className="text-gray-600 mb-4">Crea tu primera promoción para aumentar las ventas</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("empty.title")}</h3>
+            <p className="text-gray-600 mb-4">{t("empty.subtitle")}</p>
             <Button 
               onClick={() => setIsDialogOpen(true)} 
               className="bg-gray-900 hover:bg-gray-800 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Crear Promoción
+              {t("actions.create")}
             </Button>
           </div>
         )}
       </div>
     </div>
   )
-} 
+}

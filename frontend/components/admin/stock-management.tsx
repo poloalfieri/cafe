@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
+import { useTranslations } from "next-intl"
 import { 
   ChefHat, 
   Package, 
@@ -60,6 +61,7 @@ interface NewProductForm {
 }
 
 export default function StockManagement() {
+  const t = useTranslations("admin.stock")
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -111,8 +113,8 @@ export default function StockManagement() {
     } catch (error) {
       // Error ya manejado
       toast({
-        title: "Error",
-        description: "No se pudieron cargar los productos desde el backend",
+        title: t("toast.errorTitle"),
+        description: t("toast.loadProductsError"),
         variant: "destructive"
       })
       // Set empty array to show the error
@@ -138,8 +140,8 @@ export default function StockManagement() {
     } catch (error) {
       // Error ya manejado
       toast({
-        title: "Error",
-        description: "No se pudieron cargar las recetas",
+        title: t("toast.errorTitle"),
+        description: t("toast.loadRecipesError"),
         variant: "destructive"
       })
     }
@@ -197,8 +199,8 @@ export default function StockManagement() {
       }
       
       toast({
-        title: "Éxito",
-        description: "Producto creado correctamente"
+        title: t("toast.successTitle"),
+        description: t("toast.productCreated")
       })
       
       // Add the new product to the list
@@ -213,14 +215,14 @@ export default function StockManagement() {
       setRecipes([]) // Start with empty recipe
       
       toast({
-        title: "Producto seleccionado",
-        description: "Ahora puedes agregar ingredientes a la receta de este producto"
+        title: t("toast.productSelectedTitle"),
+        description: t("toast.productSelectedDescription")
       })
       
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || 'Error al crear el producto',
+        title: t("toast.errorTitle"),
+        description: error.message || t("toast.createProductError"),
         variant: "destructive"
       })
     }
@@ -238,8 +240,8 @@ export default function StockManagement() {
       })
       
       toast({
-        title: "Éxito",
-        description: "Ingrediente agregado a la receta"
+        title: t("toast.successTitle"),
+        description: t("toast.ingredientAdded")
       })
       
       setSelectedIngredientId('')
@@ -248,8 +250,8 @@ export default function StockManagement() {
       fetchRecipes(selectedProduct.id)
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.data?.error || 'Error al agregar ingrediente',
+        title: t("toast.errorTitle"),
+        description: error.data?.error || t("toast.addIngredientError"),
         variant: "destructive"
       })
     }
@@ -266,22 +268,22 @@ export default function StockManagement() {
       })
       
       toast({
-        title: "Éxito",
-        description: "Cantidad actualizada"
+        title: t("toast.successTitle"),
+        description: t("toast.quantityUpdated")
       })
       
       fetchRecipes(selectedProduct.id)
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.data?.error || 'Error al actualizar receta',
+        title: t("toast.errorTitle"),
+        description: error.data?.error || t("toast.updateRecipeError"),
         variant: "destructive"
       })
     }
   }
 
   const handleDeleteRecipe = async (ingredientId: string) => {
-    if (!selectedProduct || !confirm('¿Estás seguro de que quieres eliminar este ingrediente de la receta?')) return
+    if (!selectedProduct || !confirm(t("confirmDeleteIngredient"))) return
     
     try {
       await api.delete('/api/recipes', {
@@ -290,15 +292,15 @@ export default function StockManagement() {
       })
       
       toast({
-        title: "Éxito",
-        description: "Ingrediente eliminado de la receta"
+        title: t("toast.successTitle"),
+        description: t("toast.ingredientDeleted")
       })
       
       fetchRecipes(selectedProduct.id)
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.data?.error || 'Error al eliminar ingrediente',
+        title: t("toast.errorTitle"),
+        description: error.data?.error || t("toast.deleteIngredientError"),
         variant: "destructive"
       })
     }
@@ -341,8 +343,8 @@ export default function StockManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Recetas y Stock</h2>
-          <p className="text-gray-600">Configura las recetas de tus productos y analiza los costos</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -351,47 +353,47 @@ export default function StockManagement() {
             disabled={productsLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${productsLoading ? 'animate-spin' : ''}`} />
-            Actualizar Productos
+            {t("actions.refreshProducts")}
           </Button>
           <Dialog open={showProductModal} onOpenChange={setShowProductModal}>
             <DialogTrigger asChild>
               <Button className="bg-gray-900 hover:bg-gray-800">
                 <Plus className="w-4 h-4 mr-2" />
-                Nuevo Producto
+                {t("actions.newProduct")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Crear Nuevo Producto</DialogTitle>
+                <DialogTitle>{t("dialog.newProductTitle")}</DialogTitle>
                 <DialogDescription>
-                  Agrega un nuevo producto al menú. Después podrás configurar su receta.
+                  {t("dialog.newProductDescription")}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateProduct} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nombre del Producto</Label>
+                  <Label htmlFor="name">{t("form.name")}</Label>
                   <Input
                     id="name"
                     value={newProductForm.name}
                     onChange={(e) => setNewProductForm({ ...newProductForm, name: e.target.value })}
-                    placeholder="Ej: Cappuccino, Croissant..."
+                    placeholder={t("form.namePlaceholder")}
                     required
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="category">Categoría</Label>
+                  <Label htmlFor="category">{t("form.category")}</Label>
                   <Input
                     id="category"
                     value={newProductForm.category}
                     onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })}
-                    placeholder="Ej: Bebidas, Pastelería..."
+                    placeholder={t("form.categoryPlaceholder")}
                     required
                   />
                 </div>
                 
                 <div>
-                  <Label htmlFor="price">Precio de Venta</Label>
+                  <Label htmlFor="price">{t("form.price")}</Label>
                   <Input
                     id="price"
                     type="number"
@@ -404,22 +406,22 @@ export default function StockManagement() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="description">Descripción (opcional)</Label>
+                  <Label htmlFor="description">{t("form.description")}</Label>
                   <Textarea
                     id="description"
                     value={newProductForm.description}
                     onChange={(e) => setNewProductForm({ ...newProductForm, description: e.target.value })}
-                    placeholder="Describe brevemente el producto..."
+                    placeholder={t("form.descriptionPlaceholder")}
                     rows={3}
                   />
                 </div>
                 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={() => setShowProductModal(false)}>
-                    Cancelar
+                    {t("actions.cancel")}
                   </Button>
                   <Button type="submit" className="bg-gray-900 hover:bg-gray-800">
-                    Crear Producto
+                    {t("actions.createProduct")}
                   </Button>
                 </div>
               </form>
@@ -434,15 +436,15 @@ export default function StockManagement() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Productos ({products.length})
+              {t("products.title", { count: products.length })}
             </CardTitle>
             <CardDescription>
-              Selecciona un producto para configurar su receta
+              {t("products.subtitle")}
             </CardDescription>
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
               <Input
-                placeholder="Buscar productos..."
+                placeholder={t("products.searchPlaceholder")}
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
                 className="pl-10"
@@ -458,7 +460,7 @@ export default function StockManagement() {
                   </div>
                 ) : filteredProducts.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    {productSearch ? 'No se encontraron productos' : 'No hay productos disponibles'}
+                    {productSearch ? t("products.emptySearch") : t("products.emptyDefault")}
                   </div>
                 ) : (
                   filteredProducts.map((product) => (
@@ -495,11 +497,11 @@ export default function StockManagement() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <ChefHat className="w-5 h-5" />
-                  {selectedProduct ? `Receta: ${selectedProduct.name}` : 'Selecciona un Producto'}
+                  {selectedProduct ? t("recipe.titleWithProduct", { name: selectedProduct.name }) : t("recipe.titleEmpty")}
                 </CardTitle>
                 {selectedProduct && (
                   <CardDescription>
-                    {selectedProduct.category} - ${selectedProduct.price.toFixed(2)}
+                    {t("recipe.productMeta", { category: selectedProduct.category, price: selectedProduct.price.toFixed(2) })}
                     {selectedProduct.description && (
                       <div className="mt-1">{selectedProduct.description}</div>
                     )}
@@ -511,25 +513,25 @@ export default function StockManagement() {
                   <DialogTrigger asChild>
                     <Button size="sm" className="bg-gray-900 hover:bg-gray-800">
                       <Plus className="w-4 h-4 mr-2" />
-                      Agregar Ingrediente
+                      {t("actions.addIngredient")}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Agregar Ingrediente a la Receta</DialogTitle>
+                      <DialogTitle>{t("dialog.addIngredientTitle")}</DialogTitle>
                       <DialogDescription>
-                        Agrega un nuevo ingrediente a la receta de {selectedProduct.name}
+                        {t("dialog.addIngredientDescription", { name: selectedProduct.name })}
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleAddRecipe} className="space-y-4">
                       <div>
-                        <Label htmlFor="ingredient">Ingrediente</Label>
+                        <Label htmlFor="ingredient">{t("form.ingredient")}</Label>
                         <Select
                           value={selectedIngredientId}
                           onValueChange={setSelectedIngredientId}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un ingrediente" />
+                            <SelectValue placeholder={t("form.ingredientPlaceholder")} />
                           </SelectTrigger>
                           <SelectContent>
                             {availableIngredients.map(ingredient => (
@@ -542,7 +544,7 @@ export default function StockManagement() {
                       </div>
                       
                       <div>
-                        <Label htmlFor="quantity">Cantidad</Label>
+                        <Label htmlFor="quantity">{t("form.quantity")}</Label>
                         <Input
                           id="quantity"
                           type="number"
@@ -550,17 +552,17 @@ export default function StockManagement() {
                           min="0.01"
                           value={quantity}
                           onChange={(e) => setQuantity(e.target.value)}
-                          placeholder="Cantidad necesaria"
+                          placeholder={t("form.quantityPlaceholder")}
                           required
                         />
                       </div>
                       
                       <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={() => setShowRecipeModal(false)}>
-                          Cancelar
+                          {t("actions.cancel")}
                         </Button>
                         <Button type="submit" className="bg-gray-900 hover:bg-gray-800">
-                          Agregar
+                          {t("actions.add")}
                         </Button>
                       </div>
                     </form>
@@ -572,24 +574,24 @@ export default function StockManagement() {
           <CardContent>
             {!selectedProduct ? (
               <div className="text-center py-8 text-gray-500">
-                Selecciona un producto de la lista para configurar su receta
+                {t("recipe.emptySelect")}
               </div>
             ) : recipes.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <ChefHat className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="mb-2">Esta receta está vacía</p>
-                <p className="text-sm">Agrega el primer ingrediente para comenzar</p>
+                <p className="mb-2">{t("recipe.emptyTitle")}</p>
+                <p className="text-sm">{t("recipe.emptySubtitle")}</p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Ingrediente</TableHead>
-                    <TableHead>Unidad</TableHead>
-                    <TableHead>Cantidad</TableHead>
-                    <TableHead>Costo Unitario</TableHead>
-                    <TableHead>Costo Total</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    <TableHead>{t("table.ingredient")}</TableHead>
+                    <TableHead>{t("table.unit")}</TableHead>
+                    <TableHead>{t("table.quantity")}</TableHead>
+                    <TableHead>{t("table.unitCost")}</TableHead>
+                    <TableHead>{t("table.totalCost")}</TableHead>
+                    <TableHead className="text-right">{t("table.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -613,10 +615,10 @@ export default function StockManagement() {
                         />
                       </TableCell>
                       <TableCell>
-                        {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : 'N/A'}
+                        {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}
                       </TableCell>
                       <TableCell>
-                        {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : 'N/A'}
+                        {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -647,7 +649,7 @@ export default function StockManagement() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">${calculateEstimatedCost().toFixed(4)}</p>
-                  <p className="text-sm text-gray-600">Costo de Ingredientes</p>
+                  <p className="text-sm text-gray-600">{t("summary.ingredientsCost")}</p>
                 </div>
               </div>
             </CardContent>
@@ -661,7 +663,7 @@ export default function StockManagement() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">${selectedProduct.price.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">Precio de Venta</p>
+                  <p className="text-sm text-gray-600">{t("summary.salePrice")}</p>
                 </div>
               </div>
             </CardContent>
@@ -677,7 +679,7 @@ export default function StockManagement() {
                   <p className="text-2xl font-bold">
                     ${(selectedProduct.price - calculateEstimatedCost()).toFixed(2)}
                   </p>
-                  <p className="text-sm text-gray-600">Ganancia Bruta</p>
+                  <p className="text-sm text-gray-600">{t("summary.grossProfit")}</p>
                 </div>
               </div>
             </CardContent>
@@ -697,7 +699,7 @@ export default function StockManagement() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{getMarginPercentage().toFixed(1)}%</p>
-                  <p className="text-sm text-gray-600">Margen de Ganancia</p>
+                  <p className="text-sm text-gray-600">{t("summary.margin")}</p>
                 </div>
               </div>
             </CardContent>
@@ -711,8 +713,7 @@ export default function StockManagement() {
             <div className="flex items-center gap-2 text-yellow-800">
               <div className="w-4 h-4 rounded-full bg-yellow-400"></div>
               <p className="text-sm">
-                <strong>Nota:</strong> Algunos ingredientes no tienen costo unitario configurado. 
-                Los cálculos de costos pueden no ser precisos.
+                <strong>{t("note.title")}</strong> {t("note.description")}
               </p>
             </div>
           </CardContent>

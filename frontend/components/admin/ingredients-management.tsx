@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { api } from '@/lib/fetcher'
 import { ALLOWED_UNITS } from '@/lib/validation'
+import { useTranslations } from "next-intl"
 import { 
   Search, 
   Plus, 
@@ -45,6 +46,7 @@ interface IngredientFormData {
 }
 
 export default function IngredientsManagement() {
+  const t = useTranslations("admin.ingredients")
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -70,8 +72,8 @@ export default function IngredientsManagement() {
     } catch (error) {
       console.error('Error fetching ingredients:', error)
       toast({
-        title: "Error",
-        description: "No se pudieron cargar los ingredientes",
+        title: t("toast.errorTitle"),
+        description: t("toast.loadError"),
         variant: "destructive"
       })
     } finally {
@@ -89,14 +91,14 @@ export default function IngredientsManagement() {
       if (editingId) {
         await api.patch(`/api/ingredients/${editingId}`, formData)
         toast({
-          title: "Éxito",
-          description: "Ingrediente actualizado correctamente"
+          title: t("toast.successTitle"),
+          description: t("toast.updated")
         })
       } else {
         await api.post('/api/ingredients', formData)
         toast({
-          title: "Éxito", 
-          description: "Ingrediente creado correctamente"
+          title: t("toast.successTitle"),
+          description: t("toast.created")
         })
       }
       
@@ -106,8 +108,8 @@ export default function IngredientsManagement() {
       fetchIngredients()
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.data?.error || 'Error al guardar el ingrediente',
+        title: t("toast.errorTitle"),
+        description: error.data?.error || t("toast.saveError"),
         variant: "destructive"
       })
     }
@@ -127,26 +129,26 @@ export default function IngredientsManagement() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este ingrediente?')) return
+    if (!confirm(t("confirmDelete"))) return
     
     try {
       await api.delete(`/api/ingredients/${id}`)
       toast({
-        title: "Éxito",
-        description: "Ingrediente eliminado correctamente"
+        title: t("toast.successTitle"),
+        description: t("toast.deleted")
       })
       fetchIngredients()
     } catch (error: any) {
       if (error.status === 409) {
         toast({
-          title: "Error",
-          description: "No se puede eliminar: el ingrediente está siendo usado en recetas",
+          title: t("toast.errorTitle"),
+          description: t("toast.deleteInUse"),
           variant: "destructive"
         })
       } else {
         toast({
-          title: "Error",
-          description: "Error al eliminar el ingrediente",
+          title: t("toast.errorTitle"),
+          description: t("toast.deleteError"),
           variant: "destructive"
         })
       }
@@ -160,10 +162,10 @@ export default function IngredientsManagement() {
   }
 
   const getStockStatus = (stock: number, minStock: number) => {
-    if (stock <= 0) return { variant: 'destructive' as const, label: 'Sin Stock' }
-    if (stock <= minStock) return { variant: 'destructive' as const, label: 'Mínimo' }
-    if (stock < minStock * 2) return { variant: 'secondary' as const, label: 'Bajo' }
-    return { variant: 'default' as const, label: 'Ok' }
+    if (stock <= 0) return { variant: 'destructive' as const, label: t("status.none") }
+    if (stock <= minStock) return { variant: 'destructive' as const, label: t("status.min") }
+    if (stock < minStock * 2) return { variant: 'secondary' as const, label: t("status.low") }
+    return { variant: 'default' as const, label: t("status.ok") }
   }
 
   const filteredIngredients = ingredients.filter(ingredient =>
@@ -175,37 +177,37 @@ export default function IngredientsManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Ingredientes</h2>
-          <p className="text-gray-600">Administra el inventario de ingredientes de tu cocina</p>
+          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogTrigger asChild>
             <Button onClick={openNewModal} className="bg-gray-900 hover:bg-gray-800">
               <Plus className="w-4 h-4 mr-2" />
-              Nuevo Ingrediente
+              {t("actions.new")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Editar Ingrediente' : 'Nuevo Ingrediente'}</DialogTitle>
+              <DialogTitle>{editingId ? t("dialog.editTitle") : t("dialog.newTitle")}</DialogTitle>
               <DialogDescription>
-                {editingId ? 'Modifica los datos del ingrediente' : 'Agrega un nuevo ingrediente al inventario'}
+                {editingId ? t("dialog.editDescription") : t("dialog.newDescription")}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">Nombre</Label>
+                <Label htmlFor="name">{t("form.name")}</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ej: Café en grano, Leche, Azúcar..."
+                  placeholder={t("form.namePlaceholder")}
                   required
                 />
               </div>
               
               <div>
-                <Label htmlFor="unit">Unidad de Medida</Label>
+                <Label htmlFor="unit">{t("form.unit")}</Label>
                 <Select
                   value={formData.unit}
                   onValueChange={(value) => setFormData({ ...formData, unit: value })}
@@ -222,7 +224,7 @@ export default function IngredientsManagement() {
               </div>
               
               <div>
-                <Label htmlFor="currentStock">Stock Actual</Label>
+                <Label htmlFor="currentStock">{t("form.currentStock")}</Label>
                 <Input
                   id="currentStock"
                   type="number"
@@ -234,7 +236,7 @@ export default function IngredientsManagement() {
               </div>
               
               <div>
-                <Label htmlFor="unitCost">Costo por Unidad (opcional)</Label>
+                <Label htmlFor="unitCost">{t("form.unitCost")}</Label>
                 <Input
                   id="unitCost"
                   type="number"
@@ -250,7 +252,7 @@ export default function IngredientsManagement() {
               </div>
 
               <div>
-                <Label htmlFor="minStock">Stock Mínimo</Label>
+                <Label htmlFor="minStock">{t("form.minStock")}</Label>
                 <Input
                   id="minStock"
                   type="number"
@@ -268,15 +270,15 @@ export default function IngredientsManagement() {
                   checked={formData.trackStock}
                   onChange={(e) => setFormData({ ...formData, trackStock: e.target.checked })}
                 />
-                <Label htmlFor="trackStock">Monitorear stock</Label>
+                <Label htmlFor="trackStock">{t("form.trackStock")}</Label>
               </div>
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
-                  Cancelar
+                  {t("actions.cancel")}
                 </Button>
                 <Button type="submit" className="bg-gray-900 hover:bg-gray-800">
-                  {editingId ? 'Actualizar' : 'Crear'}
+                  {editingId ? t("actions.update") : t("actions.create")}
                 </Button>
               </div>
             </form>
@@ -294,7 +296,7 @@ export default function IngredientsManagement() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{ingredients.length}</p>
-                <p className="text-sm text-gray-600">Total Ingredientes</p>
+                <p className="text-sm text-gray-600">{t("stats.total")}</p>
               </div>
             </div>
           </CardContent>
@@ -310,7 +312,7 @@ export default function IngredientsManagement() {
                 <p className="text-2xl font-bold">
                   {ingredients.filter(i => i.currentStock < 50).length}
                 </p>
-                <p className="text-sm text-gray-600">Stock Bajo</p>
+                <p className="text-sm text-gray-600">{t("stats.lowStock")}</p>
               </div>
             </div>
           </CardContent>
@@ -326,7 +328,7 @@ export default function IngredientsManagement() {
                 <p className="text-2xl font-bold">
                   {ingredients.reduce((sum, i) => sum + i.currentStock, 0).toFixed(0)}
                 </p>
-                <p className="text-sm text-gray-600">Stock Total</p>
+                <p className="text-sm text-gray-600">{t("stats.totalStock")}</p>
               </div>
             </div>
           </CardContent>
@@ -342,7 +344,7 @@ export default function IngredientsManagement() {
                 <p className="text-2xl font-bold">
                   ${ingredients.reduce((sum, i) => sum + (i.currentStock * (i.unitCost || 0)), 0).toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-600">Valor Inventario</p>
+                <p className="text-sm text-gray-600">{t("stats.inventoryValue")}</p>
               </div>
             </div>
           </CardContent>
@@ -355,7 +357,7 @@ export default function IngredientsManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
             <Input
-              placeholder="Buscar ingredientes..."
+              placeholder={t("searchPlaceholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -367,9 +369,9 @@ export default function IngredientsManagement() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Ingredientes</CardTitle>
+          <CardTitle>{t("table.title")}</CardTitle>
           <CardDescription>
-            Gestiona tu inventario de ingredientes y mantén control del stock
+            {t("table.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -381,14 +383,14 @@ export default function IngredientsManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Unidad</TableHead>
-                  <TableHead>Stock Actual</TableHead>
-                  <TableHead>Mínimo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Costo Unitario</TableHead>
-                  <TableHead>Valor Total</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  <TableHead>{t("table.name")}</TableHead>
+                  <TableHead>{t("table.unit")}</TableHead>
+                  <TableHead>{t("table.currentStock")}</TableHead>
+                  <TableHead>{t("table.min")}</TableHead>
+                  <TableHead>{t("table.status")}</TableHead>
+                  <TableHead>{t("table.unitCost")}</TableHead>
+                  <TableHead>{t("table.totalValue")}</TableHead>
+                  <TableHead className="text-right">{t("table.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -402,10 +404,10 @@ export default function IngredientsManagement() {
                       <TableCell>{ingredient.minStock.toFixed(2)}</TableCell>
                       <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                       <TableCell>
-                        {ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : 'N/A'}
+                        {ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : t("table.notAvailable")}
                       </TableCell>
                       <TableCell>
-                        {ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : 'N/A'}
+                        {ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : t("table.notAvailable")}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -442,17 +444,17 @@ export default function IngredientsManagement() {
             onClick={() => setPage(page - 1)}
             disabled={page === 1}
           >
-            Anterior
+            {t("pagination.prev")}
           </Button>
           <span className="flex items-center px-4">
-            Página {page} de {totalPages}
+            {t("pagination.status", { page, totalPages })}
           </span>
           <Button 
             variant="outline"
             onClick={() => setPage(page + 1)}
             disabled={page === totalPages}
           >
-            Siguiente
+            {t("pagination.next")}
           </Button>
         </div>
       )}

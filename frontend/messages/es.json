@@ -109,4 +109,634 @@
       "close": "¡Entendido, empezar!"
     }
   }
+  ,
+  "admin": {
+    "page": {
+      "loading": "Cargando..."
+    },
+    "dashboard": {
+      "header": {
+        "title": "Panel de Administración",
+        "subtitle": "Gestión completa del local gastronómico"
+      },
+      "actions": {
+        "refresh": "Actualizar"
+      },
+      "metrics": {
+        "dailySales": "Ventas del Día",
+        "weeklySales": "Ventas Semanales",
+        "monthlySales": "Ventas Mensuales",
+        "totalOrders": "Pedidos Totales",
+        "averageTicket": "Ticket Promedio",
+        "ingredients": "Ingredientes",
+        "lowStock": "Stock Bajo"
+      },
+      "lowStock": {
+        "title": "Stock mínimo alcanzado",
+        "description": "Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.",
+        "stockLine": "{current} / min {min}"
+      },
+      "tabs": {
+        "dashboard": "Dashboard",
+        "products": "Productos",
+        "stock": "Stock",
+        "recipes": "Recetas",
+        "promotions": "Promociones",
+        "schedule": "Horarios & Mesas",
+        "branches": "Sucursales",
+        "analytics": "Analytics",
+        "banking": "Cuenta Bancaria"
+      },
+      "analytics": {
+        "title": "Estadísticas Avanzadas"
+      },
+      "mock": {
+        "topProducts": {
+          "americano": "Café Americano",
+          "croissant": "Croissant",
+          "cappuccino": "Cappuccino",
+          "applePie": "Tarta de Manzana",
+          "latte": "Café Latte"
+        }
+      },
+      "errors": {
+        "fetchDashboard": "Error fetching dashboard data:"
+      }
+    },
+    "products": {
+      "categories": {
+        "beverages": "Bebidas",
+        "coffee": "Café",
+        "bakery": "Pastelería",
+        "mainDishes": "Platos Principales",
+        "starters": "Entradas",
+        "desserts": "Postres",
+        "specialties": "Especialidades"
+      },
+      "toast": {
+        "errorTitle": "Error",
+        "loadError": "Error al cargar productos. Verifica que el servidor esté funcionando.",
+        "uploadError": "No se pudo subir la imagen",
+        "warningTitle": "Aviso",
+        "uploadFallback": "No se pudo subir la imagen. Se guardará el producto sin foto.",
+        "successTitle": "Éxito",
+        "updated": "Producto actualizado correctamente",
+        "created": "Producto creado correctamente",
+        "saveError": "Error al guardar el producto. Por favor, intenta nuevamente.",
+        "deleted": "Producto eliminado correctamente",
+        "deleteError": "Error al eliminar el producto. Por favor, intenta nuevamente.",
+        "activated": "Producto activado correctamente",
+        "deactivated": "Producto desactivado correctamente",
+        "toggleError": "Error al cambiar la disponibilidad del producto. Por favor, intenta nuevamente."
+      },
+      "confirmDelete": "¿Estás seguro de que quieres eliminar este producto?",
+      "header": {
+        "title": "Gestión de Productos",
+        "subtitle": "Administra el catálogo de productos del local"
+      },
+      "actions": {
+        "newProduct": "Nuevo Producto",
+        "cancel": "Cancelar",
+        "update": "Actualizar",
+        "create": "Crear",
+        "activate": "Activar",
+        "deactivate": "Desactivar"
+      },
+      "dialog": {
+        "editTitle": "Editar Producto",
+        "createTitle": "Crear Nuevo Producto"
+      },
+      "form": {
+        "name": "Nombre",
+        "namePlaceholder": "Ej: Café Americano",
+        "category": "Categoría",
+        "categoryPlaceholder": "Seleccionar categoría",
+        "price": "Precio",
+        "pricePlaceholder": "0.00",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Descripción opcional del producto",
+        "image": "Imagen del producto",
+        "currentImage": "Imagen actual",
+        "available": "Disponible"
+      },
+      "searchPlaceholder": "Buscar productos por nombre o categoría...",
+      "table": {
+        "product": "Producto",
+        "category": "Categoría",
+        "price": "Precio",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "available": "Disponible",
+        "unavailable": "No disponible"
+      },
+      "empty": {
+        "search": "No se encontraron productos",
+        "default": "No hay productos registrados"
+      }
+    },
+    "ingredients": {
+      "toast": {
+        "errorTitle": "Error",
+        "loadError": "No se pudieron cargar los ingredientes",
+        "successTitle": "Éxito",
+        "updated": "Ingrediente actualizado correctamente",
+        "created": "Ingrediente creado correctamente",
+        "saveError": "Error al guardar el ingrediente",
+        "deleted": "Ingrediente eliminado correctamente",
+        "deleteInUse": "No se puede eliminar: el ingrediente está siendo usado en recetas",
+        "deleteError": "Error al eliminar el ingrediente"
+      },
+      "confirmDelete": "¿Estás seguro de que quieres eliminar este ingrediente?",
+      "status": {
+        "none": "Sin Stock",
+        "min": "Mínimo",
+        "low": "Bajo",
+        "ok": "Ok"
+      },
+      "header": {
+        "title": "Gestión de Ingredientes",
+        "subtitle": "Administra el inventario de ingredientes de tu cocina"
+      },
+      "actions": {
+        "new": "Nuevo Ingrediente",
+        "cancel": "Cancelar",
+        "update": "Actualizar",
+        "create": "Crear"
+      },
+      "dialog": {
+        "editTitle": "Editar Ingrediente",
+        "newTitle": "Nuevo Ingrediente",
+        "editDescription": "Modifica los datos del ingrediente",
+        "newDescription": "Agrega un nuevo ingrediente al inventario"
+      },
+      "form": {
+        "name": "Nombre",
+        "namePlaceholder": "Ej: Café en grano, Leche, Azúcar...",
+        "unit": "Unidad de Medida",
+        "currentStock": "Stock Actual",
+        "unitCost": "Costo por Unidad (opcional)",
+        "minStock": "Stock Mínimo",
+        "trackStock": "Monitorear stock"
+      },
+      "stats": {
+        "total": "Total Ingredientes",
+        "lowStock": "Stock Bajo",
+        "totalStock": "Stock Total",
+        "inventoryValue": "Valor Inventario"
+      },
+      "searchPlaceholder": "Buscar ingredientes...",
+      "table": {
+        "title": "Lista de Ingredientes",
+        "subtitle": "Gestiona tu inventario de ingredientes y mantén control del stock",
+        "name": "Nombre",
+        "unit": "Unidad",
+        "currentStock": "Stock Actual",
+        "min": "Mínimo",
+        "status": "Estado",
+        "unitCost": "Costo Unitario",
+        "totalValue": "Valor Total",
+        "actions": "Acciones",
+        "notAvailable": "N/A"
+      },
+      "pagination": {
+        "prev": "Anterior",
+        "next": "Siguiente",
+        "status": "Página {page} de {totalPages}"
+      }
+    },
+    "recipes": {
+      "toast": {
+        "errorTitle": "Error",
+        "loadProductsError": "No se pudieron cargar los productos desde el backend",
+        "loadRecipesError": "No se pudieron cargar las recetas",
+        "successTitle": "Éxito",
+        "productCreated": "Producto creado correctamente",
+        "productSelectedTitle": "Producto seleccionado",
+        "productSelectedDescription": "Ahora puedes agregar ingredientes a la receta de este producto",
+        "createProductError": "Error al crear el producto",
+        "ingredientAdded": "Ingrediente agregado a la receta",
+        "addIngredientError": "Error al agregar ingrediente",
+        "quantityUpdated": "Cantidad actualizada",
+        "updateRecipeError": "Error al actualizar receta",
+        "ingredientDeleted": "Ingrediente eliminado de la receta",
+        "deleteIngredientError": "Error al eliminar ingrediente"
+      },
+      "confirmDeleteIngredient": "¿Estás seguro de que quieres eliminar este ingrediente de la receta?",
+      "header": {
+        "title": "Gestión de Recetas",
+        "subtitle": "Configura las recetas de tus productos y analiza los costos"
+      },
+      "actions": {
+        "refreshProducts": "Actualizar Productos",
+        "newProduct": "Nuevo Producto",
+        "cancel": "Cancelar",
+        "createProduct": "Crear Producto",
+        "addIngredient": "Agregar Ingrediente",
+        "add": "Agregar"
+      },
+      "dialog": {
+        "newProductTitle": "Crear Nuevo Producto",
+        "newProductDescription": "Agrega un nuevo producto al menú. Después podrás configurar su receta.",
+        "addIngredientTitle": "Agregar Ingrediente a la Receta",
+        "addIngredientDescription": "Agrega un nuevo ingrediente a la receta de {name}"
+      },
+      "form": {
+        "name": "Nombre del Producto",
+        "namePlaceholder": "Ej: Cappuccino, Croissant...",
+        "category": "Categoría",
+        "categoryPlaceholder": "Ej: Bebidas, Pastelería...",
+        "price": "Precio de Venta",
+        "description": "Descripción (opcional)",
+        "descriptionPlaceholder": "Describe brevemente el producto...",
+        "ingredient": "Ingrediente",
+        "ingredientPlaceholder": "Selecciona un ingrediente",
+        "quantity": "Cantidad",
+        "quantityPlaceholder": "Cantidad necesaria"
+      },
+      "products": {
+        "title": "Productos ({count})",
+        "subtitle": "Selecciona un producto para configurar su receta",
+        "searchPlaceholder": "Buscar productos...",
+        "emptySearch": "No se encontraron productos",
+        "emptyDefault": "No hay productos disponibles"
+      },
+      "recipe": {
+        "titleWithProduct": "Receta: {name}",
+        "titleEmpty": "Selecciona un Producto",
+        "productMeta": "{category} - ${price}",
+        "emptySelect": "Selecciona un producto de la lista para configurar su receta",
+        "emptyTitle": "Esta receta está vacía",
+        "emptySubtitle": "Agrega el primer ingrediente para comenzar"
+      },
+      "table": {
+        "ingredient": "Ingrediente",
+        "unit": "Unidad",
+        "quantity": "Cantidad",
+        "unitCost": "Costo Unitario",
+        "totalCost": "Costo Total",
+        "actions": "Acciones",
+        "notAvailable": "N/A"
+      },
+      "summary": {
+        "ingredientsCost": "Costo de Ingredientes",
+        "salePrice": "Precio de Venta",
+        "grossProfit": "Ganancia Bruta",
+        "margin": "Margen de Ganancia"
+      }
+    },
+    "stock": {
+      "toast": {
+        "errorTitle": "Error",
+        "loadProductsError": "No se pudieron cargar los productos desde el backend",
+        "loadRecipesError": "No se pudieron cargar las recetas",
+        "successTitle": "Éxito",
+        "productCreated": "Producto creado correctamente",
+        "productSelectedTitle": "Producto seleccionado",
+        "productSelectedDescription": "Ahora puedes agregar ingredientes a la receta de este producto",
+        "createProductError": "Error al crear el producto",
+        "ingredientAdded": "Ingrediente agregado a la receta",
+        "addIngredientError": "Error al agregar ingrediente",
+        "quantityUpdated": "Cantidad actualizada",
+        "updateRecipeError": "Error al actualizar receta",
+        "ingredientDeleted": "Ingrediente eliminado de la receta",
+        "deleteIngredientError": "Error al eliminar ingrediente"
+      },
+      "confirmDeleteIngredient": "¿Estás seguro de que quieres eliminar este ingrediente de la receta?",
+      "header": {
+        "title": "Gestión de Recetas y Stock",
+        "subtitle": "Configura las recetas de tus productos y analiza los costos"
+      },
+      "actions": {
+        "refreshProducts": "Actualizar Productos",
+        "newProduct": "Nuevo Producto",
+        "cancel": "Cancelar",
+        "createProduct": "Crear Producto",
+        "addIngredient": "Agregar Ingrediente",
+        "add": "Agregar"
+      },
+      "dialog": {
+        "newProductTitle": "Crear Nuevo Producto",
+        "newProductDescription": "Agrega un nuevo producto al menú. Después podrás configurar su receta.",
+        "addIngredientTitle": "Agregar Ingrediente a la Receta",
+        "addIngredientDescription": "Agrega un nuevo ingrediente a la receta de {name}"
+      },
+      "form": {
+        "name": "Nombre del Producto",
+        "namePlaceholder": "Ej: Cappuccino, Croissant...",
+        "category": "Categoría",
+        "categoryPlaceholder": "Ej: Bebidas, Pastelería...",
+        "price": "Precio de Venta",
+        "description": "Descripción (opcional)",
+        "descriptionPlaceholder": "Describe brevemente el producto...",
+        "ingredient": "Ingrediente",
+        "ingredientPlaceholder": "Selecciona un ingrediente",
+        "quantity": "Cantidad",
+        "quantityPlaceholder": "Cantidad necesaria"
+      },
+      "products": {
+        "title": "Productos ({count})",
+        "subtitle": "Selecciona un producto para configurar su receta",
+        "searchPlaceholder": "Buscar productos...",
+        "emptySearch": "No se encontraron productos",
+        "emptyDefault": "No hay productos disponibles"
+      },
+      "recipe": {
+        "titleWithProduct": "Receta: {name}",
+        "titleEmpty": "Selecciona un Producto",
+        "productMeta": "{category} - ${price}",
+        "emptySelect": "Selecciona un producto de la lista para configurar su receta",
+        "emptyTitle": "Esta receta está vacía",
+        "emptySubtitle": "Agrega el primer ingrediente para comenzar"
+      },
+      "table": {
+        "ingredient": "Ingrediente",
+        "unit": "Unidad",
+        "quantity": "Cantidad",
+        "unitCost": "Costo Unitario",
+        "totalCost": "Costo Total",
+        "actions": "Acciones",
+        "notAvailable": "N/A"
+      },
+      "summary": {
+        "ingredientsCost": "Costo de Ingredientes",
+        "salePrice": "Precio de Venta",
+        "grossProfit": "Ganancia Bruta",
+        "margin": "Margen de Ganancia"
+      },
+      "note": {
+        "title": "Nota:",
+        "description": "Algunos ingredientes no tienen costo unitario configurado. Los cálculos de costos pueden no ser precisos."
+      }
+    },
+    "promotions": {
+      "types": {
+        "discount": "Descuento Porcentual",
+        "twoForOne": "2x1",
+        "combo": "Combo",
+        "timeframe": "Descuento por Horario"
+      },
+      "mock": {
+        "happyHour": {
+          "name": "Happy Hour",
+          "description": "20% de descuento en bebidas de 18:00 a 20:00"
+        },
+        "twoForOne": {
+          "name": "2x1 en Cafés",
+          "description": "Lleva 2 cafés por el precio de 1"
+        },
+        "students": {
+          "name": "Descuento Estudiantes",
+          "description": "15% de descuento para estudiantes"
+        }
+      },
+      "confirmDelete": "¿Estás seguro de que quieres eliminar esta promoción?",
+      "header": {
+        "title": "Gestión de Promociones",
+        "subtitle": "Administra las promociones y ofertas del local"
+      },
+      "actions": {
+        "new": "Nueva Promoción",
+        "cancel": "Cancelar",
+        "update": "Actualizar",
+        "create": "Crear",
+        "activate": "Activar",
+        "deactivate": "Desactivar"
+      },
+      "dialog": {
+        "editTitle": "Editar Promoción",
+        "newTitle": "Crear Nueva Promoción"
+      },
+      "form": {
+        "name": "Nombre de la Promoción",
+        "namePlaceholder": "Ej: Happy Hour",
+        "type": "Tipo de Promoción",
+        "typePlaceholder": "Seleccionar tipo",
+        "discountPercent": "Porcentaje de Descuento",
+        "comboPrice": "Precio del Combo",
+        "value": "Valor",
+        "percentPlaceholder": "20",
+        "valuePlaceholder": "0.00",
+        "status": "Estado",
+        "description": "Descripción",
+        "descriptionPlaceholder": "Descripción detallada de la promoción",
+        "startDate": "Fecha de Inicio",
+        "endDate": "Fecha de Fin",
+        "startTime": "Hora de Inicio",
+        "endTime": "Hora de Fin"
+      },
+      "status": {
+        "active": "🟢 Activa",
+        "inactive": "⚪ Inactiva"
+      },
+      "card": {
+        "period": "Período",
+        "schedule": "Horario",
+        "value": "Valor"
+      },
+      "empty": {
+        "title": "No hay promociones",
+        "subtitle": "Crea tu primera promoción para aumentar las ventas"
+      }
+    },
+    "schedule": {
+      "days": {
+        "monday": "Lunes",
+        "tuesday": "Martes",
+        "wednesday": "Miércoles",
+        "thursday": "Jueves",
+        "friday": "Viernes",
+        "saturday": "Sábado",
+        "sunday": "Domingo"
+      },
+      "opening": {
+        "title": "Horarios de Apertura",
+        "subtitle": "Configura los horarios de apertura y cierre por día",
+        "open": "Abierto",
+        "closed": "Cerrado",
+        "to": "a"
+      },
+      "tables": {
+        "title": "Gestión de Mesas",
+        "subtitle": "Mesas sincronizadas desde la base de datos",
+        "active": "Activa",
+        "inactive": "Inactiva",
+        "idLabel": "ID: {id}",
+        "lastUpdate": "Última actualización: {value}",
+        "emptyTitle": "No hay mesas registradas",
+        "emptySubtitle": "Agrega mesas en la base de datos para que aparezcan aquí"
+      },
+      "actions": {
+        "saveSchedules": "Guardar Horarios",
+        "refresh": "Actualizar"
+      },
+      "alerts": {
+        "saved": "Horarios guardados correctamente"
+      },
+      "logs": {
+        "saveSchedules": "Guardando horarios:"
+      }
+    },
+    "branches": {
+      "errors": {
+        "fetchBranches": "Error fetching branches:",
+        "createBranch": "Error creating branch:",
+        "updateBranch": "Error updating branch:",
+        "toggleStatus": "Error toggling branch status:",
+        "toggleShare": "Error toggling menu share:",
+        "toggleGlobalShare": "Error setting global menu share:"
+      },
+      "header": {
+        "title": "Gestión de Sucursales",
+        "subtitle": "Administra las ubicaciones de tu negocio"
+      },
+      "actions": {
+        "add": "Agregar Sucursal",
+        "create": "Crear Sucursal",
+        "save": "Guardar Cambios"
+      },
+      "dialog": {
+        "createTitle": "Crear Nueva Sucursal",
+        "editTitle": "Editar Sucursal"
+      },
+      "form": {
+        "name": "Nombre de la Sucursal",
+        "namePlaceholder": "Ej: Sucursal Centro",
+        "address": "Dirección",
+        "addressPlaceholder": "Dirección completa",
+        "phone": "Teléfono",
+        "phonePlaceholder": "+54 11 1234-5678",
+        "email": "Email",
+        "emailPlaceholder": "sucursal@ejemplo.com",
+        "manager": "Encargado",
+        "managerPlaceholder": "Nombre del encargado",
+        "shareMenu": "Compartir carta con otras sucursales",
+        "shareMenuShort": "Compartir carta"
+      },
+      "globalMenu": {
+        "title": "Configuración Global de Carta",
+        "subtitle": "Compartir o no la carta entre todas las sucursales",
+        "shared": "Carta compartida",
+        "independent": "Cartas independientes"
+      },
+      "stats": {
+        "total": "Total Sucursales",
+        "active": "Sucursales Activas",
+        "sales": "Ventas Totales",
+        "orders": "Pedidos Totales"
+      },
+      "status": {
+        "active": "activa",
+        "inactive": "inactiva",
+        "sharedMenu": "Carta compartida"
+      },
+      "table": {
+        "address": "Dirección:",
+        "manager": "Encargado:",
+        "monthlySales": "Ventas Mensuales:",
+        "orders": "Pedidos:"
+      }
+    },
+    "banking": {
+      "errors": {
+        "fetchConfig": "Error fetching bank config:",
+        "saveAccount": "Error saving bank account:",
+        "updatePaymentConfig": "Error updating payment config:"
+      },
+      "account": {
+        "title": "Cuenta Bancaria",
+        "subtitle": "Configura la cuenta para recibir los pagos",
+        "emptyTitle": "No hay cuenta bancaria configurada",
+        "emptySubtitle": "Agrega una cuenta bancaria para recibir los pagos"
+      },
+      "actions": {
+        "edit": "Editar",
+        "addAccount": "Agregar Cuenta Bancaria",
+        "saving": "Guardando...",
+        "saveAccount": "Guardar Cuenta",
+        "cancel": "Cancelar"
+      },
+      "form": {
+        "bank": "Banco",
+        "bankPlaceholder": "Ej: Banco Galicia",
+        "accountType": "Tipo de Cuenta",
+        "accountTypePlaceholder": "Seleccionar tipo",
+        "accountTypeCurrent": "Cuenta Corriente",
+        "accountTypeSavingsBox": "Caja de Ahorro",
+        "accountTypeSavings": "Cuenta de Ahorro",
+        "accountNumber": "Número de Cuenta",
+        "accountNumberPlaceholder": "1234567890",
+        "cbu": "CBU",
+        "cbuPlaceholder": "0070123440000012345671",
+        "alias": "Alias",
+        "aliasPlaceholder": "mi.restaurante.galicia",
+        "holder": "Titular de la Cuenta",
+        "holderPlaceholder": "Mi Restaurante S.A.",
+        "taxId": "CUIT/DNI",
+        "taxIdPlaceholder": "20-12345678-9"
+      },
+      "status": {
+        "verified": "Verificada",
+        "pending": "Pendiente de verificación",
+        "active": "Activa",
+        "inactive": "Inactiva"
+      },
+      "details": {
+        "bank": "Banco:",
+        "accountType": "Tipo de Cuenta:",
+        "accountNumber": "Número de Cuenta:",
+        "cbu": "CBU:",
+        "alias": "Alias:",
+        "holder": "Titular:"
+      },
+      "payments": {
+        "title": "Métodos de Pago",
+        "subtitle": "Configura los proveedores de pago",
+        "mpSubtitle": "Pagos con billetera digital",
+        "manualTitle": "Métodos Manuales",
+        "manualSubtitle": "Pagos gestionados por el mozo",
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "qr": "QR"
+      },
+      "security": {
+        "title": "Seguridad",
+        "items": {
+          "storeKeys": "Todas las claves se almacenan de forma segura y encriptada",
+          "bankData": "Los datos bancarios están protegidos con cifrado de extremo a extremo",
+          "ownerOnly": "Solo el titular de la cuenta puede modificar esta información"
+        }
+      }
+    },
+    "metrics": {
+      "errors": {
+        "noSession": "No hay sesión activa",
+        "loadMetrics": "Error al cargar los datos de métricas"
+      },
+      "loading": "Cargando métricas...",
+      "actions": {
+        "retry": "Reintentar",
+        "refresh": "Actualizar"
+      },
+      "header": {
+        "title": "Dashboard de Métricas"
+      },
+      "charts": {
+        "monthlySales": "Ventas Mensuales",
+        "dailyRevenue": "Ingresos Diarios (Última Semana)",
+        "orderStatus": "Estado de Pedidos",
+        "paymentMethods": "Métodos de Pago Más Usados",
+        "usage": "Uso",
+        "salesLegend": "Ventas",
+        "monthLabel": "Mes: {label}",
+        "revenueLegend": "Ingresos",
+        "dayLabel": "Día: {label}",
+        "ordersLegend": "Pedidos",
+        "statusLabel": "Estado: {label}",
+        "transactionsLegend": "Transacciones",
+        "methodLabel": "Método: {label}"
+      }
+    }
+  }
 }

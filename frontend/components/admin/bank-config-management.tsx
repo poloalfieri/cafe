@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useTranslations } from "next-intl"
 
 interface BankAccount {
   id: string
@@ -46,6 +47,7 @@ interface PaymentConfig {
 }
 
 export default function BankConfigManagement() {
+  const t = useTranslations("admin.banking")
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null)
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>({
     mercadopago: { enabled: false, access_token: "", public_key: "", webhook_url: "" },
@@ -119,7 +121,7 @@ export default function BankConfigManagement() {
         }
       })
     } catch (error) {
-      console.error("Error fetching bank config:", error)
+      console.error(t("errors.fetchConfig"), error)
     } finally {
       setLoading(false)
     }
@@ -149,7 +151,7 @@ export default function BankConfigManagement() {
         holder_dni: ""
       })
     } catch (error) {
-      console.error("Error saving bank account:", error)
+      console.error(t("errors.saveAccount"), error)
     } finally {
       setSaving(false)
     }
@@ -162,7 +164,7 @@ export default function BankConfigManagement() {
         [provider]: { ...prev[provider], ...config }
       }))
     } catch (error) {
-      console.error("Error updating payment config:", error)
+      console.error(t("errors.updatePaymentConfig"), error)
     }
   }
 
@@ -195,14 +197,14 @@ export default function BankConfigManagement() {
             <div className="flex items-center gap-3">
               <Building className="w-5 h-5 text-gray-600" />
               <div>
-                <CardTitle>Cuenta Bancaria</CardTitle>
-                <p className="text-sm text-gray-600">Configura la cuenta para recibir los pagos</p>
+              <CardTitle>{t("account.title")}</CardTitle>
+                <p className="text-sm text-gray-600">{t("account.subtitle")}</p>
               </div>
             </div>
             {bankAccount && !isEditing && (
               <Button variant="outline" onClick={handleEditBankAccount}>
                 <Edit className="w-4 h-4 mr-2" />
-                Editar
+                {t("actions.edit")}
               </Button>
             )}
           </div>
@@ -211,35 +213,35 @@ export default function BankConfigManagement() {
           {!bankAccount && !isEditing ? (
             <div className="text-center py-8">
               <Building className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay cuenta bancaria configurada</h3>
-              <p className="text-gray-600 mb-4">Agrega una cuenta bancaria para recibir los pagos</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("account.emptyTitle")}</h3>
+              <p className="text-gray-600 mb-4">{t("account.emptySubtitle")}</p>
               <Button onClick={() => setIsEditing(true)}>
                 <CreditCard className="w-4 h-4 mr-2" />
-                Agregar Cuenta Bancaria
+                {t("actions.addAccount")}
               </Button>
             </div>
           ) : isEditing ? (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="bank_name">Banco</Label>
+                  <Label htmlFor="bank_name">{t("form.bank")}</Label>
                   <Input
                     id="bank_name"
                     value={bankForm.bank_name}
                     onChange={(e) => setBankForm({...bankForm, bank_name: e.target.value})}
-                    placeholder="Ej: Banco Galicia"
+                    placeholder={t("form.bankPlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="account_type">Tipo de Cuenta</Label>
+                  <Label htmlFor="account_type">{t("form.accountType")}</Label>
                   <Select value={bankForm.account_type} onValueChange={(value: any) => setBankForm({...bankForm, account_type: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar tipo" />
+                      <SelectValue placeholder={t("form.accountTypePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="corriente">Cuenta Corriente</SelectItem>
-                      <SelectItem value="ahorro">Caja de Ahorro</SelectItem>
-                      <SelectItem value="caja_ahorro">Cuenta de Ahorro</SelectItem>
+                      <SelectItem value="corriente">{t("form.accountTypeCurrent")}</SelectItem>
+                      <SelectItem value="ahorro">{t("form.accountTypeSavingsBox")}</SelectItem>
+                      <SelectItem value="caja_ahorro">{t("form.accountTypeSavings")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -247,52 +249,52 @@ export default function BankConfigManagement() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="account_number">Número de Cuenta</Label>
+                  <Label htmlFor="account_number">{t("form.accountNumber")}</Label>
                   <Input
                     id="account_number"
                     value={bankForm.account_number}
                     onChange={(e) => setBankForm({...bankForm, account_number: e.target.value})}
-                    placeholder="1234567890"
+                    placeholder={t("form.accountNumberPlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cbu">CBU</Label>
+                  <Label htmlFor="cbu">{t("form.cbu")}</Label>
                   <Input
                     id="cbu"
                     value={bankForm.cbu}
                     onChange={(e) => setBankForm({...bankForm, cbu: e.target.value})}
-                    placeholder="0070123440000012345671"
+                    placeholder={t("form.cbuPlaceholder")}
                   />
                 </div>
               </div>
               
               <div>
-                <Label htmlFor="alias">Alias</Label>
+                <Label htmlFor="alias">{t("form.alias")}</Label>
                 <Input
                   id="alias"
                   value={bankForm.alias}
                   onChange={(e) => setBankForm({...bankForm, alias: e.target.value})}
-                  placeholder="mi.restaurante.galicia"
+                  placeholder={t("form.aliasPlaceholder")}
                 />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="holder_name">Titular de la Cuenta</Label>
+                  <Label htmlFor="holder_name">{t("form.holder")}</Label>
                   <Input
                     id="holder_name"
                     value={bankForm.holder_name}
                     onChange={(e) => setBankForm({...bankForm, holder_name: e.target.value})}
-                    placeholder="Mi Restaurante S.A."
+                    placeholder={t("form.holderPlaceholder")}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="holder_dni">CUIT/DNI</Label>
+                  <Label htmlFor="holder_dni">{t("form.taxId")}</Label>
                   <Input
                     id="holder_dni"
                     value={bankForm.holder_dni}
                     onChange={(e) => setBankForm({...bankForm, holder_dni: e.target.value})}
-                    placeholder="20-12345678-9"
+                    placeholder={t("form.taxIdPlaceholder")}
                   />
                 </div>
               </div>
@@ -300,10 +302,10 @@ export default function BankConfigManagement() {
               <div className="flex gap-2">
                 <Button onClick={handleSaveBankAccount} disabled={saving}>
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? "Guardando..." : "Guardar Cuenta"}
+                  {saving ? t("actions.saving") : t("actions.saveAccount")}
                 </Button>
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
-                  Cancelar
+                  {t("actions.cancel")}
                 </Button>
               </div>
             </div>
@@ -314,43 +316,43 @@ export default function BankConfigManagement() {
                   {bankAccount.is_verified ? (
                     <>
                       <CheckCircle className="w-3 h-3 mr-1" />
-                      Verificada
+                      {t("status.verified")}
                     </>
                   ) : (
                     <>
                       <AlertCircle className="w-3 h-3 mr-1" />
-                      Pendiente de verificación
+                      {t("status.pending")}
                     </>
                   )}
                 </Badge>
                 <Badge className={bankAccount.is_active ? "bg-green-100 text-green-800 border-green-200" : "bg-gray-100 text-gray-800 border-gray-200"}>
-                  {bankAccount.is_active ? "Activa" : "Inactiva"}
+                  {bankAccount.is_active ? t("status.active") : t("status.inactive")}
                 </Badge>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Banco:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.bank")}</span>
                   <p className="text-gray-900">{bankAccount.bank_name}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Tipo de Cuenta:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.accountType")}</span>
                   <p className="text-gray-900 capitalize">{bankAccount.account_type.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Número de Cuenta:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.accountNumber")}</span>
                   <p className="text-gray-900 font-mono">{maskSensitiveData(bankAccount.account_number)}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">CBU:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.cbu")}</span>
                   <p className="text-gray-900 font-mono">{maskSensitiveData(bankAccount.cbu)}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Alias:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.alias")}</span>
                   <p className="text-gray-900">{bankAccount.alias}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Titular:</span>
+                  <span className="text-sm font-medium text-gray-600">{t("details.holder")}</span>
                   <p className="text-gray-900">{bankAccount.holder_name}</p>
                 </div>
               </div>
@@ -365,8 +367,8 @@ export default function BankConfigManagement() {
           <div className="flex items-center gap-3">
             <CreditCard className="w-5 h-5 text-gray-600" />
             <div>
-              <CardTitle>Métodos de Pago</CardTitle>
-              <p className="text-sm text-gray-600">Configura los proveedores de pago</p>
+              <CardTitle>{t("payments.title")}</CardTitle>
+              <p className="text-sm text-gray-600">{t("payments.subtitle")}</p>
             </div>
           </div>
         </CardHeader>
@@ -380,11 +382,11 @@ export default function BankConfigManagement() {
                 </div>
                 <div>
                   <h3 className="font-semibold">MercadoPago</h3>
-                  <p className="text-sm text-gray-600">Pagos con billetera digital</p>
+                  <p className="text-sm text-gray-600">{t("payments.mpSubtitle")}</p>
                 </div>
               </div>
               <Badge className={paymentConfig.mercadopago.enabled ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
-                {paymentConfig.mercadopago.enabled ? "Activo" : "Inactivo"}
+                {paymentConfig.mercadopago.enabled ? t("status.active") : t("status.inactive")}
               </Badge>
             </div>
             
@@ -427,8 +429,8 @@ export default function BankConfigManagement() {
                 <span className="text-gray-600 font-bold text-sm">💰</span>
               </div>
               <div>
-                <h3 className="font-semibold">Métodos Manuales</h3>
-                <p className="text-sm text-gray-600">Pagos gestionados por el mozo</p>
+                <h3 className="font-semibold">{t("payments.manualTitle")}</h3>
+                <p className="text-sm text-gray-600">{t("payments.manualSubtitle")}</p>
               </div>
             </div>
             
@@ -441,7 +443,7 @@ export default function BankConfigManagement() {
                   onChange={(e) => handleUpdatePaymentConfig('manual_methods', { cash: e.target.checked })}
                   className="rounded"
                 />
-                <Label htmlFor="cash">Efectivo</Label>
+                <Label htmlFor="cash">{t("payments.cash")}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <input
@@ -451,7 +453,7 @@ export default function BankConfigManagement() {
                   onChange={(e) => handleUpdatePaymentConfig('manual_methods', { card: e.target.checked })}
                   className="rounded"
                 />
-                <Label htmlFor="card">Tarjeta</Label>
+                <Label htmlFor="card">{t("payments.card")}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <input
@@ -461,7 +463,7 @@ export default function BankConfigManagement() {
                   onChange={(e) => handleUpdatePaymentConfig('manual_methods', { qr: e.target.checked })}
                   className="rounded"
                 />
-                <Label htmlFor="qr">QR</Label>
+                <Label htmlFor="qr">{t("payments.qr")}</Label>
               </div>
             </div>
           </div>
@@ -471,11 +473,11 @@ export default function BankConfigManagement() {
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-semibold text-blue-900 mb-1">Seguridad</h4>
+                <h4 className="font-semibold text-blue-900 mb-1">{t("security.title")}</h4>
                 <ul className="text-sm text-blue-600 space-y-1">
-                  <li>• Todas las claves se almacenan de forma segura y encriptada</li>
-                  <li>• Los datos bancarios están protegidos con cifrado de extremo a extremo</li>
-                  <li>• Solo el titular de la cuenta puede modificar esta información</li>
+                  <li>• {t("security.items.storeKeys")}</li>
+                  <li>• {t("security.items.bankData")}</li>
+                  <li>• {t("security.items.ownerOnly")}</li>
                 </ul>
               </div>
             </div>

@@ -24,6 +24,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 interface MetricsData {
   salesMonthly: { labels: string[]; values: number[] }
@@ -44,6 +45,7 @@ const COLORS = {
 }
 
 export default function MetricsDashboard() {
+  const t = useTranslations("admin.metrics")
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +59,7 @@ export default function MetricsDashboard() {
 
   const fetchMetricsData = async () => {
     if (!session?.accessToken) {
-      setError("No hay sesión activa")
+      setError(t("errors.noSession"))
       setLoading(false)
       return
     }
@@ -113,7 +115,7 @@ export default function MetricsDashboard() {
       })
     } catch (err) {
       // Error ya manejado por setError
-      setError("Error al cargar los datos de métricas")
+      setError(t("errors.loadMetrics"))
     } finally {
       setLoading(false)
     }
@@ -135,7 +137,7 @@ export default function MetricsDashboard() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Cargando métricas...</p>
+          <p className="text-muted-foreground">{t("loading")}</p>
         </div>
       </div>
     )
@@ -150,7 +152,7 @@ export default function MetricsDashboard() {
             onClick={fetchMetricsData}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
-            Reintentar
+            {t("actions.retry")}
           </button>
         </div>
       </div>
@@ -183,13 +185,13 @@ export default function MetricsDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900">Dashboard de Métricas</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
         <button
           onClick={fetchMetricsData}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
         >
           <Loader2 className="h-4 w-4" />
-          Actualizar
+          {t("actions.refresh")}
         </button>
       </div>
 
@@ -199,7 +201,7 @@ export default function MetricsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Ventas Mensuales
+              {t("charts.monthlySales")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -209,8 +211,8 @@ export default function MetricsDashboard() {
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
                 <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), "Ventas"]}
-                  labelFormatter={(label) => `Mes: ${label}`}
+                  formatter={(value: number) => [formatCurrency(value), t("charts.salesLegend")]}
+                  labelFormatter={(label) => t("charts.monthLabel", { label })}
                 />
                 <Legend />
                 <Line 
@@ -231,7 +233,7 @@ export default function MetricsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Ingresos Diarios (Última Semana)
+              {t("charts.dailyRevenue")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -241,8 +243,8 @@ export default function MetricsDashboard() {
                 <XAxis dataKey="day" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
                 <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), "Ingresos"]}
-                  labelFormatter={(label) => `Día: ${label}`}
+                  formatter={(value: number) => [formatCurrency(value), t("charts.revenueLegend")]}
+                  labelFormatter={(label) => t("charts.dayLabel", { label })}
                 />
                 <Legend />
                 <Bar dataKey="revenue" fill={COLORS.success} radius={[4, 4, 0, 0]} />
@@ -256,7 +258,7 @@ export default function MetricsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
-              Estado de Pedidos
+              {t("charts.orderStatus")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -277,8 +279,8 @@ export default function MetricsDashboard() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [formatNumber(value), "Pedidos"]}
-                  labelFormatter={(label) => `Estado: ${label}`}
+                  formatter={(value: number) => [formatNumber(value), t("charts.ordersLegend")]}
+                  labelFormatter={(label) => t("charts.statusLabel", { label })}
                 />
                 <Legend />
               </PieChart>
@@ -291,7 +293,7 @@ export default function MetricsDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Métodos de Pago Más Usados
+              {t("charts.paymentMethods")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -301,15 +303,15 @@ export default function MetricsDashboard() {
                 <PolarAngleAxis dataKey="method" />
                 <PolarRadiusAxis tickFormatter={(value) => formatNumber(value)} />
                 <Radar
-                  name="Uso"
+                  name={t("charts.usage")}
                   dataKey="count"
                   stroke={COLORS.accent}
                   fill={COLORS.accent}
                   fillOpacity={0.6}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [formatNumber(value), "Transacciones"]}
-                  labelFormatter={(label) => `Método: ${label}`}
+                  formatter={(value: number) => [formatNumber(value), t("charts.transactionsLegend")]}
+                  labelFormatter={(label) => t("charts.methodLabel", { label })}
                 />
                 <Legend />
               </RadarChart>
