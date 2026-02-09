@@ -9,6 +9,7 @@ import CallWaiterModal from "./call-waiter-modal"
 import { useSearchParams } from "next/navigation"
 import InstructionsModal from "./instructions-modal"
 import { useTranslations } from "next-intl"
+import { toast } from "@/hooks/use-toast"
 
 // Tipo para los productos que vienen de la API
 interface ApiProduct {
@@ -185,12 +186,23 @@ export default function MenuView() {
       })
 
       if (response.ok) {
-        // Llamada al mozo exitosa
+        toast({
+          title: t("calledTitle"),
+          description: t("calledBody")
+        })
       } else {
-        // Error ya manejado silenciosamente
+        toast({
+          title: t("callErrorTitle"),
+          description: t("callErrorBody"),
+          variant: "destructive"
+        })
       }
     } catch (error) {
-      // Error ya manejado silenciosamente
+      toast({
+        title: t("callErrorTitle"),
+        description: t("callErrorBody"),
+        variant: "destructive"
+      })
     } finally {
       setShowCallWaiterModal(false)
     }

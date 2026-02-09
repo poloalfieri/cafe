@@ -2,6 +2,7 @@
 
 import { Clock, Bell, CheckCircle, XCircle, CreditCard, Banknote, QrCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTranslations } from "next-intl"
 
 interface WaiterCall {
   id: string | number
@@ -18,6 +19,7 @@ interface WaiterCallCardProps {
 }
 
 export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardProps) {
+  const t = useTranslations("cajero.waiterCall")
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString("es-ES", {
@@ -31,7 +33,7 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
     const callTime = new Date(dateString)
     const diffMinutes = Math.floor((now.getTime() - callTime.getTime()) / (1000 * 60))
 
-    if (diffMinutes < 1) return "Ahora"
+    if (diffMinutes < 1) return t("time.now")
     if (diffMinutes < 60) return `${diffMinutes}m`
     const hours = Math.floor(diffMinutes / 60)
     const minutes = diffMinutes % 60
@@ -52,11 +54,11 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
   const getPaymentMethodText = (method: WaiterCall["payment_method"]) => {
     switch (method) {
       case "CARD":
-        return "Pago con Tarjeta"
+        return t("payment.card")
       case "CASH":
-        return "Pago en Efectivo"
+        return t("payment.cash")
       case "QR":
-        return "Pago con QR"
+        return t("payment.qr")
     }
   }
 
@@ -110,11 +112,11 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         </div>
 
         <div className="flex items-center justify-between text-xs text-gray-600">
-          <span>Llamada: {formatTime(call.created_at)}</span>
+          <span>{t("callTime", { time: formatTime(call.created_at) })}</span>
           {isUrgent && (
             <span className="text-red-600 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
-              Urgente
+              {t("urgent")}
             </span>
           )}
         </div>
@@ -133,7 +135,7 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         {call.message && (
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-900">
-              <span className="font-medium text-gray-600">Mensaje:</span> {call.message}
+              <span className="font-medium text-gray-600">{t("messageLabel")}</span> {call.message}
             </p>
           </div>
         )}
@@ -147,7 +149,7 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
               disabled={!callId}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Completar
+              {t("actions.complete")}
             </Button>
             <Button
               onClick={() => onStatusUpdate(callId, "CANCELLED")}
@@ -156,7 +158,7 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
               disabled={!callId}
             >
               <XCircle className="w-4 h-4 mr-2" />
-              Cancelar
+              {t("actions.cancel")}
             </Button>
           </div>
         )}

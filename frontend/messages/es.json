@@ -38,6 +38,10 @@
       "cash": "Efectivo",
       "card": "Tarjeta",
       "qr": "QR",
+      "calledTitle": "¡Mozo llamado!",
+      "calledBody": "Ya avisamos al mozo. En breve se acercará a tu mesa.",
+      "callErrorTitle": "No se pudo llamar al mozo",
+      "callErrorBody": "Intentá nuevamente en unos segundos.",
       "reason": "Motivo (opcional)",
       "reasonPlaceholder": "Ej: Necesito más servilletas, ¿Pueden traer la cuenta?, etc.",
       "cancel": "Cancelar",
@@ -58,6 +62,7 @@
       "posMessage": "Llegará en 2-3 minutos",
       "cashMessage": "Llegará en 2-3 minutos",
       "successWaiter": "Ya se notificó al mozo y estará acercándose a su mesa en la brevedad.",
+      "waiterCalledTitle": "Mozo notificado",
       "methodTitle": "Método de Pago",
       "methodSubtitle": "Elige cómo pagar",
       "configErrorTitle": "Error de configuración",
@@ -736,6 +741,107 @@
         "statusLabel": "Estado: {label}",
         "transactionsLegend": "Transacciones",
         "methodLabel": "Método: {label}"
+      }
+    }
+  }
+  ,
+  "cajero": {
+    "page": {
+      "loading": "Cargando..."
+    },
+    "dashboard": {
+      "header": {
+        "title": "Panel de Cajero",
+        "subtitle": "Gestión de mesas y pagos"
+      },
+      "actions": {
+        "refresh": "Actualizar"
+      },
+      "stats": {
+        "totalTables": "Total Mesas",
+        "available": "Disponibles",
+        "occupied": "Ocupadas",
+        "totalOrders": "Total Pedidos"
+      },
+      "lowStock": {
+        "title": "Stock mínimo alcanzado",
+        "description": "Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.",
+        "stockLine": "{current} / min {min}"
+      },
+      "tabs": {
+        "payments": "Pagos ({count})",
+        "tables": "Mesas ({count})",
+        "orders": "Pedidos a Realizar ({count})"
+      },
+      "payments": {
+        "loading": "Cargando solicitudes...",
+        "emptyTitle": "No hay solicitudes pendientes",
+        "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
+        "autoRefresh": "Se actualiza automaticamente cada 5 segundos"
+      },
+      "tables": {
+        "loading": "Cargando mesas...",
+        "tableLabel": "Mesa {id}",
+        "ordersCount": "Pedidos: {count}",
+        "total": "Total: ${total}",
+        "lastUpdate": "Último: {value}",
+        "noOrders": "Sin pedidos",
+        "statusLabel": "Estado:",
+        "active": "Activa",
+        "inactive": "Inactiva"
+      },
+      "orders": {
+        "loading": "Cargando pedidos...",
+        "emptyTitle": "No hay pedidos a realizar",
+        "emptySubtitle": "No hay pedidos pendientes en este momento",
+        "tableLabel": "Mesa {id}",
+        "orderId": "Pedido #{id}",
+        "total": "Total: ${total}",
+        "itemsTitle": "Items:",
+        "itemLine": "{name} x{quantity}",
+        "noItems": "Sin items detallados"
+      },
+      "status": {
+        "available": "Disponible",
+        "waitingPayment": "Esperando Pago",
+        "paid": "Pagado",
+        "preparing": "Preparando",
+        "readyToDeliver": "Listo para Entregar",
+        "occupied": "Ocupada",
+        "paymentApproved": "Pago Aprobado",
+        "paymentRejected": "Pago Rechazado",
+        "inPreparation": "En Preparación",
+        "ready": "Listo",
+        "delivered": "Entregado",
+        "unknown": "Desconocido",
+        "active": "activa",
+        "inactive": "inactiva"
+      },
+      "errors": {
+        "fetchWaiterCalls": "Error fetching waiter calls:",
+        "fetchData": "Error fetching data:",
+        "updateCallStatus": "Error actualizando estado de llamada:",
+        "updateMesaStatus": "Error updating mesa status:"
+      },
+      "logs": {
+        "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"
+      }
+    },
+    "waiterCall": {
+      "time": {
+        "now": "Ahora"
+      },
+      "payment": {
+        "card": "Pago con Tarjeta",
+        "cash": "Pago en Efectivo",
+        "qr": "Pago con QR"
+      },
+      "callTime": "Llamada: {time}",
+      "urgent": "Urgente",
+      "messageLabel": "Mensaje:",
+      "actions": {
+        "complete": "Completar",
+        "cancel": "Cancelar"
       }
     }
   }

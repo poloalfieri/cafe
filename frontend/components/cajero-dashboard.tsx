@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
+import { useTranslations } from "next-intl"
 
 interface Mesa {
   id: string
@@ -39,6 +40,7 @@ interface WaiterCall {
 const POLLING_INTERVAL_MS = 5000
 
 export default function CajeroDashboard() {
+  const t = useTranslations("cajero.dashboard")
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
@@ -64,7 +66,7 @@ export default function CajeroDashboard() {
         }
       }
     } catch (error) {
-      console.error("Error fetching waiter calls:", error)
+      console.error(t("errors.fetchWaiterCalls"), error)
     }
   }, [backendUrl])
 
@@ -126,7 +128,7 @@ export default function CajeroDashboard() {
         setOrders([])
       }
     } catch (error) {
-      console.error("Error fetching data:", error)
+      console.error(t("errors.fetchData"), error)
       setMesas([])
       setOrders([])
     } finally {
@@ -179,20 +181,20 @@ export default function CajeroDashboard() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "disponible": return "Disponible"
-      case "esperando_pago": return "Esperando Pago"
-      case "pagado": return "Pagado"
-      case "preparando": return "Preparando"
-      case "listo": return "Listo para Entregar"
-      case "ocupada": return "Ocupada"
-      case "PAYMENT_PENDING": return "Esperando Pago"
-      case "PAID": return "Pagado"
-      case "PAYMENT_APPROVED": return "Pago Aprobado"
-      case "PAYMENT_REJECTED": return "Pago Rechazado"
-      case "IN_PREPARATION": return "En Preparación"
-      case "READY": return "Listo"
-      case "DELIVERED": return "Entregado"
-      default: return "Desconocido"
+      case "disponible": return t("status.available")
+      case "esperando_pago": return t("status.waitingPayment")
+      case "pagado": return t("status.paid")
+      case "preparando": return t("status.preparing")
+      case "listo": return t("status.readyToDeliver")
+      case "ocupada": return t("status.occupied")
+      case "PAYMENT_PENDING": return t("status.waitingPayment")
+      case "PAID": return t("status.paid")
+      case "PAYMENT_APPROVED": return t("status.paymentApproved")
+      case "PAYMENT_REJECTED": return t("status.paymentRejected")
+      case "IN_PREPARATION": return t("status.inPreparation")
+      case "READY": return t("status.ready")
+      case "DELIVERED": return t("status.delivered")
+      default: return t("status.unknown")
     }
   }
 
@@ -225,10 +227,10 @@ export default function CajeroDashboard() {
         setWaiterCalls(prev => prev.filter(call => call.id !== callId))
       } else {
         const errorData = await response.json()
-        console.error("Error actualizando estado de llamada:", errorData.error)
+        console.error(t("errors.updateCallStatus"), errorData.error)
       }
     } catch (error) {
-      console.error("Error actualizando estado de llamada:", error)
+      console.error(t("errors.updateCallStatus"), error)
     }
   }
 
@@ -243,7 +245,7 @@ export default function CajeroDashboard() {
   const handleMesaStatusChange = async (mesaId: string, newStatus: boolean) => {
     try {
       // En producción, aquí harías una llamada al backend para cambiar el estado
-      console.log(`Cambiando estado de mesa ${mesaId} a ${newStatus ? 'activa' : 'inactiva'}`)
+      console.log(t("logs.changeMesaStatus", { mesaId, status: newStatus ? t("status.active") : t("status.inactive") }))
       
       // Actualizar localmente para demo
       setMesas(prevMesas =>
@@ -262,7 +264,7 @@ export default function CajeroDashboard() {
       // })
       
     } catch (error) {
-      console.error("Error updating mesa status:", error)
+      console.error(t("errors.updateMesaStatus"), error)
     }
   }
 
@@ -277,8 +279,8 @@ export default function CajeroDashboard() {
                 <span className="text-white font-bold text-lg">💰</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Panel de Cajero</h1>
-                <p className="text-gray-600 text-sm">Gestión de mesas y pagos</p>
+                <h1 className="text-2xl font-bold text-gray-900">{t("header.title")}</h1>
+                <p className="text-gray-600 text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
             <Button
@@ -287,7 +289,7 @@ export default function CajeroDashboard() {
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
+              {t("actions.refresh")}
             </Button>
           </div>
 
@@ -298,7 +300,7 @@ export default function CajeroDashboard() {
                 <Users className="w-5 h-5 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold text-green-600">{mesas.length}</p>
-                  <p className="text-xs text-gray-600">Total Mesas</p>
+                  <p className="text-xs text-gray-600">{t("stats.totalTables")}</p>
                 </div>
               </div>
             </div>
@@ -307,7 +309,7 @@ export default function CajeroDashboard() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold text-green-600">{mesasDisponibles.length}</p>
-                  <p className="text-xs text-gray-600">Disponibles</p>
+                  <p className="text-xs text-gray-600">{t("stats.available")}</p>
                 </div>
               </div>
             </div>
@@ -316,7 +318,7 @@ export default function CajeroDashboard() {
                 <Clock className="w-5 h-5 text-orange-600" />
                 <div>
                   <p className="text-2xl font-bold text-orange-600">{mesasOcupadas.length}</p>
-                  <p className="text-xs text-gray-600">Ocupadas</p>
+                  <p className="text-xs text-gray-600">{t("stats.occupied")}</p>
                 </div>
               </div>
             </div>
@@ -325,7 +327,7 @@ export default function CajeroDashboard() {
                 <span className="text-lg">📋</span>
                 <div>
                   <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
-                  <p className="text-xs text-gray-600">Total Pedidos</p>
+                  <p className="text-xs text-gray-600">{t("stats.totalOrders")}</p>
                 </div>
               </div>
             </div>
@@ -338,9 +340,9 @@ export default function CajeroDashboard() {
         <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Stock mínimo alcanzado</DialogTitle>
+              <DialogTitle>{t("lowStock.title")}</DialogTitle>
               <DialogDescription>
-                Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.
+                {t("lowStock.description")}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
@@ -348,7 +350,10 @@ export default function CajeroDashboard() {
                 <div key={idx} className="flex justify-between text-sm">
                   <span className="font-medium">{i.name}</span>
                   <span>
-                    {i.currentStock.toFixed(2)} / min {i.minStock.toFixed(2)}
+                    {t("lowStock.stockLine", {
+                      current: i.currentStock.toFixed(2),
+                      min: i.minStock.toFixed(2)
+                    })}
                   </span>
                 </div>
               ))}
@@ -359,7 +364,7 @@ export default function CajeroDashboard() {
           <TabsList className="grid w-full grid-cols-3 mb-6 bg-white border border-gray-200">
             <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
-              Pagos ({waiterCalls.length})
+              {t("tabs.payments", { count: waiterCalls.length })}
               {waiterCalls.length > 0 && (
                 <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {waiterCalls.length}
@@ -367,10 +372,10 @@ export default function CajeroDashboard() {
               )}
             </TabsTrigger>
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              Mesas ({mesas.length})
+              {t("tabs.tables", { count: mesas.length })}
             </TabsTrigger>
             <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
-              Pedidos a Realizar ({activeOrders.length})
+              {t("tabs.orders", { count: activeOrders.length })}
             </TabsTrigger>
           </TabsList>
 
@@ -378,18 +383,18 @@ export default function CajeroDashboard() {
             {loading ? (
               <div className="text-center py-12">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
-                <p className="text-gray-600">Cargando solicitudes...</p>
+                <p className="text-gray-600">{t("payments.loading")}</p>
               </div>
             ) : waiterCalls.length === 0 ? (
               <div className="text-center py-12">
                 <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
-                <p className="text-gray-600">Todas las solicitudes de pago fueron atendidas</p>
-                <p className="text-gray-400 text-sm mt-2">Se actualiza automaticamente cada 5 segundos</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t("payments.emptyTitle")}</h3>
+                <p className="text-gray-600">{t("payments.emptySubtitle")}</p>
+                <p className="text-gray-400 text-sm mt-2">{t("payments.autoRefresh")}</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500">Se actualiza automaticamente cada 5 segundos</p>
+                <p className="text-sm text-gray-500">{t("payments.autoRefresh")}</p>
                 {waiterCalls.map((call) => (
                   <WaiterCallCard
                     key={call.id}
@@ -405,7 +410,7 @@ export default function CajeroDashboard() {
             {loading ? (
               <div className="text-center py-12">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
-                <p className="text-gray-600">Cargando mesas...</p>
+                <p className="text-gray-600">{t("tables.loading")}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -418,7 +423,7 @@ export default function CajeroDashboard() {
                     <Card key={mesa.id} className="hover:shadow-md transition-shadow">
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">Mesa {mesa.mesa_id}</CardTitle>
+                          <CardTitle className="text-lg">{t("tables.tableLabel", { id: mesa.mesa_id })}</CardTitle>
                           <Badge className={`${getStatusColor(status)} border`}>
                             {getStatusText(status)}
                           </Badge>
@@ -429,23 +434,23 @@ export default function CajeroDashboard() {
                           {mesaOrders.length > 0 ? (
                             <div className="space-y-2">
                               <p className="text-sm text-gray-600">
-                                Pedidos: {mesaOrders.length}
+                                {t("tables.ordersCount", { count: mesaOrders.length })}
                               </p>
                               <p className="text-sm font-semibold text-gray-900">
-                                Total: ${mesaTotal.toFixed(2)}
+                                {t("tables.total", { total: mesaTotal.toFixed(2) })}
                               </p>
                               <div className="text-xs text-gray-500">
-                                Último: {new Date(mesa.updated_at).toLocaleTimeString()}
+                                {t("tables.lastUpdate", { value: new Date(mesa.updated_at).toLocaleTimeString() })}
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-500">Sin pedidos</p>
+                            <p className="text-sm text-gray-500">{t("tables.noOrders")}</p>
                           )}
                           
                           {/* Controles de estado de mesa */}
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Estado:</span>
+                              <span className="text-sm text-gray-600">{t("tables.statusLabel")}</span>
                               <div className="flex items-center gap-2">
                                 <Button
                                   variant={mesa.is_active ? "default" : "outline"}
@@ -454,7 +459,7 @@ export default function CajeroDashboard() {
                                   className={mesa.is_active ? "bg-green-600 hover:bg-green-700" : ""}
                                 >
                                   <CheckCircle className="w-3 h-3 mr-1" />
-                                  Activa
+                                  {t("tables.active")}
                                 </Button>
                                 <Button
                                   variant={!mesa.is_active ? "default" : "outline"}
@@ -463,7 +468,7 @@ export default function CajeroDashboard() {
                                   className={!mesa.is_active ? "bg-red-600 hover:bg-red-700" : ""}
                                 >
                                   <Minus className="w-3 h-3 mr-1" />
-                                  Inactiva
+                                  {t("tables.inactive")}
                                 </Button>
                               </div>
                             </div>
@@ -481,13 +486,13 @@ export default function CajeroDashboard() {
             {loading ? (
               <div className="text-center py-12">
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
-                <p className="text-gray-600">Cargando pedidos...</p>
+                <p className="text-gray-600">{t("orders.loading")}</p>
               </div>
             ) : activeOrders.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-6xl mb-4 opacity-30">📋</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay pedidos a realizar</h3>
-                <p className="text-gray-600">No hay pedidos pendientes en este momento</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t("orders.emptyTitle")}</h3>
+                <p className="text-gray-600">{t("orders.emptySubtitle")}</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -497,13 +502,13 @@ export default function CajeroDashboard() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <h3 className="font-semibold text-gray-900">
-                            Mesa {order.mesa_id}
+                            {t("orders.tableLabel", { id: order.mesa_id })}
                           </h3>
                           <p className="text-xs text-gray-500">
-                            Pedido #{order.id}
+                            {t("orders.orderId", { id: order.id })}
                           </p>
                           <p className="text-sm text-gray-600">
-                            Total: ${order.total_amount.toFixed(2)}
+                            {t("orders.total", { total: order.total_amount.toFixed(2) })}
                           </p>
                           <p className="text-xs text-gray-500">
                             {new Date(order.created_at).toLocaleString()}
@@ -516,18 +521,20 @@ export default function CajeroDashboard() {
                         </div>
                       </div>
                       <div className="mt-3 border-t border-gray-100 pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Items:</p>
+                        <p className="text-xs font-semibold text-gray-700 mb-2">{t("orders.itemsTitle")}</p>
                         {Array.isArray(order.items) && order.items.length > 0 ? (
                           <div className="space-y-1">
                             {order.items.map((item: any, idx: number) => (
                               <div key={idx} className="flex justify-between text-xs text-gray-600">
-                                <span className="truncate pr-2">{item.name} x{item.quantity}</span>
+                                <span className="truncate pr-2">
+                                  {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
+                                </span>
                                 <span>${(item.price * item.quantity).toFixed(2)}</span>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-gray-500">Sin items detallados</p>
+                          <p className="text-xs text-gray-500">{t("orders.noItems")}</p>
                         )}
                       </div>
                     </CardContent>

@@ -5,6 +5,7 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { useTranslations } from 'next-intl'
+import { toast } from '@/hooks/use-toast'
 import { 
   Wallet, 
   CreditCard, 
@@ -176,6 +177,10 @@ export default function PaymentModal({
       
       if (data.success) {
         const message = t('successWaiter')
+        toast({
+          title: t('waiterCalledTitle'),
+          description: message
+        })
         if (onWaiterCalled) {
           onWaiterCalled(message)
           handleClose()
