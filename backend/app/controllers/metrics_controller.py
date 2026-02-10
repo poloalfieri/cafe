@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request, g
 from ..services.metrics_service import MetricsService
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
-from ..db.supabase_client import supabase
+from ..services.metrics_access_service import metrics_access_service
 
 metrics_bp = Blueprint("metrics", __name__, url_prefix="/api/metrics")
 logger = setup_logger(__name__)
@@ -21,15 +21,8 @@ def get_dashboard_summary():
                 tz_offset_minutes = int(tz_offset)
             except Exception:
                 tz_offset_minutes = None
-        membership_resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id")
-            .eq("user_id", g.user_id)
-            .limit(1)
-            .execute()
-        )
-        membership = (membership_resp.data or [None])[0]
-        if not membership:
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
             return jsonify({
                 "dailySales": 0,
                 "weeklySales": 0,
@@ -40,7 +33,6 @@ def get_dashboard_summary():
                 "lowStockItems": 0,
                 "topProducts": [],
             })
-        restaurant_id = membership.get("restaurant_id")
         data = MetricsService.get_dashboard_summary(restaurant_id, branch_id, tz_offset_minutes)
         return jsonify(data)
     except Exception as e:
@@ -62,17 +54,9 @@ def get_sales_monthly():
                 tz_offset_minutes = int(tz_offset)
             except Exception:
                 tz_offset_minutes = None
-        membership_resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id")
-            .eq("user_id", g.user_id)
-            .limit(1)
-            .execute()
-        )
-        membership = (membership_resp.data or [None])[0]
-        if not membership:
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
             return jsonify({"labels": [], "values": []})
-        restaurant_id = membership.get("restaurant_id")
         data = MetricsService.get_sales_monthly(restaurant_id, branch_id, tz_offset_minutes)
         logger.info(f"Ventas mensuales obtenidas exitosamente: {len(data['values'])} meses")
         return jsonify(data)
@@ -95,17 +79,9 @@ def get_orders_status():
                 tz_offset_minutes = int(tz_offset)
             except Exception:
                 tz_offset_minutes = None
-        membership_resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id")
-            .eq("user_id", g.user_id)
-            .limit(1)
-            .execute()
-        )
-        membership = (membership_resp.data or [None])[0]
-        if not membership:
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
             return jsonify({"labels": [], "values": []})
-        restaurant_id = membership.get("restaurant_id")
         data = MetricsService.get_orders_status(restaurant_id, branch_id, tz_offset_minutes)
         logger.info(f"Estado de pedidos obtenido exitosamente: {data['values']}")
         return jsonify(data)
@@ -128,17 +104,9 @@ def get_daily_revenue():
                 tz_offset_minutes = int(tz_offset)
             except Exception:
                 tz_offset_minutes = None
-        membership_resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id")
-            .eq("user_id", g.user_id)
-            .limit(1)
-            .execute()
-        )
-        membership = (membership_resp.data or [None])[0]
-        if not membership:
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
             return jsonify({"labels": [], "values": []})
-        restaurant_id = membership.get("restaurant_id")
         data = MetricsService.get_daily_revenue(restaurant_id, branch_id, tz_offset_minutes)
         logger.info(f"Ingresos diarios obtenidos exitosamente: {len(data['values'])} días")
         return jsonify(data)
@@ -161,17 +129,9 @@ def get_payment_methods():
                 tz_offset_minutes = int(tz_offset)
             except Exception:
                 tz_offset_minutes = None
-        membership_resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id")
-            .eq("user_id", g.user_id)
-            .limit(1)
-            .execute()
-        )
-        membership = (membership_resp.data or [None])[0]
-        if not membership:
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
             return jsonify({"labels": [], "values": []})
-        restaurant_id = membership.get("restaurant_id")
         data = MetricsService.get_payment_methods(restaurant_id, branch_id, tz_offset_minutes)
         logger.info(f"Métodos de pago obtenidos exitosamente: {data['values']}")
         return jsonify(data)
