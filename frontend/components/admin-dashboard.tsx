@@ -181,7 +181,7 @@ export default function AdminDashboard() {
                   <select
                     value={selectedBranchId}
                     onChange={(e) => setSelectedBranchId(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-text"
+                    className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-text"
                   >
                     {branches.map((branch) => (
                       <option key={branch.id} value={branch.id}>
@@ -204,9 +204,9 @@ export default function AdminDashboard() {
 
           {/* Métricas principales */}
           <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -216,9 +216,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <TrendingUp className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -228,9 +228,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <BarChart3 className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -240,9 +240,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <ShoppingCart className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -252,9 +252,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <Users className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -264,9 +264,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <Archive className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -276,9 +276,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
+            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
                   <Package className="w-5 h-5 text-text" />
                 </div>
                 <div>
@@ -385,7 +385,7 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="analytics">
-            <div className="bg-card rounded-lg p-6 border border-border">
+            <div className="bg-card rounded-xl p-6 border border-border">
               <h3 className="text-lg font-semibold text-text mb-4">{t("analytics.title")}</h3>
               <MetricsDashboard branchId={selectedBranchId || undefined} />
             </div>

@@ -203,7 +203,7 @@ export default function CartView() {
         {/* Cart Items */}
         <div className="space-y-4 mb-6">
           {state.items.map((item) => (
-            <div key={item.id} className="bg-card rounded-2xl p-4 shadow-sm border border-border">
+            <div key={item.id} className="bg-card rounded-xl p-4 shadow-sm border border-border">
               <div className="flex items-center gap-4">
                 {/* Product Image */}
                 <div className="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
@@ -335,7 +335,7 @@ export default function CartView() {
 
       {showWaiterNotice && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-xl text-center">
+          <div className="bg-card rounded-xl p-6 w-full max-w-sm shadow-xl text-center">
             <div className="w-12 h-12 rounded-full bg-secondary text-text flex items-center justify-center mx-auto mb-3">
               <Bell className="w-6 h-6" />
             </div>

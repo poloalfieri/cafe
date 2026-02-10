@@ -338,7 +338,7 @@ export default function MenuView() {
                 {filteredProducts.map((product: ApiProduct) => {
                   const quantity = getProductQuantity(product.id)
                   return (
-                    <div key={product.id} className="bg-card rounded-2xl p-4 shadow-sm border border-border hover:shadow-md transition-all duration-200">
+                    <div key={product.id} className="bg-card rounded-xl p-4 shadow-sm border border-border hover:shadow-md transition-all duration-200">
                       <div className="flex items-center gap-4">
                         {/* Product Image */}
                         <div className="relative w-20 h-20 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
@@ -425,7 +425,7 @@ export default function MenuView() {
                   {products.slice(0, 3).map((product: ApiProduct) => {
                     const quantity = getProductQuantity(product.id)
                     return (
-                      <div key={product.id} className="flex items-center gap-4 bg-card rounded-2xl p-4 shadow-sm border border-border">
+                      <div key={product.id} className="flex items-center gap-4 bg-card rounded-xl p-4 shadow-sm border border-border">
                         <div className="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center">
                           {product.image ? (
                             <img 
