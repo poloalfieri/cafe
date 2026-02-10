@@ -8,12 +8,10 @@ from ..services.product_service import product_service
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
 
-product_bp = Blueprint("product", __name__, url_prefix="/product")
 products_bp = Blueprint("products", __name__, url_prefix="/products")
 logger = setup_logger(__name__)
 
 
-@product_bp.route("", methods=["GET"])
 @products_bp.route("", methods=["GET"])
 def list_products():
     """Obtener lista de todos los productos"""
@@ -26,7 +24,7 @@ def list_products():
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@product_bp.route("", methods=["POST"])
+@products_bp.route("", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def create_product():
@@ -44,7 +42,7 @@ def create_product():
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@product_bp.route("/<int:product_id>", methods=["GET"])
+@products_bp.route("/<int:product_id>", methods=["GET"])
 def get_product(product_id):
     """Obtener un producto específico por ID"""
     try:
@@ -60,7 +58,7 @@ def get_product(product_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@product_bp.route("/<int:product_id>", methods=["PUT"])
+@products_bp.route("/<int:product_id>", methods=["PATCH"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def update_product(product_id):
@@ -82,7 +80,7 @@ def update_product(product_id):
         return jsonify({"error": "Error interno del servidor"}), 500
 
 
-@product_bp.route("/<int:product_id>", methods=["DELETE"])
+@products_bp.route("/<int:product_id>", methods=["DELETE"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def delete_product(product_id):
@@ -97,22 +95,4 @@ def delete_product(product_id):
         
     except Exception as e:
         logger.error(f"Error eliminando producto {product_id}: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500
-
-
-@product_bp.route("/<int:product_id>/toggle", methods=["PATCH"])
-@require_auth
-@require_roles('desarrollador', 'admin')
-def toggle_product_availability(product_id):
-    """Cambiar la disponibilidad de un producto"""
-    try:
-        result = product_service.toggle_availability(product_id)
-        
-        if not result:
-            return jsonify({"error": "Producto no encontrado"}), 404
-        
-        return jsonify(result), 200
-        
-    except Exception as e:
-        logger.error(f"Error cambiando disponibilidad {product_id}: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
