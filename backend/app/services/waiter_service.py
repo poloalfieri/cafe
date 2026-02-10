@@ -9,6 +9,7 @@ import threading
 import uuid
 from ..utils.logger import setup_logger
 from ..services.order_service import order_service
+from ..utils.token_manager import validate_token
 
 logger = setup_logger(__name__)
 
@@ -45,7 +46,7 @@ class WaiterService:
     def _now_iso() -> str:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    def create_waiter_call(self, data: Dict) -> Tuple[Dict, bool]:
+    def create_waiter_call(self, data: Dict, mesa_id: Optional[str] = None, token: Optional[str] = None) -> Tuple[Dict, bool]:
         """
         Crear una nueva llamada al mozo.
         Punto unico de creacion usado por /waiter/calls.
@@ -53,6 +54,8 @@ class WaiterService:
         Args:
             data: Diccionario con mesa_id, payment_method (o motivo),
                   message y usuario_id opcionales.
+            mesa_id: Mesa a validar (si no viene en data).
+            token: Token de mesa a validar.
 
         Returns:
             Tupla con (llamada, already_pending)
@@ -65,7 +68,13 @@ class WaiterService:
             # Validar campos requeridos
             self._validate_required_fields(data, ['mesa_id'])
 
-            mesa_id = data['mesa_id']
+            mesa_id = mesa_id or data.get('mesa_id')
+            if not mesa_id:
+                raise ValueError("mesa_id requerido")
+            if not token:
+                raise PermissionError("Token de mesa requerido")
+            if not validate_token(mesa_id, token):
+                raise PermissionError("Token de mesa invalido o expirado")
             motivo = data.get('motivo')
             payment_method = data.get('payment_method')
 

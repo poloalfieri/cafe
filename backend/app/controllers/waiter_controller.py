@@ -8,7 +8,6 @@ from ..services.waiter_service import waiter_service
 from ..services.order_service import order_service
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
-from ..utils.token_manager import validate_token
 
 logger = setup_logger(__name__)
 
@@ -21,9 +20,7 @@ def create_waiter_call():
         data = request.get_json()
         mesa_id = data.get('mesa_id') if data else None
         token = data.get('token') if data else None
-        if not mesa_id or not token or not validate_token(mesa_id, token):
-            return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
-        call, already_pending = waiter_service.create_waiter_call(data)
+        call, already_pending = waiter_service.create_waiter_call(data, mesa_id=mesa_id, token=token)
         try:
             payment_method = data.get("payment_method")
             if payment_method:
@@ -40,6 +37,8 @@ def create_waiter_call():
             'call': call
         }), status_code
 
+    except PermissionError as e:
+        return jsonify({'error': str(e)}), 401
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
