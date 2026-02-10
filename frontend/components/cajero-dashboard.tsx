@@ -294,28 +294,28 @@ export default function CajeroDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm">
+      <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">💰</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <h1 className="text-2xl font-bold text-text">
                   {branchName
                     ? t("header.titleWithBranch", { branch: branchName })
                     : t("header.title")}
                 </h1>
-                <p className="text-gray-600 text-sm">{t("header.subtitle")}</p>
+                <p className="text-muted-foreground text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
             <Button
               onClick={refreshData}
               disabled={loading}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 flex items-center gap-2"
+              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               {t("actions.refresh")}
@@ -324,39 +324,39 @@ export default function CajeroDashboard() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
               <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-green-600" />
+                <Users className="w-5 h-5 text-text" />
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{mesas.length}</p>
-                  <p className="text-xs text-gray-600">{t("stats.totalTables")}</p>
+                  <p className="text-2xl font-bold text-text">{mesas.length}</p>
+                  <p className="text-xs text-muted-foreground">{t("stats.totalTables")}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
               <div className="flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
+                <CheckCircle className="w-5 h-5 text-text" />
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{mesasDisponibles.length}</p>
-                  <p className="text-xs text-gray-600">{t("stats.available")}</p>
+                  <p className="text-2xl font-bold text-text">{mesasDisponibles.length}</p>
+                  <p className="text-xs text-muted-foreground">{t("stats.available")}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-orange-600" />
+                <Clock className="w-5 h-5 text-text" />
                 <div>
-                  <p className="text-2xl font-bold text-orange-600">{mesasOcupadas.length}</p>
-                  <p className="text-xs text-gray-600">{t("stats.occupied")}</p>
+                  <p className="text-2xl font-bold text-text">{mesasOcupadas.length}</p>
+                  <p className="text-xs text-muted-foreground">{t("stats.occupied")}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="bg-card rounded-lg p-4 border border-border shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="text-lg">📋</span>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
-                  <p className="text-xs text-gray-600">{t("stats.totalOrders")}</p>
+                  <p className="text-2xl font-bold text-text">{orders.length}</p>
+                  <p className="text-xs text-muted-foreground">{t("stats.totalOrders")}</p>
                 </div>
               </div>
             </div>
@@ -390,20 +390,20 @@ export default function CajeroDashboard() {
           </DialogContent>
         </Dialog>
         <Tabs defaultValue="pagos" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-white border border-gray-200">
-            <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card border border-border">
+            <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
               {t("tabs.payments", { count: waiterCalls.length })}
               {waiterCalls.length > 0 && (
-                <span className="bg-orange-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {waiterCalls.length}
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+            <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               {t("tabs.tables", { count: mesas.length })}
             </TabsTrigger>
-            <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+            <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               {t("tabs.orders", { count: activeOrders.length })}
             </TabsTrigger>
           </TabsList>
