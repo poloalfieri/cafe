@@ -4,6 +4,7 @@ Servicio de Menú - Lógica de negocio para productos del menú
 from typing import List, Dict, Optional
 from ..db.supabase_client import supabase
 from ..utils.logger import setup_logger
+from ..services.branches_service import branches_service
 
 logger = setup_logger(__name__)
 
@@ -31,6 +32,38 @@ class MenuService:
         except Exception as e:
             logger.error(f"Error al obtener menú: {str(e)}")
             raise Exception(f"Error al consultar el menú: {str(e)}")
+
+    def list_items(self, category: Optional[str] = None, available: Optional[str] = None) -> List[Dict]:
+        """
+        Listar productos con filtros opcionales.
+
+        Args:
+            category: Filtrar por categoría
+            available: "true"/"false" para filtrar por disponibilidad
+
+        Returns:
+            Lista de productos normalizados
+        """
+        try:
+            query = supabase.table("menu").select("*")
+
+            if category:
+                query = query.eq("category", category)
+
+            if available is not None:
+                available_bool = self._parse_bool(available)
+                query = query.eq("available", available_bool)
+
+            response = query.execute()
+            items = response.data or []
+
+            return [self._normalize_menu_item(item) for item in items]
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error al listar menú: {str(e)}")
+            raise Exception(f"Error al consultar el menú: {str(e)}")
     
     def get_item_by_id(self, item_id: int) -> Optional[Dict]:
         """
@@ -57,7 +90,7 @@ class MenuService:
             logger.error(f"Error al obtener producto {item_id}: {str(e)}")
             raise Exception(f"Error al consultar el producto: {str(e)}")
     
-    def create_item(self, data: Dict) -> Dict:
+    def create_item(self, data: Dict, user_id: str) -> Dict:
         """
         Crear un nuevo producto en el menú
         
@@ -78,13 +111,15 @@ class MenuService:
         price = self._validate_price(data["price"])
         
         # Preparar datos
+        restaurant_id = branches_service.get_restaurant_id(user_id)
         menu_data = {
             "name": data["name"].strip(),
             "category": data["category"].strip(),
             "price": price,
             "description": data.get("description", "").strip(),
             "available": bool(data.get("available", True)),
-            "image_url": data.get("image_url")
+            "image_url": data.get("image_url"),
+            "restaurant_id": restaurant_id,
         }
         
         try:
@@ -270,6 +305,19 @@ class MenuService:
             return bool(response.data)
         except Exception:
             return False
+
+    @staticmethod
+    def _parse_bool(value: Optional[str]) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            raise ValueError("available inválido")
+        normalized = str(value).strip().lower()
+        if normalized in ("true", "1", "yes", "si"):
+            return True
+        if normalized in ("false", "0", "no"):
+            return False
+        raise ValueError("available inválido")
     
     def _normalize_menu_item(self, item: Dict) -> Dict:
         """Normalizar formato de un producto del menú"""

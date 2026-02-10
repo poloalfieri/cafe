@@ -83,7 +83,7 @@ export default function RecipiesManagement() {
     try {
       setProductsLoading(true)
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu/`, {
+      const response = await fetch(`${backendUrl}/menu`, {
         headers: {
           ...authHeader,
         },
@@ -156,7 +156,7 @@ export default function RecipiesManagement() {
         description: newProductForm.description,
         available: true
       }
-      const response = await fetch(`${backendUrl}/menu/`, {
+      const response = await fetch(`${backendUrl}/menu`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

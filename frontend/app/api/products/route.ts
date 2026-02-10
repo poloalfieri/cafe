@@ -5,7 +5,7 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${BACKEND_URL}/menu/`, {
+    const response = await fetch(`${BACKEND_URL}/menu`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
     
-    const response = await fetch(`${BACKEND_URL}/menu/`, {
+    const response = await fetch(`${BACKEND_URL}/menu`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

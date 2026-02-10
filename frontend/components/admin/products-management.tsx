@@ -66,7 +66,7 @@ export default function ProductsManagement() {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu/`, {
+      const response = await fetch(`${backendUrl}/menu`, {
         headers: {
           ...authHeader,
         },
@@ -129,7 +129,7 @@ export default function ProductsManagement() {
         // Actualizar producto existente
         const authHeader = await getClientAuthHeaderAsync()
         const response = await fetch(`${backendUrl}/menu/${editingProduct.id}`, {
-          method: "PUT",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             ...authHeader,
@@ -146,7 +146,7 @@ export default function ProductsManagement() {
       } else {
         // Crear nuevo producto
         const authHeader = await getClientAuthHeaderAsync()
-        const response = await fetch(`${backendUrl}/menu/`, {
+        const response = await fetch(`${backendUrl}/menu`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -224,14 +224,17 @@ export default function ProductsManagement() {
     }
   }
 
-  const toggleAvailability = async (productId: string) => {
+  const toggleAvailability = async (product: Product) => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu/${productId}/toggle`, {
+      const nextAvailable = !product.available
+      const response = await fetch(`${backendUrl}/menu/${product.id}`, {
         method: "PATCH",
         headers: {
+          "Content-Type": "application/json",
           ...authHeader,
         },
+        body: JSON.stringify({ available: nextAvailable })
       })
 
       if (!response.ok) {
@@ -240,7 +243,7 @@ export default function ProductsManagement() {
 
       const result = await response.json()
       setProducts(products.map(p => 
-        p.id === productId ? { ...p, available: result.available } : p
+        p.id === product.id ? { ...p, available: result.available } : p
       ))
       toast({
         title: t("toast.successTitle"),
@@ -453,7 +456,7 @@ export default function ProductsManagement() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => toggleAvailability(product.id)}
+                        onClick={() => toggleAvailability(product)}
                         className={`font-medium transition-all duration-200 ${
                           product.available 
                             ? "border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 hover:text-orange-800 bg-orange-50/50" 

@@ -87,7 +87,7 @@ export default function StockManagement() {
       setProductsLoading(true)
       // Use the same direct backend call as the working products management
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu/`, {
+      const response = await fetch(`${backendUrl}/menu`, {
         headers: {
           ...authHeader,
         },
@@ -173,7 +173,7 @@ export default function StockManagement() {
         available: true
       }
 
-      const response = await fetch(`${backendUrl}/menu/`, {
+      const response = await fetch(`${backendUrl}/menu`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -78,7 +78,7 @@ export default function MenuView() {
       setLoading(true)
       setError("")
       
-      const response = await fetch(`${backendUrl}/menu/`)
+      const response = await fetch(`${backendUrl}/menu`)
       if (!response.ok) throw new Error("Error al cargar el menú")
       
       const data: ApiProduct[] = await response.json()

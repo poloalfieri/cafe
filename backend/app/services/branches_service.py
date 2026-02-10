@@ -144,5 +144,11 @@ class BranchesService:
             raise LookupError("Sucursal no encontrada")
         return branch
 
+    def get_restaurant_id(self, user_id: str) -> str:
+        membership = self._get_membership(user_id)
+        if not membership or not membership.get("restaurant_id"):
+            raise LookupError("Usuario sin restaurante asociado")
+        return membership.get("restaurant_id")
+
 
 branches_service = BranchesService()
