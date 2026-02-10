@@ -117,7 +117,7 @@ export default function AdminDashboard() {
       if (branchId) params.set("branch_id", branchId)
       params.set("tzOffset", String(tzOffset))
       const query = params.toString() ? `?${params.toString()}` : ""
-      const summaryResponse = await fetch(`${backendUrl}/api/metrics/summary${query}`, {
+      const summaryResponse = await fetch(`${backendUrl}/metrics/summary${query}`, {
         headers: {
           ...authHeader,
         },

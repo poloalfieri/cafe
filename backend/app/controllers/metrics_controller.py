@@ -4,7 +4,7 @@ from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
 from ..services.metrics_access_service import metrics_access_service
 
-metrics_bp = Blueprint("metrics", __name__, url_prefix="/api/metrics")
+metrics_bp = Blueprint("metrics", __name__, url_prefix="/metrics")
 logger = setup_logger(__name__)
 
 @metrics_bp.route("/summary", methods=["GET"])

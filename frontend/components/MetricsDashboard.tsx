@@ -86,7 +86,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       const query = params.toString() ? `?${params.toString()}` : ""
       const results = await Promise.all(
         endpoints.map(endpoint => 
-          fetch(`${API_BASE_URL}/api/metrics/${endpoint}${query}`, {
+          fetch(`${API_BASE_URL}/metrics/${endpoint}${query}`, {
             headers: {
               'Authorization': `Bearer ${session.accessToken}`,
               'Content-Type': 'application/json'
