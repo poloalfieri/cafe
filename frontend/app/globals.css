@@ -3,41 +3,25 @@
 @tailwind utilities;
 
 :root {
-  /* Paleta de colores coherente y moderna */
-  --color-primary: #1f2937; /* Gris oscuro elegante */
-  --color-primary-hover: #111827;
-  --color-secondary: #dc2626; /* Rojo vibrante para CTAs */
-  --color-secondary-hover: #b91c1c;
-  --color-accent: #f59e0b; /* Naranja para destacados */
-  --color-accent-hover: #d97706;
+  /* Paleta minimal y neutral (modo claro) */
+  --color-background: #f9f6ef; /* Marfil suave */
+  --color-card: #fffdf7;
+  --color-card-hover: #fdf8ee;
 
-  /* Colores de fondo */
-  --color-background: #f8fafc; /* Gris muy claro */
-  --color-card: #ffffff;
-  --color-card-hover: #f1f5f9;
+  --color-text: #2f2a22;
+  --color-muted-foreground: #7b766e;
 
-  /* Colores de texto con mejor contraste */
-  --color-text: #1f2937; /* Gris oscuro */
-  --color-muted-foreground: #6b7280; /* Gris medio */
+  --color-border: #e7e0d6;
 
-  /* Colores de borde */
-  --color-border: #e5e7eb;
-  
-  /* Colores de éxito y error */
-  --color-success: #059669;
-  --color-error: #dc2626;
-}
+  --color-primary: #2f2a22;
+  --color-primary-hover: #3a332a;
+  --color-secondary: #f4efe4;
+  --color-secondary-hover: #ede6d8;
+  --color-accent: #e9dcc6;
+  --color-accent-hover: #deceb5;
 
-/* Tema oscuro (opcional) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0f172a;
-    --color-card: #1e293b;
-    --color-card-hover: #334155;
-    --color-text: #f1f5f9;
-    --color-muted-foreground: #94a3b8;
-    --color-border: #334155;
-  }
+  --color-success: #1f7a55;
+  --color-error: #b42318;
 }
 
 @layer base {
