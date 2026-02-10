@@ -5,6 +5,7 @@ from typing import List, Dict, Optional
 from ..db.supabase_client import supabase
 from ..utils.logger import setup_logger
 from ..services.branches_service import branches_service
+from ..utils.retry import execute_with_retry
 
 logger = setup_logger(__name__)
 
@@ -12,40 +13,43 @@ logger = setup_logger(__name__)
 class MenuService:
     """Servicio para manejar operaciones de menú"""
     
-    def get_all_items(self) -> List[Dict]:
-        """
-        Obtener todos los productos del menú
-        
-        Returns:
-            Lista de productos del menú
-            
-        Raises:
-            Exception: Si hay error al consultar la base de datos
-        """
-        try:
-            response = supabase.table("menu").select("*").execute()
-            items = response.data or []
-            
-            # Normalizar datos
-            return [self._normalize_menu_item(item) for item in items]
-            
-        except Exception as e:
-            logger.error(f"Error al obtener menú: {str(e)}")
-            raise Exception(f"Error al consultar el menú: {str(e)}")
+    def get_all_items(
+        self,
+        user_id: Optional[str] = None,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> List[Dict]:
+        return self.list_items(user_id=user_id, mesa_id=mesa_id, branch_id=branch_id)
 
-    def list_items(self, category: Optional[str] = None, available: Optional[str] = None) -> List[Dict]:
+    def list_items(
+        self,
+        category: Optional[str] = None,
+        available: Optional[str] = None,
+        user_id: Optional[str] = None,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> List[Dict]:
         """
         Listar productos con filtros opcionales.
 
         Args:
             category: Filtrar por categoría
             available: "true"/"false" para filtrar por disponibilidad
+            user_id: Usuario autenticado para resolver restaurant_id
+            mesa_id: Mesa pública para resolver restaurant_id
+            branch_id: Sucursal para resolver restaurant_id cuando es público
 
         Returns:
             Lista de productos normalizados
         """
         try:
+            restaurant_id = self._resolve_restaurant_id(
+                user_id=user_id,
+                mesa_id=mesa_id,
+                branch_id=branch_id,
+            )
             query = supabase.table("menu").select("*")
+            query = query.eq("restaurant_id", restaurant_id)
 
             if category:
                 query = query.eq("category", category)
@@ -65,7 +69,13 @@ class MenuService:
             logger.error(f"Error al listar menú: {str(e)}")
             raise Exception(f"Error al consultar el menú: {str(e)}")
     
-    def get_item_by_id(self, item_id: int) -> Optional[Dict]:
+    def get_item_by_id(
+        self,
+        item_id: int,
+        user_id: Optional[str] = None,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Optional[Dict]:
         """
         Obtener un producto específico del menú
         
@@ -79,7 +89,18 @@ class MenuService:
             Exception: Si hay error al consultar la base de datos
         """
         try:
-            response = supabase.table("menu").select("*").eq("id", item_id).execute()
+            restaurant_id = self._resolve_restaurant_id(
+                user_id=user_id,
+                mesa_id=mesa_id,
+                branch_id=branch_id,
+            )
+            response = (
+                supabase.table("menu")
+                .select("*")
+                .eq("id", item_id)
+                .eq("restaurant_id", restaurant_id)
+                .execute()
+            )
             
             if not response.data:
                 return None
@@ -137,7 +158,7 @@ class MenuService:
             logger.error(f"Error al crear producto: {str(e)}")
             raise Exception(f"Error al crear el producto: {str(e)}")
     
-    def update_item(self, item_id: int, data: Dict) -> Optional[Dict]:
+    def update_item(self, item_id: int, data: Dict, user_id: str) -> Optional[Dict]:
         """
         Actualizar un producto existente del menú
         
@@ -152,9 +173,7 @@ class MenuService:
             ValueError: Si los datos son inválidos
             Exception: Si hay error al actualizar
         """
-        # Verificar que el producto existe
-        if not self._item_exists(item_id):
-            return None
+        restaurant_id = branches_service.get_restaurant_id(user_id)
         
         # Preparar datos para actualización
         update_data = {}
@@ -182,7 +201,13 @@ class MenuService:
             raise ValueError("No hay datos para actualizar")
         
         try:
-            response = supabase.table("menu").update(update_data).eq("id", item_id).execute()
+            response = (
+                supabase.table("menu")
+                .update(update_data)
+                .eq("id", item_id)
+                .eq("restaurant_id", restaurant_id)
+                .execute()
+            )
             
             if not response.data:
                 raise Exception("No se pudo actualizar el producto")
@@ -196,7 +221,7 @@ class MenuService:
             logger.error(f"Error al actualizar producto {item_id}: {str(e)}")
             raise Exception(f"Error al actualizar el producto: {str(e)}")
     
-    def delete_item(self, item_id: int) -> bool:
+    def delete_item(self, item_id: int, user_id: str) -> bool:
         """
         Eliminar un producto del menú
         
@@ -209,12 +234,16 @@ class MenuService:
         Raises:
             Exception: Si hay error al eliminar
         """
-        # Verificar que el producto existe
-        if not self._item_exists(item_id):
-            return False
+        restaurant_id = branches_service.get_restaurant_id(user_id)
         
         try:
-            response = supabase.table("menu").delete().eq("id", item_id).execute()
+            response = (
+                supabase.table("menu")
+                .delete()
+                .eq("id", item_id)
+                .eq("restaurant_id", restaurant_id)
+                .execute()
+            )
             
             if not response.data:
                 raise Exception("No se pudo eliminar el producto")
@@ -226,7 +255,13 @@ class MenuService:
             logger.error(f"Error al eliminar producto {item_id}: {str(e)}")
             raise Exception(f"Error al eliminar el producto: {str(e)}")
     
-    def get_items_by_category(self, category: str) -> List[Dict]:
+    def get_items_by_category(
+        self,
+        category: str,
+        user_id: Optional[str] = None,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> List[Dict]:
         """
         Obtener productos por categoría
         
@@ -237,16 +272,23 @@ class MenuService:
             Lista de productos de la categoría
         """
         try:
-            response = supabase.table("menu").select("*").eq("category", category).execute()
-            items = response.data or []
-            
-            return [self._normalize_menu_item(item) for item in items]
+            return self.list_items(
+                category=category,
+                user_id=user_id,
+                mesa_id=mesa_id,
+                branch_id=branch_id,
+            )
             
         except Exception as e:
             logger.error(f"Error al obtener productos por categoría {category}: {str(e)}")
             raise Exception(f"Error al consultar productos: {str(e)}")
     
-    def get_available_items(self) -> List[Dict]:
+    def get_available_items(
+        self,
+        user_id: Optional[str] = None,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> List[Dict]:
         """
         Obtener solo productos disponibles
         
@@ -254,16 +296,18 @@ class MenuService:
             Lista de productos disponibles
         """
         try:
-            response = supabase.table("menu").select("*").eq("available", True).execute()
-            items = response.data or []
-            
-            return [self._normalize_menu_item(item) for item in items]
+            return self.list_items(
+                available="true",
+                user_id=user_id,
+                mesa_id=mesa_id,
+                branch_id=branch_id,
+            )
             
         except Exception as e:
             logger.error(f"Error al obtener productos disponibles: {str(e)}")
             raise Exception(f"Error al consultar productos: {str(e)}")
     
-    def toggle_availability(self, item_id: int) -> Optional[Dict]:
+    def toggle_availability(self, item_id: int, user_id: str) -> Optional[Dict]:
         """
         Cambiar el estado de disponibilidad de un producto
         
@@ -273,12 +317,12 @@ class MenuService:
         Returns:
             Producto actualizado o None si no existe
         """
-        item = self.get_item_by_id(item_id)
+        item = self.get_item_by_id(item_id, user_id=user_id)
         if not item:
             return None
         
         new_availability = not item["available"]
-        return self.update_item(item_id, {"available": new_availability})
+        return self.update_item(item_id, {"available": new_availability}, user_id)
     
     # Métodos privados de validación y utilidades
     
@@ -298,13 +342,46 @@ class MenuService:
         except (ValueError, TypeError):
             raise ValueError("El precio debe ser un número válido")
     
-    def _item_exists(self, item_id: int) -> bool:
+    def _item_exists(self, item_id: int, restaurant_id: str) -> bool:
         """Verificar si un producto existe"""
         try:
-            response = supabase.table("menu").select("id").eq("id", item_id).execute()
+            response = (
+                supabase.table("menu")
+                .select("id")
+                .eq("id", item_id)
+                .eq("restaurant_id", restaurant_id)
+                .execute()
+            )
             return bool(response.data)
         except Exception:
             return False
+
+    def _resolve_restaurant_id(
+        self,
+        user_id: Optional[str],
+        mesa_id: Optional[str],
+        branch_id: Optional[str],
+    ) -> str:
+        if user_id:
+            return branches_service.get_restaurant_id(user_id)
+        if mesa_id:
+            if not branch_id:
+                raise ValueError("branch_id requerido")
+            def _run():
+                return (
+                    supabase.table("mesas")
+                    .select("restaurant_id")
+                    .eq("mesa_id", mesa_id)
+                    .eq("branch_id", branch_id)
+                    .limit(1)
+                    .execute()
+                )
+            resp = execute_with_retry(_run)
+            mesa = (resp.data or [None])[0]
+            if not mesa or not mesa.get("restaurant_id"):
+                raise LookupError("Mesa no encontrada")
+            return mesa.get("restaurant_id")
+        raise ValueError("restaurant_id requerido")
 
     @staticmethod
     def _parse_bool(value: Optional[str]) -> bool:

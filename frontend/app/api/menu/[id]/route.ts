@@ -9,9 +9,13 @@ export async function GET(_request: NextRequest, context: { params: { id: string
       return NextResponse.json({ error: 'Product id is required' }, { status: 400 })
     }
 
-    const response = await fetch(`${BACKEND_URL}/menu/${id}`, {
+    const authHeader = _request.headers.get('authorization') || _request.headers.get('Authorization')
+    const search = _request.nextUrl.searchParams.toString()
+    const url = search ? `${BACKEND_URL}/menu/${id}?${search}` : `${BACKEND_URL}/menu/${id}`
+    const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
       },
       cache: 'no-store'
     })

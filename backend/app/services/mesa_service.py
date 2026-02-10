@@ -23,7 +23,7 @@ class MesaService:
 
     def get_all_mesas(self, branch_id: Optional[str] = None) -> List[Dict]:
         """
-        Obtener todas las mesas
+        Obtener todas las mesas (opcionalmente filtradas por sucursal)
         """
         try:
             query = supabase.table("mesas").select("*")
@@ -40,7 +40,6 @@ class MesaService:
                     return value
 
             mesas.sort(key=mesa_sort_key)
-
             logger.info(f"Obtenidas {len(mesas)} mesas")
             return mesas
 
@@ -48,18 +47,20 @@ class MesaService:
             logger.error(f"Error al obtener mesas: {str(e)}")
             raise Exception("Error en la base de datos")
 
-    def get_mesa_by_id(self, mesa_id: str) -> Optional[Dict]:
+    def get_mesa_by_id(self, mesa_id: str, branch_id: Optional[str] = None) -> Optional[Dict]:
         """
-        Obtener una mesa por su ID
+        Obtener una mesa por su ID (y opcionalmente sucursal)
         """
         try:
             def _run():
-                return (
+                query = (
                     supabase.table("mesas")
                     .select("*")
                     .eq("mesa_id", mesa_id)
-                    .execute()
                 )
+                if branch_id:
+                    query = query.eq("branch_id", branch_id)
+                return query.execute()
             response = execute_with_retry(_run)
             data = response.data or []
             if not data:
@@ -71,21 +72,22 @@ class MesaService:
             logger.error(f"Error al obtener mesa {mesa_id}: {str(e)}")
             raise Exception("Error en la base de datos")
 
-    def create_mesa(self, mesa_id: str, is_active: bool = True) -> Dict:
+    def create_mesa(self, mesa_id: str, branch_id: str, restaurant_id: str, is_active: bool = True) -> Dict:
         """
-        Crear una nueva mesa
+        Crear una nueva mesa (requiere branch_id y restaurant_id)
         """
         try:
-            existing = self.get_mesa_by_id(mesa_id)
+            existing = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if existing:
                 raise ValueError(f"La mesa {mesa_id} ya existe")
 
-            # Insert inicial para cumplir NOT NULL de token y token_expires_at
             placeholder_token = secrets.token_urlsafe(32)
             placeholder_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
 
             insert_data = {
                 "mesa_id": mesa_id,
+                "branch_id": branch_id,
+                "restaurant_id": restaurant_id,
                 "is_active": is_active,
                 "token": placeholder_token,
                 "token_expires_at": placeholder_expires.isoformat().replace("+00:00", "Z"),
@@ -95,9 +97,8 @@ class MesaService:
             if not response.data:
                 raise Exception("No se pudo crear la mesa")
 
-            # Generar el token real usando la misma función centralizada
-            generate_token(mesa_id, expiry_minutes=30)
-            new_mesa = self.get_mesa_by_id(mesa_id) or response.data[0]
+            generate_token(mesa_id, branch_id, expiry_minutes=30)
+            new_mesa = self.get_mesa_by_id(mesa_id, branch_id=branch_id) or response.data[0]
 
             logger.info(f"Mesa {mesa_id} creada")
             return new_mesa
@@ -137,19 +138,19 @@ class MesaService:
             logger.error(f"Error al actualizar mesa: {str(e)}")
             raise Exception("Error en la base de datos")
 
-    def generate_token_for_mesa(self, mesa_id: str, expiry_minutes: int = 30) -> Dict:
+    def generate_token_for_mesa(self, mesa_id: str, branch_id: str, expiry_minutes: int = 30) -> Dict:
         """
         Generar un nuevo token para una mesa
         """
         try:
-            mesa = self.get_mesa_by_id(mesa_id)
+            mesa = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if not mesa:
                 raise ValueError(f"La mesa {mesa_id} no existe")
 
             if not mesa.get("is_active", False):
                 raise ValueError(f"La mesa {mesa_id} no está activa")
 
-            new_token = generate_token(mesa_id, expiry_minutes=expiry_minutes)
+            new_token = generate_token(mesa_id, branch_id, expiry_minutes=expiry_minutes)
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
             response = (
@@ -162,6 +163,7 @@ class MesaService:
                     }
                 )
                 .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
                 .execute()
             )
 
@@ -183,7 +185,7 @@ class MesaService:
             logger.error(f"Error al generar token para mesa {mesa_id}: {str(e)}")
             raise Exception("Error al generar token")
 
-    def validate_mesa_token(self, mesa_id: str, token: str) -> Dict:
+    def validate_mesa_token(self, mesa_id: str, token: str, branch_id: str) -> Dict:
         """
         Validar un token de mesa
         """
@@ -191,9 +193,8 @@ class MesaService:
             if not token:
                 raise ValueError("Token requerido")
 
-            is_valid = validate_token(mesa_id, token)
-
-            mesa = self.get_mesa_by_id(mesa_id)
+            is_valid = validate_token(mesa_id, branch_id, token)
+            mesa = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if mesa and mesa.get("token") == token:
                 expires_at = mesa.get("token_expires_at")
                 if expires_at:
@@ -218,16 +219,16 @@ class MesaService:
             logger.error(f"Error al validar token para mesa {mesa_id}: {str(e)}")
             raise Exception("Error al validar token")
 
-    def renew_mesa_token(self, mesa_id: str, expiry_minutes: int = 30) -> Dict:
+    def renew_mesa_token(self, mesa_id: str, branch_id: str, expiry_minutes: int = 30) -> Dict:
         """
         Renovar el token de una mesa
         """
         try:
-            mesa = self.get_mesa_by_id(mesa_id)
+            mesa = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if not mesa:
                 raise ValueError(f"La mesa {mesa_id} no existe")
 
-            new_token = renew_token(mesa_id, expiry_minutes=expiry_minutes)
+            new_token = renew_token(mesa_id, branch_id, expiry_minutes=expiry_minutes)
             expires_at = datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
 
             response = (
@@ -240,6 +241,7 @@ class MesaService:
                     }
                 )
                 .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
                 .execute()
             )
 
@@ -261,12 +263,14 @@ class MesaService:
             logger.error(f"Error al renovar token para mesa {mesa_id}: {str(e)}")
             raise Exception("Error al renovar token")
 
-    def get_or_create_session(self, mesa_id: str, expiry_minutes: int = 30) -> Dict:
+    def get_or_create_session(self, mesa_id: str, branch_id: Optional[str], expiry_minutes: int = 30) -> Dict:
         """
         Obtener el token actual de una mesa si es válido; si no, generar uno nuevo.
         """
         try:
-            mesa = self.get_mesa_by_id(mesa_id)
+            if not branch_id:
+                raise ValueError("branch_id requerido")
+            mesa = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if not mesa:
                 raise ValueError(f"La mesa {mesa_id} no existe")
 
@@ -289,7 +293,7 @@ class MesaService:
                         "expires_at": expires_at.isoformat(),
                     }
 
-            return self.generate_token_for_mesa(mesa_id, expiry_minutes=expiry_minutes)
+            return self.generate_token_for_mesa(mesa_id, branch_id, expiry_minutes=expiry_minutes)
 
         except ValueError:
             raise

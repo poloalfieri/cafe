@@ -46,7 +46,13 @@ class WaiterService:
     def _now_iso() -> str:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    def create_waiter_call(self, data: Dict, mesa_id: Optional[str] = None, token: Optional[str] = None) -> Tuple[Dict, bool]:
+    def create_waiter_call(
+        self,
+        data: Dict,
+        mesa_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+        token: Optional[str] = None,
+    ) -> Tuple[Dict, bool]:
         """
         Crear una nueva llamada al mozo.
         Punto unico de creacion usado por /waiter/calls.
@@ -69,11 +75,14 @@ class WaiterService:
             self._validate_required_fields(data, ['mesa_id'])
 
             mesa_id = mesa_id or data.get('mesa_id')
+            branch_id = branch_id or data.get('branch_id')
             if not mesa_id:
                 raise ValueError("mesa_id requerido")
+            if not branch_id:
+                raise ValueError("branch_id requerido")
             if not token:
                 raise PermissionError("Token de mesa requerido")
-            if not validate_token(mesa_id, token):
+            if not validate_token(mesa_id, branch_id, token):
                 raise PermissionError("Token de mesa invalido o expirado")
             motivo = data.get('motivo')
             payment_method = data.get('payment_method')
@@ -112,6 +121,7 @@ class WaiterService:
                 new_call = {
                     'id': call_id,
                     'mesa_id': mesa_id,
+                    'branch_id': branch_id,
                     'payment_method': payment_method,
                     'status': 'PENDING',
                     'usuario_id': usuario_id,
@@ -140,8 +150,9 @@ class WaiterService:
         if updated and new_status == "COMPLETED":
             try:
                 mesa_id = updated.get("mesa_id")
+                branch_id = updated.get("branch_id")
                 if mesa_id:
-                    order_service.mark_latest_order_paid_for_mesa(mesa_id)
+                    order_service.mark_latest_order_paid_for_mesa(mesa_id, branch_id=branch_id)
             except Exception:
                 pass
         return updated

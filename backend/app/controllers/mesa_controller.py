@@ -60,7 +60,11 @@ def update_mesa_status(mesa_id):
 def generate_mesa_token(mesa_id):
     """Generar un nuevo token para una mesa"""
     try:
-        result = mesa_service.generate_token_for_mesa(mesa_id, expiry_minutes=30)
+        data = request.get_json() or {}
+        branch_id = data.get("branch_id")
+        if not branch_id:
+            return jsonify({"error": "branch_id requerido"}), 400
+        result = mesa_service.generate_token_for_mesa(mesa_id, branch_id, expiry_minutes=30)
         
         return jsonify({
             "success": True,
@@ -81,8 +85,11 @@ def validate_mesa_token(mesa_id):
     try:
         data = request.get_json()
         token = data.get("token")
+        branch_id = data.get("branch_id")
+        if not branch_id:
+            return jsonify({"error": "branch_id requerido"}), 400
         
-        result = mesa_service.validate_mesa_token(mesa_id, token)
+        result = mesa_service.validate_mesa_token(mesa_id, token, branch_id)
         
         return jsonify({
             "success": True,
@@ -101,7 +108,11 @@ def validate_mesa_token(mesa_id):
 def renew_mesa_token(mesa_id):
     """Renovar el token de una mesa"""
     try:
-        result = mesa_service.renew_mesa_token(mesa_id, expiry_minutes=30)
+        data = request.get_json() or {}
+        branch_id = data.get("branch_id")
+        if not branch_id:
+            return jsonify({"error": "branch_id requerido"}), 400
+        result = mesa_service.renew_mesa_token(mesa_id, branch_id, expiry_minutes=30)
         
         return jsonify({
             "success": True,
@@ -121,10 +132,11 @@ def start_mesa_session():
     try:
         data = request.get_json() or {}
         mesa_id = data.get("mesa_id")
+        branch_id = data.get("branch_id")
         if not mesa_id:
             return jsonify({"error": "mesa_id requerido"}), 400
 
-        result = mesa_service.get_or_create_session(mesa_id, expiry_minutes=30)
+        result = mesa_service.get_or_create_session(mesa_id, branch_id, expiry_minutes=30)
         return jsonify({"success": True, **result}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 400

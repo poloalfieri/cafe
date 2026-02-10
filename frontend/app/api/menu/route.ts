@@ -5,9 +5,13 @@ const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
 
 export async function GET(request: NextRequest) {
   try {
-    const response = await fetch(`${BACKEND_URL}/menu`, {
+    const search = request.nextUrl.searchParams.toString()
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    const url = search ? `${BACKEND_URL}/menu?${search}` : `${BACKEND_URL}/menu`
+    const response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
       },
       cache: 'no-store' // Ensure fresh data
     })

@@ -24,20 +24,22 @@ export default function CartView() {
   const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
+  const branch_id = searchParams.get("branch_id")
 
-  const getMesaSession = (): { mesa_id: string | null; token: string | null } => {
-    if (mesa_id && token) return { mesa_id, token }
-    if (typeof window === "undefined") return { mesa_id, token }
+  const getMesaSession = (): { mesa_id: string | null; token: string | null; branch_id: string | null } => {
+    if (mesa_id && token && branch_id) return { mesa_id, token, branch_id }
+    if (typeof window === "undefined") return { mesa_id, token, branch_id }
     try {
       const stored = sessionStorage.getItem("mesa_session")
-      if (!stored) return { mesa_id, token }
+      if (!stored) return { mesa_id, token, branch_id }
       const parsed = JSON.parse(stored)
       return {
         mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
-        token: typeof parsed?.token === "string" ? parsed.token : token
+        token: typeof parsed?.token === "string" ? parsed.token : token,
+        branch_id: typeof parsed?.branch_id === "string" ? parsed.branch_id : branch_id
       }
     } catch {
-      return { mesa_id, token }
+      return { mesa_id, token, branch_id }
     }
   }
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
@@ -66,7 +68,7 @@ export default function CartView() {
   const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
       const session = getMesaSession()
-      if (!session.mesa_id || !session.token) {
+      if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return
       }
@@ -79,6 +81,7 @@ export default function CartView() {
         },
         body: JSON.stringify({
           mesa_id: session.mesa_id,
+          branch_id: session.branch_id,
           token: session.token,
           payment_method: data.paymentMethod,
           message: data.message || ""
@@ -323,6 +326,7 @@ export default function CartView() {
         onClose={() => setShowPaymentModal(false)}
         onWaiterCalled={handleWaiterCalled}
         mesaId={mesaSession.mesa_id || ''}
+        branchId={mesaSession.branch_id || ''}
         mesaToken={mesaSession.token || ''}
         totalAmount={state.total}
         items={state.items.map((item) => ({

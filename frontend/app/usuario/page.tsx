@@ -8,10 +8,11 @@ import { useTranslations } from "next-intl"
 function UsuarioPageContent() {
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
+  const branch_id = searchParams.get("branch_id")
   const t = useTranslations("usuario.page")
 
   useEffect(() => {
-    if (!mesa_id) return
+    if (!mesa_id || !branch_id) return
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
     ;(async () => {
       try {
@@ -20,11 +21,14 @@ function UsuarioPageContent() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ mesa_id }),
+          body: JSON.stringify({ mesa_id, branch_id }),
         })
         const data = await res.json()
         if (res.ok && data?.token) {
-          sessionStorage.setItem("mesa_session", JSON.stringify({ mesa_id, token: data.token }))
+          sessionStorage.setItem(
+            "mesa_session",
+            JSON.stringify({ mesa_id, branch_id, token: data.token })
+          )
         }
       } catch (_) {
         // Ignore

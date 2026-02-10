@@ -22,6 +22,7 @@ def init_payment():
         result = payment_service.init_payment(
             monto=data.get("monto"),
             mesa_id=data.get("mesa_id"),
+            branch_id=data.get("branch_id"),
             descripcion=data.get("descripcion"),
             items=data.get("items")
         )

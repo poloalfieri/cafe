@@ -9,6 +9,7 @@ interface Mesa {
   id: string
   mesa_id: string
   is_active: boolean
+  branch_id?: string
 }
 
 export default function TestSessionPage() {
@@ -31,7 +32,7 @@ export default function TestSessionPage() {
         }
 
         const response = await fetch(
-          `${supabaseUrl}/rest/v1/mesas?select=id,mesa_id,is_active&order=mesa_id`,
+          `${supabaseUrl}/rest/v1/mesas?select=id,mesa_id,is_active,branch_id&order=mesa_id`,
           {
             headers: {
               apikey: supabaseAnonKey,
@@ -57,15 +58,18 @@ export default function TestSessionPage() {
     loadMesas()
   }, [supabaseUrl, supabaseAnonKey])
 
-  const startWithMesa = async (mesaId: string) => {
+  const startWithMesa = async (mesaId: string, branchId: string | undefined) => {
     try {
       setError(null)
+      if (!branchId) {
+        throw new Error('branch_id requerido')
+      }
       const response = await fetch(`${backendUrl}/mesas/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ mesa_id: mesaId }),
+        body: JSON.stringify({ mesa_id: mesaId, branch_id: branchId }),
       })
 
       if (!response.ok) {
@@ -80,10 +84,11 @@ export default function TestSessionPage() {
 
       sessionStorage.setItem('mesa_session', JSON.stringify({
         mesa_id: mesaId,
+        branch_id: branchId,
         token,
       }))
 
-      router.push(`/usuario?mesa_id=${mesaId}&token=${token}`)
+      router.push(`/usuario?mesa_id=${mesaId}&branch_id=${branchId}&token=${token}`)
     } catch (err) {
       setError('No se pudo iniciar la sesión para esa mesa')
     }
@@ -120,7 +125,7 @@ export default function TestSessionPage() {
                     key={mesa.id}
                     variant="outline"
                     size="sm"
-                    onClick={() => startWithMesa(mesa.mesa_id)}
+                    onClick={() => startWithMesa(mesa.mesa_id, mesa.branch_id)}
                     disabled={!mesa.is_active}
                   >
                     Mesa {mesa.mesa_id}

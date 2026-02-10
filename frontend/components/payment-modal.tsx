@@ -25,6 +25,7 @@ interface PaymentModalProps {
   onClose: () => void
   onWaiterCalled?: (message: string) => void
   mesaId: string
+  branchId: string
   mesaToken: string
   totalAmount: number
   items: Array<{
@@ -53,6 +54,7 @@ export default function PaymentModal({
   onClose, 
   onWaiterCalled, 
   mesaId, 
+  branchId,
   mesaToken, 
   totalAmount, 
   items 
@@ -64,9 +66,9 @@ export default function PaymentModal({
   const t = useTranslations('usuario.payment')
   
   // Detectar si los parámetros de mesa son inválidos
-  const hasInvalidParams = !mesaId || !mesaToken || 
-    mesaId.toLowerCase() === 'null' || mesaToken.toLowerCase() === 'null' ||
-    mesaId.trim() === '' || mesaToken.trim() === ''
+  const hasInvalidParams = !mesaId || !mesaToken || !branchId ||
+    mesaId.toLowerCase() === 'null' || mesaToken.toLowerCase() === 'null' || branchId.toLowerCase() === 'null' ||
+    mesaId.trim() === '' || mesaToken.trim() === '' || branchId.trim() === ''
 
   const handleBilleteraPayment = async () => {
     setIsLoading(true)
@@ -97,6 +99,7 @@ export default function PaymentModal({
         body: JSON.stringify({
           monto: totalAmount,
           mesa_id: mesaId,
+          branch_id: branchId,
           token: mesaToken,  // También en body para compatibilidad con código legacy
           items: items,  // Enviar items reales del carrito
           descripcion: `Pedido Mesa ${mesaId} - ${items.map(item => `${item.name} x${item.quantity}`).join(', ')}`
@@ -161,6 +164,7 @@ export default function PaymentModal({
         },
         body: JSON.stringify({
           mesa_id: mesaId,
+          branch_id: branchId,
           items: items.map(item => ({
             name: item.name,
             price: item.price,
@@ -184,6 +188,7 @@ export default function PaymentModal({
         },
         body: JSON.stringify({
           mesa_id: mesaId,
+          branch_id: branchId,
           token: mesaToken,
           payment_method: paymentMethod,
           message: `Solicitud de pago - ${paymentMethod}`
@@ -491,4 +496,4 @@ export default function PaymentModal({
       </DialogContent>
     </Dialog>
   )
-} 
+}

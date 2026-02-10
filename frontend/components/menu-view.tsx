@@ -45,19 +45,22 @@ export default function MenuView() {
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
 
-  const getMesaSession = (): { mesa_id: string | null; token: string | null } => {
-    if (mesa_id && token) return { mesa_id, token }
-    if (typeof window === "undefined") return { mesa_id, token }
+  const branch_id = searchParams.get("branch_id")
+
+  const getMesaSession = (): { mesa_id: string | null; token: string | null; branch_id: string | null } => {
+    if (mesa_id && token && branch_id) return { mesa_id, token, branch_id }
+    if (typeof window === "undefined") return { mesa_id, token, branch_id }
     try {
       const stored = sessionStorage.getItem("mesa_session")
-      if (!stored) return { mesa_id, token }
+      if (!stored) return { mesa_id, token, branch_id }
       const parsed = JSON.parse(stored)
       return {
         mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
-        token: typeof parsed?.token === "string" ? parsed.token : token
+        token: typeof parsed?.token === "string" ? parsed.token : token,
+        branch_id: typeof parsed?.branch_id === "string" ? parsed.branch_id : branch_id
       }
     } catch {
-      return { mesa_id, token }
+      return { mesa_id, token, branch_id }
     }
   }
 
@@ -77,8 +80,15 @@ export default function MenuView() {
     try {
       setLoading(true)
       setError("")
-      
-      const response = await fetch(`${backendUrl}/menu`)
+
+      const session = getMesaSession()
+      if (!session.mesa_id || !session.branch_id) {
+        setError("No se pudo identificar la mesa")
+        return
+      }
+
+      const query = `?mesa_id=${encodeURIComponent(session.mesa_id)}&branch_id=${encodeURIComponent(session.branch_id)}`
+      const response = await fetch(`${backendUrl}/menu${query}`)
       if (!response.ok) throw new Error("Error al cargar el menú")
       
       const data: ApiProduct[] = await response.json()
@@ -165,7 +175,7 @@ export default function MenuView() {
   const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
     try {
       const session = getMesaSession()
-      if (!session.mesa_id || !session.token) {
+      if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return
       }
@@ -178,6 +188,7 @@ export default function MenuView() {
         },
         body: JSON.stringify({
           mesa_id: session.mesa_id,
+          branch_id: session.branch_id,
           token: session.token,
           payment_method: data.paymentMethod,
           message: data.message || ""

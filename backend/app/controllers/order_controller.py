@@ -50,6 +50,7 @@ def create_order():
     try:
         payload = request.get_json() or {}
         mesa_id = payload.get("mesa_id")
+        branch_id = payload.get("branch_id")
         items = payload.get("items")
         token = payload.get("token")
 
@@ -60,7 +61,7 @@ def create_order():
         if not token:
             return jsonify({"error": "token requerido"}), 401
 
-        order = order_service.create_order(mesa_id=mesa_id, items=items, token=token)
+        order = order_service.create_order(mesa_id=mesa_id, items=items, token=token, branch_id=branch_id)
         return jsonify(order), 201
     except PermissionError as e:
         return jsonify({"error": str(e)}), 401

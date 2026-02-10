@@ -21,13 +21,13 @@ class PaymentService:
     _payment_ids: Dict[str, str] = {}
 
     @staticmethod
-    def init_payment(monto: float, mesa_id: str, descripcion: str, items: list = None) -> Dict:
+    def init_payment(monto: float, mesa_id: str, branch_id: Optional[str], descripcion: str, items: list = None) -> Dict:
         """
         Inicializar pago con Mercado Pago Checkout Pro
         """
         PaymentService._validate_required_fields(
-            {"mesa_id": mesa_id, "items": items},
-            ["mesa_id", "items"],
+            {"mesa_id": mesa_id, "items": items, "branch_id": branch_id},
+            ["mesa_id", "items", "branch_id"],
         )
         PaymentService._validate_items(items)
 
@@ -40,6 +40,7 @@ class PaymentService:
                 supabase.table("mesas")
                 .select("restaurant_id, branch_id")
                 .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
                 .limit(1)
                 .execute()
             )
@@ -170,7 +171,8 @@ class PaymentService:
         )
 
         try:
-            invalidate_token(order.get("mesa_id"))
+            if order.get("branch_id"):
+                invalidate_token(order.get("mesa_id"), order.get("branch_id"))
             logger.info(
                 f"Token de mesa invalidado tras pago aprobado: mesa_id={order.get('mesa_id')}"
             )

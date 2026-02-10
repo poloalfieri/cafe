@@ -134,20 +134,20 @@ class OrderService:
         status = self._resolve_status_key(status_key)
         return self.get_orders_by_status(status)
 
-    def set_payment_method_for_latest_order(self, mesa_id: str, payment_method: str) -> None:
+    def set_payment_method_for_latest_order(self, mesa_id: str, payment_method: str, branch_id: Optional[str] = None) -> None:
         """
         Actualizar el método de pago del último pedido de una mesa.
         """
         try:
             def _run():
-                return (
+                query = (
                     supabase.table("orders")
                     .select("id, creation_date, created_at")
                     .eq("mesa_id", mesa_id)
-                    .order("creation_date", desc=True)
-                    .limit(1)
-                    .execute()
                 )
+                if branch_id:
+                    query = query.eq("branch_id", branch_id)
+                return query.order("creation_date", desc=True).limit(1).execute()
             response = execute_with_retry(_run)
             data = response.data or []
             if not data:
@@ -159,19 +159,19 @@ class OrderService:
         except Exception as e:
             logger.warning(f"No se pudo actualizar payment_method para mesa {mesa_id}: {str(e)}")
 
-    def mark_latest_order_paid_for_mesa(self, mesa_id: str) -> Optional[Dict]:
+    def mark_latest_order_paid_for_mesa(self, mesa_id: str, branch_id: Optional[str] = None) -> Optional[Dict]:
         """
         Marcar como PAID el último pedido de una mesa.
         """
         try:
-            response = (
+            query = (
                 supabase.table("orders")
                 .select("*")
                 .eq("mesa_id", mesa_id)
-                .order("creation_date", desc=True)
-                .limit(1)
-                .execute()
             )
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = query.order("creation_date", desc=True).limit(1).execute()
             order = (response.data or [None])[0]
             if not order:
                 return None
@@ -183,7 +183,7 @@ class OrderService:
             logger.error(f"No se pudo marcar PAID el último pedido de mesa {mesa_id}: {str(e)}")
             return None
 
-    def create_order(self, mesa_id: str, items: List[Dict], token: str = None) -> Dict:
+    def create_order(self, mesa_id: str, items: List[Dict], token: str = None, branch_id: Optional[str] = None) -> Dict:
         """
         Crear un nuevo pedido
 
@@ -202,7 +202,9 @@ class OrderService:
         """
         if not token:
             raise PermissionError("Token requerido")
-        if not validate_token(mesa_id, token):
+        if not branch_id:
+            raise ValueError("branch_id requerido")
+        if not validate_token(mesa_id, branch_id, token):
             raise PermissionError("Token inválido o expirado")
 
         if not items or len(items) == 0:
@@ -217,6 +219,7 @@ class OrderService:
                 supabase.table("mesas")
                 .select("restaurant_id, branch_id")
                 .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
                 .limit(1)
                 .execute()
             )
@@ -284,7 +287,8 @@ class OrderService:
 
             if status_value == OrderStatus.PAID.value:
                 try:
-                    invalidate_token(order.get("mesa_id"))
+                    if order.get("branch_id"):
+                        invalidate_token(order.get("mesa_id"), order.get("branch_id"))
                     logger.info(
                         f"Token de mesa invalidado tras pago manual: mesa_id={order.get('mesa_id')}"
                     )
@@ -420,7 +424,8 @@ class OrderService:
 
             logger.info(f"Pedido {order_id} cancelado. Razón: {reason}")
             try:
-                invalidate_token(order.get("mesa_id"))
+                if order.get("branch_id"):
+                    invalidate_token(order.get("mesa_id"), order.get("branch_id"))
                 logger.info(
                     f"Token de mesa invalidado tras cancelación: mesa_id={order.get('mesa_id')}"
                 )
@@ -437,7 +442,7 @@ class OrderService:
             logger.error(f"Error al cancelar pedido {order_id}: {str(e)}")
             raise Exception(f"Error al cancelar pedido: {str(e)}")
 
-    def renew_order_token(self, mesa_id: str) -> str:
+    def renew_order_token(self, mesa_id: str, branch_id: str) -> str:
         """
         Renovar token de acceso de una mesa
 
@@ -447,7 +452,7 @@ class OrderService:
         Returns:
             Nuevo token
         """
-        new_token = renew_token(mesa_id)
+        new_token = renew_token(mesa_id, branch_id)
         logger.info(f"Token renovado para mesa {mesa_id}")
         return new_token
 

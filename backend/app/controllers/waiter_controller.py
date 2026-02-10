@@ -19,12 +19,23 @@ def create_waiter_call():
     try:
         data = request.get_json()
         mesa_id = data.get('mesa_id') if data else None
+        branch_id = data.get('branch_id') if data else None
         token = data.get('token') if data else None
-        call, already_pending = waiter_service.create_waiter_call(data, mesa_id=mesa_id, token=token)
+        call, already_pending = waiter_service.create_waiter_call(
+            data,
+            mesa_id=mesa_id,
+            branch_id=branch_id,
+            token=token,
+        )
         try:
             payment_method = data.get("payment_method")
+            call_branch_id = data.get("branch_id")
             if payment_method:
-                order_service.set_payment_method_for_latest_order(mesa_id, payment_method)
+                order_service.set_payment_method_for_latest_order(
+                    mesa_id,
+                    payment_method,
+                    branch_id=call_branch_id,
+                )
         except Exception:
             pass
         status_code = 200 if already_pending else 201

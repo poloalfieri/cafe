@@ -10,7 +10,7 @@ from ..db.supabase_client import supabase
 logger = logging.getLogger(__name__)
 
 
-def generate_token(mesa_id: str, expiry_minutes: int = 10) -> str:
+def generate_token(mesa_id: str, branch_id: str, expiry_minutes: int = 10) -> str:
     """
     Genera un token seguro y lo almacena en Supabase.
     """
@@ -29,6 +29,7 @@ def generate_token(mesa_id: str, expiry_minutes: int = 10) -> str:
                 }
             )
             .eq("mesa_id", mesa_id)
+            .eq("branch_id", branch_id)
             .execute()
         )
 
@@ -43,7 +44,7 @@ def generate_token(mesa_id: str, expiry_minutes: int = 10) -> str:
         raise
 
 
-def validate_token(mesa_id: str, token: str) -> bool:
+def validate_token(mesa_id: str, branch_id: str, token: str) -> bool:
     """
     Valida un token contra Supabase.
     """
@@ -52,6 +53,7 @@ def validate_token(mesa_id: str, token: str) -> bool:
             supabase.table("mesas")
             .select("token, token_expires_at, is_active")
             .eq("mesa_id", mesa_id)
+            .eq("branch_id", branch_id)
             .execute()
         )
 
@@ -81,7 +83,7 @@ def validate_token(mesa_id: str, token: str) -> bool:
 
         if expires_at < datetime.now(timezone.utc):
             logger.warning(f"Token expirado para mesa: {mesa_id}")
-            _clear_expired_token(mesa_id)
+            _clear_expired_token(mesa_id, branch_id)
             return False
 
         logger.info(f"Token validado exitosamente para mesa: {mesa_id}")
@@ -92,12 +94,12 @@ def validate_token(mesa_id: str, token: str) -> bool:
         return False
 
 
-def renew_token(mesa_id: str, expiry_minutes: int = 10) -> str:
+def renew_token(mesa_id: str, branch_id: str, expiry_minutes: int = 10) -> str:
     logger.info(f"Renovando token para mesa: {mesa_id}")
-    return generate_token(mesa_id, expiry_minutes)
+    return generate_token(mesa_id, branch_id, expiry_minutes)
 
 
-def invalidate_token(mesa_id: str) -> bool:
+def invalidate_token(mesa_id: str, branch_id: str) -> bool:
     """
     Invalida el token actual de una mesa.
     """
@@ -113,6 +115,7 @@ def invalidate_token(mesa_id: str) -> bool:
                 }
             )
             .eq("mesa_id", mesa_id)
+            .eq("branch_id", branch_id)
             .execute()
         )
 
@@ -124,7 +127,7 @@ def invalidate_token(mesa_id: str) -> bool:
         return False
 
 
-def get_token_info(mesa_id: str) -> dict:
+def get_token_info(mesa_id: str, branch_id: str) -> dict:
     """
     Obtiene información sobre el token actual de una mesa.
     """
@@ -133,6 +136,7 @@ def get_token_info(mesa_id: str) -> dict:
             supabase.table("mesas")
             .select("token, token_expires_at")
             .eq("mesa_id", mesa_id)
+            .eq("branch_id", branch_id)
             .execute()
         )
         data = response.data or []
@@ -156,13 +160,13 @@ def get_token_info(mesa_id: str) -> dict:
         return None
 
 
-def _clear_expired_token(mesa_id: str) -> None:
+def _clear_expired_token(mesa_id: str, branch_id: str) -> None:
     """Función interna para limpiar tokens expirados"""
     try:
         now_iso = _now_iso()
         supabase.table("mesas").update(
             {"token_expires_at": now_iso, "updated_at": now_iso}
-        ).eq("mesa_id", mesa_id).execute()
+        ).eq("mesa_id", mesa_id).eq("branch_id", branch_id).execute()
     except Exception as e:
         logger.error(f"Error limpiando token expirado: {str(e)}")
 
