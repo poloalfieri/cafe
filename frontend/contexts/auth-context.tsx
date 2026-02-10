@@ -22,6 +22,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [initialCheckDone, setInitialCheckDone] = useState(false)
 
   const client: AuthClient = useMemo(() => new SupabaseAuthClient(), [])
+  const INACTIVITY_MS = 60 * 60 * 1000
+  const ACTIVITY_KEY = "cafe_last_activity"
+  const LOGIN_DAY_KEY = "cafe_last_login_day"
+
+  const getLocalDateKey = () => {
+    try {
+      return new Date().toLocaleDateString("en-CA")
+    } catch {
+      const d = new Date()
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, "0")
+      const day = String(d.getDate()).padStart(2, "0")
+      return `${y}-${m}-${day}`
+    }
+  }
 
   useEffect(() => {
     let isMounted = true
@@ -128,6 +143,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sub.unsubscribe()
     }
   }, [client, initialCheckDone])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!session) {
+      try {
+        localStorage.removeItem(ACTIVITY_KEY)
+        localStorage.removeItem(LOGIN_DAY_KEY)
+      } catch {
+        // ignore
+      }
+      return
+    }
+
+    const markActivity = () => {
+      try {
+        localStorage.setItem(ACTIVITY_KEY, String(Date.now()))
+        localStorage.setItem(LOGIN_DAY_KEY, getLocalDateKey())
+      } catch {
+        // ignore
+      }
+    }
+
+    const checkSessionPolicy = () => {
+      try {
+        const lastDay = localStorage.getItem(LOGIN_DAY_KEY)
+        const today = getLocalDateKey()
+        if (lastDay && lastDay !== today) {
+          client.signOut()
+          return
+        }
+        const last = Number(localStorage.getItem(ACTIVITY_KEY) || "0")
+        if (last && Date.now() - last > INACTIVITY_MS) {
+          client.signOut()
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    markActivity()
+    checkSessionPolicy()
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"]
+    const handler = () => markActivity()
+    events.forEach((event) => window.addEventListener(event, handler, { passive: true }))
+    const visibilityHandler = () => {
+      if (document.visibilityState === "visible") {
+        checkSessionPolicy()
+        markActivity()
+      }
+    }
+    document.addEventListener("visibilitychange", visibilityHandler)
+
+    const intervalId = window.setInterval(checkSessionPolicy, 60 * 1000)
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, handler))
+      document.removeEventListener("visibilitychange", visibilityHandler)
+      window.clearInterval(intervalId)
+    }
+  }, [client, session])
 
   const value: AuthContextValue = useMemo(
     () => ({ session, user, role: user?.role ?? null, loading, signOut: () => client.signOut() }),
