@@ -138,7 +138,7 @@ export default function CajeroDashboard() {
       }
 
       // Fetch orders
-      const ordersResponse = await fetch(`${backendUrl}/order`, {
+      const ordersResponse = await fetch(`${backendUrl}/orders`, {
         headers: {
           ...authHeader,
         },

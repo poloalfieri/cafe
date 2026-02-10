@@ -68,7 +68,7 @@ export default function KitchenDashboard() {
   const fetchOrders = useCallback(async () => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/order`, {
+      const response = await fetch(`${backendUrl}/orders`, {
         headers: {
           ...authHeader,
         },

@@ -29,7 +29,7 @@ def create_app():
             "status": "running",
             "endpoints": {
                 "health": "/health",
-                "orders": "/order",
+                "orders": "/orders",
                 "payments": "/payment",
                 "menu": "/menu",
                 "products": "/products",

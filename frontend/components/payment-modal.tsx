@@ -153,13 +153,14 @@ export default function PaymentModal({
     
     try {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
-      const orderResponse = await fetch(`${backendUrl}/order/create/${mesaId}`, {
+      const orderResponse = await fetch(`${backendUrl}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
+          mesa_id: mesaId,
           items: items.map(item => ({
             name: item.name,
             price: item.price,
