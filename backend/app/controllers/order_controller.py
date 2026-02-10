@@ -101,15 +101,7 @@ def update_order_status(order_id):
         
         if not data or "status" not in data:
             return jsonify({"error": "Estado requerido"}), 400
-        
-        # Convertir string a enum
-        try:
-            new_status = OrderStatus[data["status"].upper()]
-        except KeyError:
-            return jsonify({"error": "Estado inválido"}), 400
-        
-        # Delegar al servicio
-        updated_order = order_service.update_order_status(order_id, new_status)
+        updated_order = order_service.update_order_status_by_key(order_id, data["status"])
         
         if not updated_order:
             return jsonify({"error": "Pedido no encontrado"}), 404
@@ -205,13 +197,7 @@ def get_orders_by_mesa(mesa_id):
 def get_orders_by_status(status):
     """Obtener pedidos por estado"""
     try:
-        # Convertir string a enum
-        try:
-            order_status = OrderStatus[status.upper()]
-        except KeyError:
-            return jsonify({"error": "Estado inválido"}), 400
-        
-        orders = order_service.get_orders_by_status(order_status)
+        orders = order_service.get_orders_by_status_key(status)
         return jsonify(orders), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

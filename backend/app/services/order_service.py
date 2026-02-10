@@ -130,6 +130,10 @@ class OrderService:
             logger.error(f"Error al obtener pedidos por estado {status}: {str(e)}")
             raise Exception(f"Error al consultar pedidos: {str(e)}")
 
+    def get_orders_by_status_key(self, status_key: str) -> List[Dict]:
+        status = self._resolve_status_key(status_key)
+        return self.get_orders_by_status(status)
+
     def set_payment_method_for_latest_order(self, mesa_id: str, payment_method: str) -> None:
         """
         Actualizar el método de pago del último pedido de una mesa.
@@ -314,6 +318,10 @@ class OrderService:
                 f"Error al actualizar estado del pedido {order_id}: {str(e)}"
             )
             raise Exception(f"Error al actualizar pedido: {str(e)}")
+
+    def update_order_status_by_key(self, order_id: str, status_key: str) -> Optional[Dict]:
+        status = self._resolve_status_key(status_key)
+        return self.update_order_status(order_id, status)
 
     def add_items_to_order(self, order_id: str, new_items: List[Dict]) -> Optional[Dict]:
         """
@@ -531,6 +539,15 @@ class OrderService:
         if status == OrderStatus.PAYMENT_REJECTED.value:
             return "rejected"
         return "approved"
+
+    @staticmethod
+    def _resolve_status_key(status_key: str) -> OrderStatus:
+        if not status_key:
+            raise ValueError("Estado requerido")
+        try:
+            return OrderStatus[status_key.upper()]
+        except KeyError:
+            raise ValueError("Estado inválido")
 
 
 order_service = OrderService()
