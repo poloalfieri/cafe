@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import threading
 import uuid
 from ..utils.logger import setup_logger
+from ..services.order_service import order_service
 
 logger = setup_logger(__name__)
 
@@ -126,6 +127,17 @@ class WaiterService:
             logger.error(f"Error al crear llamada: {str(e)}")
             raise Exception("Error interno del servidor")
 
+    def update_call_status_with_effects(self, call_id: str, new_status: str) -> Optional[Dict]:
+        updated = self.update_call_status_by_id(call_id, new_status)
+        if updated and new_status == "COMPLETED":
+            try:
+                mesa_id = updated.get("mesa_id")
+                if mesa_id:
+                    order_service.mark_latest_order_paid_for_mesa(mesa_id)
+            except Exception:
+                pass
+        return updated
+
     def get_all_calls(self, status: Optional[str] = None) -> List[Dict]:
         """
         Obtener todas las llamadas al mozo, opcionalmente filtradas por estado
@@ -184,36 +196,7 @@ class WaiterService:
             Exception: Si hay error interno
         """
         try:
-            if new_status not in self.VALID_STATUSES:
-                raise ValueError(
-                    f"Status debe ser uno de: {', '.join(self.VALID_STATUSES)}"
-                )
-
-            with self._lock:
-                current = self._calls.get(call_id)
-                if not current:
-                    logger.warning(f"Llamada no encontrada: {call_id}")
-                    return None
-
-                current_status = current.get('status')
-
-                # Validar transicion
-                allowed = self.ALLOWED_TRANSITIONS.get(current_status, [])
-                if new_status not in allowed:
-                    raise ValueError(
-                        f"Transicion no permitida: {current_status} -> {new_status}. "
-                        f"Transiciones validas desde {current_status}: {allowed or 'ninguna'}"
-                    )
-
-                current['status'] = new_status
-                current['updated_at'] = self._now_iso()
-                updated_call = dict(current)
-
-            logger.info(
-                f"Estado de llamada actualizado - call_id: {call_id}, "
-                f"{current_status} -> {new_status}"
-            )
-
+            updated_call = self.update_call_status_by_id(call_id, new_status)
             return updated_call
 
         except ValueError:
@@ -221,6 +204,39 @@ class WaiterService:
         except Exception as e:
             logger.error(f"Error al actualizar llamada: {str(e)}")
             raise Exception("Error interno del servidor")
+
+    def update_call_status_by_id(self, call_id: str, new_status: str) -> Optional[Dict]:
+        if new_status not in self.VALID_STATUSES:
+            raise ValueError(
+                f"Status debe ser uno de: {', '.join(self.VALID_STATUSES)}"
+            )
+
+        with self._lock:
+            current = self._calls.get(call_id)
+            if not current:
+                logger.warning(f"Llamada no encontrada: {call_id}")
+                return None
+
+            current_status = current.get('status')
+
+            # Validar transicion
+            allowed = self.ALLOWED_TRANSITIONS.get(current_status, [])
+            if new_status not in allowed:
+                raise ValueError(
+                    f"Transicion no permitida: {current_status} -> {new_status}. "
+                    f"Transiciones validas desde {current_status}: {allowed or 'ninguna'}"
+                )
+
+            current['status'] = new_status
+            current['updated_at'] = self._now_iso()
+            updated_call = dict(current)
+
+        logger.info(
+            f"Estado de llamada actualizado - call_id: {call_id}, "
+            f"{current_status} -> {new_status}"
+        )
+
+        return updated_call
 
     def delete_call(self, call_id: str) -> Optional[Dict]:
         """

@@ -77,18 +77,10 @@ def update_waiter_call_status(call_id):
         if not data or 'status' not in data:
             return jsonify({'error': 'status es requerido'}), 400
 
-        updated_call = waiter_service.update_call_status(call_id, data['status'])
+        updated_call = waiter_service.update_call_status_with_effects(call_id, data['status'])
 
         if not updated_call:
             return jsonify({'error': 'Llamada no encontrada'}), 404
-
-        if data['status'] == 'COMPLETED':
-            try:
-                mesa_id = updated_call.get('mesa_id')
-                if mesa_id:
-                    order_service.mark_latest_order_paid_for_mesa(mesa_id)
-            except Exception:
-                pass
 
         return jsonify({
             'success': True,
