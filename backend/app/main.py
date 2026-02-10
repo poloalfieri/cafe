@@ -32,7 +32,6 @@ def create_app():
                 "orders": "/orders",
                 "payments": "/payment",
                 "menu": "/menu",
-                "products": "/products",
                 "mesas": "/mesas",
                 "metrics": "/metrics"
             }

@@ -60,7 +60,7 @@ export default function RecipePage() {
 
   const fetchProduct = async () => {
     try {
-      const productResponse = await api.get(`/api/products/${productId}`)
+      const productResponse = await api.get(`/api/menu/${productId}`)
       setProduct(productResponse.data)
     } catch (error) {
       console.error('Failed to fetch product:', error)
