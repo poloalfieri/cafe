@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, ShoppingCart, RefreshCw, Search, Heart, Plus, Minus, Trash2 } from "lucide-react"
+import { Bell, ShoppingCart, RefreshCw, Search, Plus, Minus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart, Product } from "@/contexts/cart-context"
 import Link from "next/link"
@@ -33,7 +33,6 @@ export default function MenuView() {
   const [showCallWaiterModal, setShowCallWaiterModal] = useState<boolean>(false)
   const [showInstructionsModal, setShowInstructionsModal] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
-  const [likedItems, setLikedItems] = useState<string[]>([])
   const t = useTranslations("usuario.menu")
   useEffect(() => {
     setSelectedCategory(t("all"))
@@ -232,7 +231,7 @@ export default function MenuView() {
             </div>
 
             {/* Actions con mejor contraste - botón de mozo más llamativo */}
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-2">
               <Button 
                 onClick={handleCallWaiter}
                 className="rounded-full bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
@@ -342,14 +341,6 @@ export default function MenuView() {
                       <div className="flex items-center gap-4">
                         {/* Product Image */}
                         <div className="relative w-20 h-20 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="absolute top-1 right-1 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card w-6 h-6"
-                            onClick={() => toggleLike(product.id)}
-                          >
-                            <Heart className={`w-3 h-3 ${isLiked(product.id) ? 'fill-primary text-primary' : 'text-muted-foreground'}`} />
-                          </Button>
                           {product.image ? (
                             <img 
                               src={product.image} 
