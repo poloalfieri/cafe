@@ -10,6 +10,7 @@ import secrets
 from ..db.supabase_client import supabase
 from ..utils.logger import setup_logger
 from ..utils.token_manager import generate_token, validate_token, renew_token
+from ..utils.retry import execute_with_retry
 
 logger = setup_logger(__name__)
 
@@ -28,7 +29,7 @@ class MesaService:
             query = supabase.table("mesas").select("*")
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             mesas = response.data or []
 
             def mesa_sort_key(mesa: Dict):
@@ -52,12 +53,14 @@ class MesaService:
         Obtener una mesa por su ID
         """
         try:
-            response = (
-                supabase.table("mesas")
-                .select("*")
-                .eq("mesa_id", mesa_id)
-                .execute()
-            )
+            def _run():
+                return (
+                    supabase.table("mesas")
+                    .select("*")
+                    .eq("mesa_id", mesa_id)
+                    .execute()
+                )
+            response = execute_with_retry(_run)
             data = response.data or []
             if not data:
                 logger.warning(f"Mesa no encontrada: {mesa_id}")

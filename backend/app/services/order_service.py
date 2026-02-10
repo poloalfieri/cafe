@@ -9,6 +9,7 @@ from ..db.supabase_client import supabase
 from ..db.models import OrderStatus
 from ..utils.token_manager import validate_token, renew_token, invalidate_token
 from ..utils.logger import setup_logger
+from ..utils.retry import execute_with_retry
 
 logger = setup_logger(__name__)
 
@@ -30,7 +31,7 @@ class OrderService:
             query = supabase.table("orders").select("*")
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
             orders.sort(
                 key=lambda order: order.get("created_at")
@@ -75,12 +76,14 @@ class OrderService:
             Lista de pedidos de la mesa
         """
         try:
-            response = (
-                supabase.table("orders")
-                .select("*")
-                .eq("mesa_id", mesa_id)
-                .execute()
-            )
+            def _run():
+                return (
+                    supabase.table("orders")
+                    .select("*")
+                    .eq("mesa_id", mesa_id)
+                    .execute()
+                )
+            response = execute_with_retry(_run)
             orders = response.data or []
             orders.sort(
                 key=lambda order: order.get("created_at")
@@ -106,12 +109,14 @@ class OrderService:
         """
         try:
             status_value = status.value if hasattr(status, "value") else str(status)
-            response = (
-                supabase.table("orders")
-                .select("*")
-                .eq("status", status_value)
-                .execute()
-            )
+            def _run():
+                return (
+                    supabase.table("orders")
+                    .select("*")
+                    .eq("status", status_value)
+                    .execute()
+                )
+            response = execute_with_retry(_run)
             orders = response.data or []
             orders.sort(
                 key=lambda order: order.get("created_at")
@@ -130,14 +135,16 @@ class OrderService:
         Actualizar el método de pago del último pedido de una mesa.
         """
         try:
-            response = (
-                supabase.table("orders")
-                .select("id, creation_date, created_at")
-                .eq("mesa_id", mesa_id)
-                .order("creation_date", desc=True)
-                .limit(1)
-                .execute()
-            )
+            def _run():
+                return (
+                    supabase.table("orders")
+                    .select("id, creation_date, created_at")
+                    .eq("mesa_id", mesa_id)
+                    .order("creation_date", desc=True)
+                    .limit(1)
+                    .execute()
+                )
+            response = execute_with_retry(_run)
             data = response.data or []
             if not data:
                 return
@@ -438,12 +445,14 @@ class OrderService:
 
     def _get_order_raw(self, order_id: str) -> Optional[Dict]:
         try:
-            response = (
-                supabase.table("orders")
-                .select("*")
-                .eq("id", order_id)
-                .execute()
-            )
+            def _run():
+                return (
+                    supabase.table("orders")
+                    .select("*")
+                    .eq("id", order_id)
+                    .execute()
+                )
+            response = execute_with_retry(_run)
             data = response.data or []
             return data[0] if data else None
         except Exception as e:

@@ -1,16 +1,20 @@
 from typing import Dict, List, Optional, Tuple
 from ..db.supabase_client import supabase
+from ..utils.retry import execute_with_retry
 
 
 class BranchesService:
     def _get_membership(self, user_id: str) -> Optional[Dict]:
-        resp = (
-            supabase.table("restaurant_users")
-            .select("restaurant_id, branch_id")
-            .eq("user_id", user_id)
-            .limit(1)
-            .execute()
-        )
+        def _run():
+            return (
+                supabase.table("restaurant_users")
+                .select("restaurant_id, branch_id")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+
+        resp = execute_with_retry(_run)
         return (resp.data or [None])[0]
 
     def list_branches(self, user_id: str) -> List[Dict]:
@@ -18,13 +22,16 @@ class BranchesService:
         if not membership:
             return []
         restaurant_id = membership.get("restaurant_id")
-        resp = (
-            supabase.table("branches")
-            .select("*")
-            .eq("restaurant_id", restaurant_id)
-            .order("created_at", desc=False)
-            .execute()
-        )
+        def _run():
+            return (
+                supabase.table("branches")
+                .select("*")
+                .eq("restaurant_id", restaurant_id)
+                .order("created_at", desc=False)
+                .execute()
+            )
+
+        resp = execute_with_retry(_run)
         return resp.data or []
 
     def create_branch(self, user_id: str, payload: Dict) -> Dict:
@@ -61,13 +68,16 @@ class BranchesService:
             raise LookupError("Usuario sin restaurante asociado")
 
         restaurant_id = membership.get("restaurant_id")
-        existing = (
-            supabase.table("branches")
-            .select("id, restaurant_id")
-            .eq("id", branch_id)
-            .limit(1)
-            .execute()
-        )
+        def _run_existing():
+            return (
+                supabase.table("branches")
+                .select("id, restaurant_id")
+                .eq("id", branch_id)
+                .limit(1)
+                .execute()
+            )
+
+        existing = execute_with_retry(_run_existing)
         current = (existing.data or [None])[0]
         if not current or current.get("restaurant_id") != restaurant_id:
             raise LookupError("Sucursal no encontrada")
@@ -108,22 +118,26 @@ class BranchesService:
         restaurant_id = membership.get("restaurant_id")
 
         if branch_id:
-            branch_resp = (
-                supabase.table("branches")
-                .select("id, name, restaurant_id")
-                .eq("id", branch_id)
-                .limit(1)
-                .execute()
-            )
+            def _run_branch():
+                return (
+                    supabase.table("branches")
+                    .select("id, name, restaurant_id")
+                    .eq("id", branch_id)
+                    .limit(1)
+                    .execute()
+                )
+            branch_resp = execute_with_retry(_run_branch)
         else:
-            branch_resp = (
-                supabase.table("branches")
-                .select("id, name, restaurant_id")
-                .eq("restaurant_id", restaurant_id)
-                .order("created_at", desc=False)
-                .limit(1)
-                .execute()
-            )
+            def _run_branch_fallback():
+                return (
+                    supabase.table("branches")
+                    .select("id, name, restaurant_id")
+                    .eq("restaurant_id", restaurant_id)
+                    .order("created_at", desc=False)
+                    .limit(1)
+                    .execute()
+                )
+            branch_resp = execute_with_retry(_run_branch_fallback)
 
         branch = (branch_resp.data or [None])[0]
         if not branch:

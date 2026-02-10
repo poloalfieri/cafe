@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional
 from ..db.supabase_client import supabase
+from ..utils.retry import execute_with_retry
 
 class MetricsService:
     @staticmethod
@@ -23,7 +24,7 @@ class MetricsService:
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
 
             daily_sales = 0.0
@@ -59,12 +60,14 @@ class MetricsService:
             top_list.sort(key=lambda x: (-x["quantity"], -x["revenue"], x["name"]))
             top_list = top_list[:5]
 
-            ingredients_resp = (
-                supabase.table("ingredients")
-                .select("current_stock, min_stock, track_stock, restaurant_id")
-                .eq("restaurant_id", restaurant_id)
-                .execute()
-            )
+            def _run_ingredients():
+                return (
+                    supabase.table("ingredients")
+                    .select("current_stock, min_stock, track_stock, restaurant_id")
+                    .eq("restaurant_id", restaurant_id)
+                    .execute()
+                )
+            ingredients_resp = execute_with_retry(_run_ingredients)
             ingredients = ingredients_resp.data or []
             total_ingredients = len(ingredients)
             low_stock_items = 0
@@ -116,7 +119,7 @@ class MetricsService:
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
 
             # Mapear por mes (últimos 12)
@@ -163,7 +166,7 @@ class MetricsService:
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
 
             accepted = 0
@@ -197,7 +200,7 @@ class MetricsService:
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
 
             labels = []
@@ -239,7 +242,7 @@ class MetricsService:
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
-            response = query.execute()
+            response = execute_with_retry(query.execute)
             orders = response.data or []
 
             counts = {
