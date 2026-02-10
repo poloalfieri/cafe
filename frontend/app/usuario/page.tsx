@@ -15,7 +15,7 @@ function UsuarioPageContent() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
     ;(async () => {
       try {
-        const res = await fetch(`${backendUrl}/mesa/session/start`, {
+        const res = await fetch(`${backendUrl}/mesas/session`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

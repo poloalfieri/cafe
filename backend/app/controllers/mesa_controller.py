@@ -10,9 +10,9 @@ from ..middleware.auth import require_auth, require_roles
 
 logger = setup_logger(__name__)
 
-mesa_bp = Blueprint("mesa", __name__, url_prefix="/mesa")
+mesa_bp = Blueprint("mesas", __name__, url_prefix="/mesas")
 
-@mesa_bp.route("/list", methods=["GET"])
+@mesa_bp.route("", methods=["GET"])
 @require_auth
 @require_roles('desarrollador', 'admin', 'caja')
 def list_mesas():
@@ -30,7 +30,7 @@ def list_mesas():
         logger.error(f"Error listando mesas: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
-@mesa_bp.route("/<mesa_id>/status", methods=["PUT"])
+@mesa_bp.route("/<mesa_id>", methods=["PATCH"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def update_mesa_status(mesa_id):
@@ -54,7 +54,7 @@ def update_mesa_status(mesa_id):
         logger.error(f"Error actualizando estado de mesa: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
-@mesa_bp.route("/generate-token/<mesa_id>", methods=["POST"])
+@mesa_bp.route("/<mesa_id>/token", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def generate_mesa_token(mesa_id):
@@ -73,7 +73,7 @@ def generate_mesa_token(mesa_id):
         logger.error(f"Error generando token: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
-@mesa_bp.route("/validate-token/<mesa_id>", methods=["POST"])
+@mesa_bp.route("/<mesa_id>/token/validate", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def validate_mesa_token(mesa_id):
@@ -95,7 +95,7 @@ def validate_mesa_token(mesa_id):
         logger.error(f"Error validando token: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
-@mesa_bp.route("/renew-token/<mesa_id>", methods=["POST"])
+@mesa_bp.route("/<mesa_id>/token/renew", methods=["POST"])
 @require_auth
 @require_roles('desarrollador', 'admin')
 def renew_mesa_token(mesa_id):
@@ -115,7 +115,7 @@ def renew_mesa_token(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
         return jsonify({"error": str(e)}), 500 
 
-@mesa_bp.route("/session/start", methods=["POST"])
+@mesa_bp.route("/session", methods=["POST"])
 def start_mesa_session():
     """Obtener o crear un token de sesión para una mesa (clientes)"""
     try:

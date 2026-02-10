@@ -60,7 +60,7 @@ export default function TestSessionPage() {
   const startWithMesa = async (mesaId: string) => {
     try {
       setError(null)
-      const response = await fetch(`${backendUrl}/mesa/session/start`, {
+      const response = await fetch(`${backendUrl}/mesas/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -33,7 +33,7 @@ def create_app():
                 "payments": "/payment",
                 "menu": "/menu",
                 "products": "/products",
-                "mesas": "/mesa",
+                "mesas": "/mesas",
                 "metrics": "/metrics"
             }
         })

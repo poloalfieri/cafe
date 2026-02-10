@@ -125,7 +125,7 @@ export default function CajeroDashboard() {
     try {
       const authHeader = await getClientAuthHeaderAsync()
       // Fetch mesas
-      const mesasResponse = await fetch(`${backendUrl}/mesa/list`, {
+      const mesasResponse = await fetch(`${backendUrl}/mesas`, {
         headers: {
           ...authHeader,
         },
@@ -282,7 +282,7 @@ export default function CajeroDashboard() {
       )
       
       // Aquí podrías hacer la llamada al backend:
-      // const response = await fetch(`http://localhost:5001/mesa/${mesaId}/status`, {
+      // const response = await fetch(`http://localhost:5001/mesas/${mesaId}`, {
       //   method: "PUT",
       //   headers: { "Content-Type": "application/json" },
       //   body: JSON.stringify({ is_active: newStatus })

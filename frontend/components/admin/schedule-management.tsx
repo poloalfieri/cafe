@@ -35,7 +35,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
 
-      const mesasResponse = await fetch(`${backendUrl}/mesa/list${query}`, {
+      const mesasResponse = await fetch(`${backendUrl}/mesas${query}`, {
         headers: {
           ...authHeader,
         },
