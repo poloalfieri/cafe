@@ -114,32 +114,3 @@ def delete_waiter_call(call_id):
     except Exception as e:
         logger.error(f"Error cancelando llamada: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500
-
-@waiter_bp.route('/notificar-mozo', methods=['POST'])
-def notificar_mozo():
-    """
-    Notificar al mozo con motivo especifico (pago_efectivo, pago_tarjeta, pago_qr).
-    Delega a la misma logica de creacion que /waiter/calls.
-    """
-    try:
-        data = request.get_json()
-        mesa_id = data.get('mesa_id') if data else None
-        token = data.get('token') if data else None
-        if not mesa_id or not token or not validate_token(mesa_id, token):
-            return jsonify({'error': 'Token de mesa invalido o requerido'}), 401
-        notification, already_pending = waiter_service.create_notification(data)
-        status_code = 200 if already_pending else 201
-        message = 'Llamada al mozo ya estaba pendiente' if already_pending else 'Notificacion al mozo enviada exitosamente'
-
-        return jsonify({
-            'success': True,
-            'message': message,
-            'already_pending': already_pending,
-            'notification': notification
-        }), status_code
-
-    except ValueError as e:
-        return jsonify({'error': str(e)}), 400
-    except Exception as e:
-        logger.error(f"Error notificando al mozo: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500

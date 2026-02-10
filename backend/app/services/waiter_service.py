@@ -48,8 +48,7 @@ class WaiterService:
     def create_waiter_call(self, data: Dict) -> Tuple[Dict, bool]:
         """
         Crear una nueva llamada al mozo.
-        Punto unico de creacion usado tanto por /waiter/calls como
-        por /waiter/notificar-mozo.
+        Punto unico de creacion usado por /waiter/calls.
 
         Args:
             data: Diccionario con mesa_id, payment_method (o motivo),
@@ -274,23 +273,6 @@ class WaiterService:
         except Exception as e:
             logger.error(f"Error al cancelar llamada: {str(e)}")
             raise Exception("Error interno del servidor")
-
-    def create_notification(self, data: Dict) -> Tuple[Dict, bool]:
-        """
-        Crear una notificacion al mozo con motivo especifico.
-        Delega a create_waiter_call para usar un unico punto de creacion.
-
-        Args:
-            data: Diccionario con mesa_id, motivo, usuario_id y message opcionales
-
-        Returns:
-            Diccionario con la llamada creada
-
-        Raises:
-            ValueError: Si los datos son invalidos
-            Exception: Si hay error en la base de datos
-        """
-        return self.create_waiter_call(data)
 
     # Metodos privados de validacion
 
