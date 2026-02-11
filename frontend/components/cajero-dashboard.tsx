@@ -261,7 +261,7 @@ export default function CajeroDashboard() {
       if (response.ok) {
         setWaiterCalls(prev => prev.filter(call => call.id !== callId))
         if (newStatus === "COMPLETED") {
-          fetchData()
+          fetchData(branchId)
         }
       } else {
         const errorData = await response.json()
@@ -273,8 +273,8 @@ export default function CajeroDashboard() {
   }
 
   const refreshData = () => {
-    fetchData()
-    fetchWaiterCalls()
+    fetchData(branchId)
+    fetchWaiterCalls(branchId)
   }
 
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
