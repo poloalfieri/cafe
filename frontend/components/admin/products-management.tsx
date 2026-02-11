@@ -29,13 +29,26 @@ interface Product {
   image_url?: string | null
 }
 
-export default function ProductsManagement() {
+interface Category {
+  id: string
+  name: string
+  active: boolean
+}
+
+interface ProductsManagementProps {
+  branchId?: string
+}
+
+export default function ProductsManagement({ branchId }: ProductsManagementProps) {
   const t = useTranslations("admin.products")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoryInput, setCategoryInput] = useState("")
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -46,21 +59,19 @@ export default function ProductsManagement() {
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
 
-  const categories = [
-    { key: "beverages", label: t("categories.beverages") },
-    { key: "coffee", label: t("categories.coffee") },
-    { key: "bakery", label: t("categories.bakery") },
-    { key: "mainDishes", label: t("categories.mainDishes") },
-    { key: "starters", label: t("categories.starters") },
-    { key: "desserts", label: t("categories.desserts") },
-    { key: "specialties", label: t("categories.specialties") }
-  ]
-
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
 
   useEffect(() => {
     fetchProducts()
   }, [])
+
+  useEffect(() => {
+    if (!branchId) {
+      setCategories([])
+      return
+    }
+    fetchCategories(branchId)
+  }, [branchId])
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -84,6 +95,64 @@ export default function ProductsManagement() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCategories = async (currentBranchId: string) => {
+    setCategoriesLoading(true)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${currentBranchId}`, {
+        headers: { ...authHeader }
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      const list = Array.isArray(data?.categories) ? data.categories : []
+      setCategories(list)
+    } catch (_) {
+      setCategories([])
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    const name = categoryInput.trim()
+    if (!name) return
+    if (!branchId) {
+      toast({
+        title: t("toast.errorTitle"),
+        description: t("categories.branchRequired"),
+        variant: "destructive"
+      })
+      return
+    }
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/menu-categories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({ name, branch_id: branchId })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data?.error || t("categories.createError"))
+      }
+      setCategoryInput("")
+      await fetchCategories(branchId)
+      setFormData({ ...formData, category: data?.category?.name || name })
+      toast({ title: t("toast.successTitle"), description: t("categories.created") })
+    } catch (error: any) {
+      toast({
+        title: t("toast.errorTitle"),
+        description: error?.message || t("categories.createError"),
+        variant: "destructive"
+      })
     }
   }
 
@@ -318,13 +387,34 @@ export default function ProductsManagement() {
                       <SelectValue placeholder={t("form.categoryPlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.key} value={category.label}>
-                          {category.label}
+                      {categories.filter((c) => c.active !== false).map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
                         </SelectItem>
                       ))}
+                      {categories.length === 0 && (
+                        <SelectItem value="__empty__" disabled>
+                          {categoriesLoading ? t("categories.loading") : t("categories.empty")}
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={categoryInput}
+                      onChange={(e) => setCategoryInput(e.target.value)}
+                      placeholder={t("categories.newPlaceholder")}
+                      className="border-gray-300 focus:border-gray-900 focus:ring-gray-900"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      variant="outline"
+                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      {t("categories.add")}
+                    </Button>
+                  </div>
                 </div>
               </div>
               

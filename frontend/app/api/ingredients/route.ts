@@ -3,6 +3,39 @@ import { ingredientSchema, paginationSchema } from '@/lib/validation'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { requireStaffAuth } from '@/lib/api-auth'
 
+async function resolveMembership(supabase: ReturnType<typeof getSupabaseAdmin>, userId: string, branchIdParam?: string | null) {
+  const { data, error } = await supabase
+    .from('restaurant_users')
+    .select('restaurant_id, branch_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single()
+
+  if (error || !data?.restaurant_id) {
+    throw new Error('Usuario sin restaurante asociado')
+  }
+
+  let branchId = branchIdParam || data.branch_id
+  if (!branchId) {
+    throw new Error('branch_id requerido')
+  }
+
+  if (branchIdParam && branchIdParam !== data.branch_id) {
+    const branchResp = await supabase
+      .from('branches')
+      .select('id, restaurant_id')
+      .eq('id', branchIdParam)
+      .limit(1)
+      .single()
+    if (branchResp.error || !branchResp.data || branchResp.data.restaurant_id !== data.restaurant_id) {
+      throw new Error('Sucursal no encontrada')
+    }
+    branchId = branchIdParam
+  }
+
+  return { restaurantId: data.restaurant_id as string, branchId }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
@@ -16,13 +49,17 @@ export async function GET(request: NextRequest) {
       pageSize: searchParams.get('pageSize'),
       search: searchParams.get('search')
     })
+    const branchIdParam = searchParams.get('branch_id')
 
     const skip = (page - 1) * pageSize
     const supabase = getSupabaseAdmin()
+    const { restaurantId, branchId } = await resolveMembership(supabase, auth.user.id, branchIdParam)
 
     let query = supabase
       .from('ingredients')
       .select('*', { count: 'exact' })
+      .eq('restaurant_id', restaurantId)
+      .eq('branch_id', branchId)
       .order('name', { ascending: true })
       .range(skip, skip + pageSize - 1)
 
@@ -71,8 +108,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    const branchIdParam = body?.branch_id
     const validatedData = ingredientSchema.parse(body)
     const supabase = getSupabaseAdmin()
+    const { restaurantId, branchId } = await resolveMembership(supabase, auth.user.id, branchIdParam)
     const { data, error } = await supabase
       .from('ingredients')
       .insert({
@@ -81,7 +120,9 @@ export async function POST(request: NextRequest) {
         current_stock: validatedData.currentStock.toFixed(2),
         unit_cost: validatedData.unitCost != null ? validatedData.unitCost.toFixed(2) : null,
         min_stock: validatedData.minStock.toFixed(2),
-        track_stock: validatedData.trackStock
+        track_stock: validatedData.trackStock,
+        restaurant_id: restaurantId,
+        branch_id: branchId
       })
       .select()
       .single()

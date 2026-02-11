@@ -16,8 +16,34 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const id = params.id
     const body = await request.json()
+    const branchIdParam = body?.branch_id
     const validatedData = ingredientUpdateSchema.parse(body)
     const supabase = getSupabaseAdmin()
+    const membership = await supabase
+      .from('restaurant_users')
+      .select('restaurant_id, branch_id')
+      .eq('user_id', auth.user.id)
+      .limit(1)
+      .single()
+    if (membership.error || !membership.data?.restaurant_id) {
+      return NextResponse.json({ error: 'Usuario sin restaurante asociado' }, { status: 404 })
+    }
+    let branchId = branchIdParam || membership.data.branch_id
+    if (!branchId) {
+      return NextResponse.json({ error: 'branch_id requerido' }, { status: 400 })
+    }
+    if (branchIdParam && branchIdParam !== membership.data.branch_id) {
+      const branchResp = await supabase
+        .from('branches')
+        .select('id, restaurant_id')
+        .eq('id', branchIdParam)
+        .limit(1)
+        .single()
+      if (branchResp.error || !branchResp.data || branchResp.data.restaurant_id !== membership.data.restaurant_id) {
+        return NextResponse.json({ error: 'Sucursal no encontrada' }, { status: 404 })
+      }
+      branchId = branchIdParam
+    }
     const updateData: any = {}
     if (validatedData.name !== undefined) updateData.name = validatedData.name
     if (validatedData.unit !== undefined) updateData.unit = validatedData.unit
@@ -30,6 +56,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('ingredients')
       .update(updateData)
       .eq('id', id)
+      .eq('restaurant_id', membership.data.restaurant_id)
+      .eq('branch_id', branchId)
       .select()
       .single()
 
@@ -100,6 +128,33 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     const id = params.id
     const supabase = getSupabaseAdmin()
+    const body = await request.json().catch(() => ({}))
+    const branchIdParam = body?.branch_id
+    const membership = await supabase
+      .from('restaurant_users')
+      .select('restaurant_id, branch_id')
+      .eq('user_id', auth.user.id)
+      .limit(1)
+      .single()
+    if (membership.error || !membership.data?.restaurant_id) {
+      return NextResponse.json({ error: 'Usuario sin restaurante asociado' }, { status: 404 })
+    }
+    let branchId = branchIdParam || membership.data.branch_id
+    if (!branchId) {
+      return NextResponse.json({ error: 'branch_id requerido' }, { status: 400 })
+    }
+    if (branchIdParam && branchIdParam !== membership.data.branch_id) {
+      const branchResp = await supabase
+        .from('branches')
+        .select('id, restaurant_id')
+        .eq('id', branchIdParam)
+        .limit(1)
+        .single()
+      if (branchResp.error || !branchResp.data || branchResp.data.restaurant_id !== membership.data.restaurant_id) {
+        return NextResponse.json({ error: 'Sucursal no encontrada' }, { status: 404 })
+      }
+      branchId = branchIdParam
+    }
 
     const { count, error: countError } = await supabase
       .from('recipes')
@@ -118,6 +173,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .from('ingredients')
       .delete()
       .eq('id', id)
+      .eq('restaurant_id', membership.data.restaurant_id)
+      .eq('branch_id', branchId)
 
     if (error) throw error
 

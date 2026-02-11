@@ -45,7 +45,11 @@ interface IngredientFormData {
   trackStock: boolean
 }
 
-export default function IngredientsManagement() {
+interface IngredientsManagementProps {
+  branchId?: string
+}
+
+export default function IngredientsManagement({ branchId }: IngredientsManagementProps) {
   const t = useTranslations("admin.ingredients")
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
@@ -66,7 +70,14 @@ export default function IngredientsManagement() {
   const fetchIngredients = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/ingredients?page=${page}&search=${searchTerm}`)
+      const params = new URLSearchParams({
+        page: String(page),
+        search: searchTerm
+      })
+      if (branchId) {
+        params.set('branch_id', branchId)
+      }
+      const response = await api.get(`/api/ingredients?${params.toString()}`)
       setIngredients(response.data.ingredients)
       setTotalPages(response.data.pagination.totalPages)
     } catch (error) {
@@ -83,19 +94,25 @@ export default function IngredientsManagement() {
 
   useEffect(() => {
     fetchIngredients()
-  }, [page, searchTerm])
+  }, [page, searchTerm, branchId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       if (editingId) {
-        await api.patch(`/api/ingredients/${editingId}`, formData)
+        await api.patch(`/api/ingredients/${editingId}`, {
+          ...formData,
+          branch_id: branchId
+        })
         toast({
           title: t("toast.successTitle"),
           description: t("toast.updated")
         })
       } else {
-        await api.post('/api/ingredients', formData)
+        await api.post('/api/ingredients', {
+          ...formData,
+          branch_id: branchId
+        })
         toast({
           title: t("toast.successTitle"),
           description: t("toast.created")
@@ -132,7 +149,9 @@ export default function IngredientsManagement() {
     if (!confirm(t("confirmDelete"))) return
     
     try {
-      await api.delete(`/api/ingredients/${id}`)
+      await api.delete(`/api/ingredients/${id}`, {
+        branch_id: branchId
+      })
       toast({
         title: t("toast.successTitle"),
         description: t("toast.deleted")

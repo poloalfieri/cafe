@@ -57,7 +57,17 @@ interface NewProductForm {
   description: string
 }
 
-export default function RecipiesManagement() {
+interface Category {
+  id: string
+  name: string
+  active: boolean
+}
+
+interface RecipiesManagementProps {
+  branchId?: string
+}
+
+export default function RecipiesManagement({ branchId }: RecipiesManagementProps) {
   const t = useTranslations("admin.recipes")
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -70,6 +80,8 @@ export default function RecipiesManagement() {
   const [selectedIngredientId, setSelectedIngredientId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [productSearch, setProductSearch] = useState('')
+  const [categories, setCategories] = useState<Category[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [newProductForm, setNewProductForm] = useState<NewProductForm>({
     name: '',
     category: '',
@@ -112,7 +124,11 @@ export default function RecipiesManagement() {
 
   const fetchIngredients = async () => {
     try {
-      const response = await api.get('/api/ingredients?pageSize=1000')
+      const params = new URLSearchParams({ pageSize: '1000' })
+      if (branchId) {
+        params.set('branch_id', branchId)
+      }
+      const response = await api.get(`/api/ingredients?${params.toString()}`)
       // API shape: { data: { ingredients: [...] } }
       const list = (response as any).data?.ingredients || []
       setIngredients(list)
@@ -132,6 +148,26 @@ export default function RecipiesManagement() {
     }
   }
 
+  const fetchCategories = async (currentBranchId: string) => {
+    setCategoriesLoading(true)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${currentBranchId}`, {
+        headers: { ...authHeader }
+      })
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      const list = Array.isArray(data?.categories) ? data.categories : []
+      setCategories(list)
+    } catch (_) {
+      setCategories([])
+    } finally {
+      setCategoriesLoading(false)
+    }
+  }
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true)
@@ -139,7 +175,15 @@ export default function RecipiesManagement() {
       setLoading(false)
     }
     loadData()
-  }, [])
+  }, [branchId])
+
+  useEffect(() => {
+    if (!branchId) {
+      setCategories([])
+      return
+    }
+    fetchCategories(branchId)
+  }, [branchId])
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
@@ -303,7 +347,23 @@ export default function RecipiesManagement() {
                 </div>
                 <div>
                   <Label htmlFor="category">{t("form.category")}</Label>
-                  <Input id="category" value={newProductForm.category} onChange={(e) => setNewProductForm({ ...newProductForm, category: e.target.value })} placeholder={t("form.categoryPlaceholder")} required />
+                  <Select value={newProductForm.category} onValueChange={(value) => setNewProductForm({ ...newProductForm, category: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={t("form.categoryPlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.filter((c) => c.active !== false).map((category) => (
+                        <SelectItem key={category.id} value={category.name}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                      {categories.length === 0 && (
+                        <SelectItem value="__empty__" disabled>
+                          {categoriesLoading ? t("categories.loading") : t("categories.empty")}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="price">{t("form.price")}</Label>
