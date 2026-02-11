@@ -472,12 +472,12 @@ export default function BranchesManagement() {
               </div>
               <div>
                 <Label htmlFor="edit-address">{t("form.address")}</Label>
-                <Textarea
-                  id="edit-address"
-                  value={editingBranch.address}
+                  <Textarea
+                    id="edit-address"
+                  value={editingBranch.address ?? ""}
                   onChange={(e) => setEditingBranch({...editingBranch, address: e.target.value})}
-                  rows={2}
-                />
+                    rows={2}
+                  />
               </div>
               <div>
                 <Label htmlFor="edit-manager">{t("form.manager")}</Label>

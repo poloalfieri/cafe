@@ -3,6 +3,21 @@ import { recipeSchema, recipeUpdateSchema, recipeDeleteSchema } from '@/lib/vali
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { requireStaffAuth } from '@/lib/api-auth'
 
+async function resolveRestaurantId(supabase: ReturnType<typeof getSupabaseAdmin>, userId: string) {
+  const { data, error } = await supabase
+    .from('restaurant_users')
+    .select('restaurant_id')
+    .eq('user_id', userId)
+    .limit(1)
+    .single()
+
+  if (error || !data?.restaurant_id) {
+    throw new Error('Usuario sin restaurante asociado')
+  }
+
+  return data.restaurant_id as string
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireStaffAuth(request, ['desarrollador', 'admin'])
@@ -21,10 +36,12 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = getSupabaseAdmin()
+    const restaurantId = await resolveRestaurantId(supabase, auth.user.id)
     const { data, error } = await supabase
       .from('recipes')
       .select(`ingredient_id, quantity, ingredient:ingredients ( id, name, unit, unit_cost )`)
       .eq('product_id', productId)
+      .eq('restaurant_id', restaurantId)
 
     if (error) throw error
 
@@ -57,12 +74,14 @@ export async function POST(request: NextRequest) {
     const validatedData = recipeSchema.parse(body)
 
     const supabase = getSupabaseAdmin()
+    const restaurantId = await resolveRestaurantId(supabase, auth.user.id)
     const { data, error } = await supabase
       .from('recipes')
       .insert({
         product_id: validatedData.productId.toString(),
         ingredient_id: validatedData.ingredientId.toString(),
-        quantity: validatedData.quantity.toFixed(2)
+        quantity: validatedData.quantity.toFixed(2),
+        restaurant_id: restaurantId
       })
       .select(`ingredient:ingredients ( name, unit, unit_cost ), ingredient_id, quantity`)
       .single()
@@ -132,12 +151,14 @@ export async function PATCH(request: NextRequest) {
     const validatedData = recipeUpdateSchema.parse(body)
 
     const supabase = getSupabaseAdmin()
+    const restaurantId = await resolveRestaurantId(supabase, auth.user.id)
     const { data, error } = await supabase
       .from('recipes')
       .update({ quantity: validatedData.quantity.toFixed(2) })
       .match({
         product_id: validatedData.productId.toString(),
-        ingredient_id: validatedData.ingredientId.toString()
+        ingredient_id: validatedData.ingredientId.toString(),
+        restaurant_id: restaurantId
       })
       .select(`ingredient:ingredients ( name, unit, unit_cost ), ingredient_id, quantity`)
       .single()
@@ -195,12 +216,14 @@ export async function DELETE(request: NextRequest) {
     const validatedData = recipeDeleteSchema.parse(body)
 
     const supabase = getSupabaseAdmin()
+    const restaurantId = await resolveRestaurantId(supabase, auth.user.id)
     const { error } = await supabase
       .from('recipes')
       .delete()
       .match({
         product_id: validatedData.productId.toString(),
-        ingredient_id: validatedData.ingredientId.toString()
+        ingredient_id: validatedData.ingredientId.toString(),
+        restaurant_id: restaurantId
       })
 
     if (error) {

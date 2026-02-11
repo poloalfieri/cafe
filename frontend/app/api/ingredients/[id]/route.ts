@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
-    const id = params.id
+    const { id } = await Promise.resolve(params)
     const body = await request.json()
     const branchIdParam = body?.branch_id
     const validatedData = ingredientUpdateSchema.parse(body)
@@ -126,7 +126,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
-    const id = params.id
+    const { id } = await Promise.resolve(params)
     const supabase = getSupabaseAdmin()
     const body = await request.json().catch(() => ({}))
     const branchIdParam = body?.branch_id
