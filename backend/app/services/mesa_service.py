@@ -35,9 +35,9 @@ class MesaService:
             def mesa_sort_key(mesa: Dict):
                 value = mesa.get("mesa_id", "")
                 try:
-                    return int(value)
+                    return (0, int(value))
                 except Exception:
-                    return value
+                    return (1, str(value))
 
             mesas.sort(key=mesa_sort_key)
             logger.info(f"Obtenidas {len(mesas)} mesas")

@@ -6,6 +6,7 @@ from .controllers.metrics_controller import metrics_bp
 from .controllers.mesa_controller import mesa_bp
 from .controllers.branches_controller import branches_bp
 from .controllers.promotions_controller import promotions_bp
+from .controllers.menu_categories_controller import menu_categories_bp
 
 def register_routes(app):
     app.register_blueprint(orders_bp)
@@ -16,3 +17,4 @@ def register_routes(app):
     app.register_blueprint(mesa_bp)
     app.register_blueprint(branches_bp)
     app.register_blueprint(promotions_bp)
+    app.register_blueprint(menu_categories_bp)

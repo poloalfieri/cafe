@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { 
-  MapPin,
-  X
+  MapPin
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
@@ -24,6 +27,11 @@ interface ScheduleManagementProps {
 export default function ScheduleManagement({ branchId }: ScheduleManagementProps) {
   const t = useTranslations("admin.schedule")
   const [mesas, setMesas] = useState<Mesa[]>([])
+  const [showCreateMesa, setShowCreateMesa] = useState(false)
+  const [mesaIdInput, setMesaIdInput] = useState("")
+  const [mesaActive, setMesaActive] = useState(true)
+  const [creatingMesa, setCreatingMesa] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
 
   useEffect(() => {
@@ -32,6 +40,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
 
   const fetchData = async () => {
     try {
+      setCreateError(null)
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
 
@@ -52,6 +61,46 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
     }
   }
 
+  const handleCreateMesa = async () => {
+    if (!branchId) {
+      setCreateError(t("tables.branchRequired"))
+      return
+    }
+    if (!mesaIdInput.trim()) {
+      setCreateError(t("tables.mesaIdRequired"))
+      return
+    }
+    try {
+      setCreatingMesa(true)
+      setCreateError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/mesas`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          mesa_id: mesaIdInput.trim(),
+          branch_id: branchId,
+          is_active: mesaActive
+        })
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || t("tables.createError"))
+      }
+      setMesaIdInput("")
+      setMesaActive(true)
+      setShowCreateMesa(false)
+      await fetchData()
+    } catch (error: any) {
+      setCreateError(error?.message || t("tables.createError"))
+    } finally {
+      setCreatingMesa(false)
+    }
+  }
+
   const getStatusInfo = (isActive: boolean) => {
     return isActive
       ? { label: t("tables.active"), color: "bg-green-100 text-green-700 border-green-200" }
@@ -67,9 +116,55 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
             <h2 className="text-2xl font-bold text-gray-900">{t("tables.title")}</h2>
             <p className="text-gray-600">{t("tables.subtitle")}</p>
           </div>
-          <Button onClick={fetchData} className="bg-gray-900 hover:bg-gray-800 text-white">
-            {t("actions.refresh")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Dialog open={showCreateMesa} onOpenChange={setShowCreateMesa}>
+              <DialogTrigger asChild>
+                <Button className="bg-gray-900 hover:bg-gray-800 text-white">
+                  {t("tables.add")}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("tables.addTitle")}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {!branchId && (
+                    <div className="text-sm text-red-600">{t("tables.branchRequired")}</div>
+                  )}
+                  {createError && (
+                    <div className="text-sm text-red-600">{createError}</div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="mesa_id">{t("tables.mesaId")}</Label>
+                    <Input
+                      id="mesa_id"
+                      value={mesaIdInput}
+                      onChange={(e) => setMesaIdInput(e.target.value)}
+                      placeholder={t("tables.mesaIdPlaceholder")}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mesa_active">{t("tables.activeLabel")}</Label>
+                    <Switch
+                      id="mesa_active"
+                      checked={mesaActive}
+                      onCheckedChange={setMesaActive}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleCreateMesa}
+                    disabled={!branchId || creatingMesa}
+                    className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                  >
+                    {creatingMesa ? t("tables.creating") : t("tables.create")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button onClick={fetchData} className="bg-gray-900 hover:bg-gray-800 text-white">
+              {t("actions.refresh")}
+            </Button>
+          </div>
         </div>
 
         {/* Vista de mesas */}

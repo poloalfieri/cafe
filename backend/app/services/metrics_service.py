@@ -61,12 +61,14 @@ class MetricsService:
             top_list = top_list[:5]
 
             def _run_ingredients():
-                return (
+                query = (
                     supabase.table("ingredients")
-                    .select("current_stock, min_stock, track_stock, restaurant_id")
+                    .select("current_stock, min_stock, track_stock, restaurant_id, branch_id")
                     .eq("restaurant_id", restaurant_id)
-                    .execute()
                 )
+                if branch_id:
+                    query = query.eq("branch_id", branch_id)
+                return query.execute()
             ingredients_resp = execute_with_retry(_run_ingredients)
             ingredients = ingredients_resp.data or []
             total_ingredients = len(ingredients)

@@ -317,7 +317,7 @@ export default function AdminDashboard() {
         </DialogContent>
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-8 mb-6 bg-card border border-border">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4" />
               {t("tabs.dashboard")}
@@ -346,10 +346,6 @@ export default function AdminDashboard() {
               <Building className="w-4 h-4" />
               {t("tabs.branches")}
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <BarChart3 className="w-4 h-4" />
-              {t("tabs.analytics")}
-            </TabsTrigger>
             <TabsTrigger value="banking" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <CreditCard className="w-4 h-4" />
               {t("tabs.banking")}
@@ -361,15 +357,15 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="products">
-            <ProductsManagement />
+            <ProductsManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="stock">
-            <IngredientsManagement />
+            <IngredientsManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="recipes">
-            <RecipiesManagement />
+            <RecipiesManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="promotions">
@@ -382,13 +378,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="branches">
             <BranchesManagement />
-          </TabsContent>
-
-          <TabsContent value="analytics">
-            <div className="bg-card rounded-xl p-6 border border-border">
-              <h3 className="text-lg font-semibold text-text mb-4">{t("analytics.title")}</h3>
-              <MetricsDashboard branchId={selectedBranchId || undefined} />
-            </div>
           </TabsContent>
 
           <TabsContent value="banking">

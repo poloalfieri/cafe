@@ -179,7 +179,14 @@
         "mainDishes": "Platos Principales",
         "starters": "Entradas",
         "desserts": "Postres",
-        "specialties": "Especialidades"
+        "specialties": "Especialidades",
+        "loading": "Loading categories...",
+        "empty": "No categories",
+        "newPlaceholder": "New category",
+        "add": "Add",
+        "created": "Category created",
+        "createError": "Could not create category",
+        "branchRequired": "Select a branch to create categories"
       },
       "toast": {
         "errorTitle": "Error",
@@ -315,6 +322,10 @@
       }
     },
     "recipes": {
+      "categories": {
+        "loading": "Loading categories...",
+        "empty": "No categories"
+      },
       "toast": {
         "errorTitle": "Error",
         "loadProductsError": "No se pudieron cargar los productos desde el backend",
@@ -395,6 +406,10 @@
       }
     },
     "stock": {
+      "categories": {
+        "loading": "Loading categories...",
+        "empty": "No categories"
+      },
       "toast": {
         "errorTitle": "Error",
         "loadProductsError": "No se pudieron cargar los productos desde el backend",
@@ -553,6 +568,16 @@
       "tables": {
         "title": "Gestión de Mesas",
         "subtitle": "Mesas sincronizadas desde la base de datos",
+        "add": "Agregar mesa",
+        "addTitle": "Nueva mesa",
+        "mesaId": "Número de mesa",
+        "mesaIdPlaceholder": "Ej: 12",
+        "activeLabel": "Mesa activa",
+        "create": "Crear mesa",
+        "creating": "Creando...",
+        "branchRequired": "Selecciona una sucursal para crear mesas.",
+        "mesaIdRequired": "Ingresa un número de mesa.",
+        "createError": "No se pudo crear la mesa.",
         "active": "Activa",
         "inactive": "Inactiva",
         "idLabel": "ID: {id}",

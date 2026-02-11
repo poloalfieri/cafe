@@ -48,14 +48,19 @@ export default function CajeroDashboard() {
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branchName, setBranchName] = useState<string | null>(null)
+  const [branchId, setBranchId] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
 
-  const fetchWaiterCalls = useCallback(async () => {
+  const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/waiter/calls?status=PENDING`, {
+      const params = new URLSearchParams({ status: "PENDING" })
+      if (currentBranchId) {
+        params.set("branch_id", currentBranchId)
+      }
+      const response = await fetch(`${backendUrl}/waiter/calls?${params.toString()}`, {
         headers: {
           ...authHeader,
         },
@@ -72,8 +77,6 @@ export default function CajeroDashboard() {
   }, [backendUrl])
 
   useEffect(() => {
-    fetchData()
-    fetchWaiterCalls()
     fetchBranch()
     ;(async () => {
       try {
@@ -98,8 +101,17 @@ export default function CajeroDashboard() {
       if (response.ok) {
         const data = await response.json()
         const name = data?.branch?.name
+        const id = data?.branch?.id
         if (name) {
           setBranchName(name)
+        }
+        if (id) {
+          setBranchId(id)
+          await fetchData(id)
+          fetchWaiterCalls(id)
+        } else {
+          await fetchData(null)
+          fetchWaiterCalls(null)
         }
       }
     } catch (error) {
@@ -110,7 +122,7 @@ export default function CajeroDashboard() {
   // Polling for waiter calls every 5 seconds
   useEffect(() => {
     pollingRef.current = setInterval(() => {
-      fetchWaiterCalls()
+      fetchWaiterCalls(branchId)
     }, POLLING_INTERVAL_MS)
 
     return () => {
@@ -118,14 +130,15 @@ export default function CajeroDashboard() {
         clearInterval(pollingRef.current)
       }
     }
-  }, [fetchWaiterCalls])
+  }, [fetchWaiterCalls, branchId])
 
-  const fetchData = async () => {
+  const fetchData = async (currentBranchId?: string | null) => {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
+      const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
       // Fetch mesas
-      const mesasResponse = await fetch(`${backendUrl}/mesas`, {
+      const mesasResponse = await fetch(`${backendUrl}/mesas${branchQuery}`, {
         headers: {
           ...authHeader,
         },
@@ -138,7 +151,7 @@ export default function CajeroDashboard() {
       }
 
       // Fetch orders
-      const ordersResponse = await fetch(`${backendUrl}/orders`, {
+      const ordersResponse = await fetch(`${backendUrl}/orders${branchQuery}`, {
         headers: {
           ...authHeader,
         },
