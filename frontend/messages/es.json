@@ -125,7 +125,9 @@
         "subtitle": "Gestión completa del local gastronómico"
       },
       "actions": {
-        "refresh": "Actualizar"
+        "refresh": "Actualizar",
+        "logout": "Salir",
+        "loggingOut": "Saliendo..."
       },
       "metrics": {
         "dailySales": "Ventas del Día",

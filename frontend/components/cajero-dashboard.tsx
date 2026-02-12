@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
+import { supabase } from "@/lib/auth/supabase-browser"
 
 interface Mesa {
   id: string
@@ -41,10 +43,12 @@ const POLLING_INTERVAL_MS = 5000
 
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
+  const router = useRouter()
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branchName, setBranchName] = useState<string | null>(null)
@@ -306,6 +310,17 @@ export default function CajeroDashboard() {
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true)
+      await supabase.auth.signOut()
+    } finally {
+      sessionStorage.removeItem("supabase_session")
+      router.replace("/login?next=/cajero")
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -325,14 +340,24 @@ export default function CajeroDashboard() {
                 <p className="text-muted-foreground text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
-            <Button
-              onClick={refreshData}
-              disabled={loading}
-              className="bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              {t("actions.refresh")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={refreshData}
+                disabled={loading}
+                className="bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                {t("actions.refresh")}
+              </Button>
+              <Button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                variant="outline"
+                className="px-4 py-2"
+              >
+                {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}
