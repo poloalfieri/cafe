@@ -49,6 +49,7 @@ export default function CajeroDashboard() {
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branchName, setBranchName] = useState<string | null>(null)
@@ -427,8 +428,66 @@ export default function CajeroDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+        <Dialog open={!!selectedMesa} onOpenChange={(open) => !open && setSelectedMesa(null)}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>
+                {selectedMesa ? t("tables.tableLabel", { id: selectedMesa.mesa_id }) : ""}
+              </DialogTitle>
+              <DialogDescription>
+                {t("orders.itemsTitle")}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedMesa && (
+              <div className="max-h-[70vh] overflow-y-auto pr-1">
+                <div className="space-y-3">
+                  {getMesaOrders(selectedMesa.mesa_id).length === 0 ? (
+                    <p className="text-sm text-gray-500">{t("tables.noOrders")}</p>
+                  ) : (
+                    getMesaOrders(selectedMesa.mesa_id).map((order) => (
+                      <div key={order.id} className="rounded-lg border border-gray-200 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {t("orders.orderId", { id: order.id })}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(order.created_at).toLocaleString()}
+                            </p>
+                            <p className="text-sm text-gray-700">
+                              {t("orders.total", { total: order.total_amount.toFixed(2) })}
+                            </p>
+                          </div>
+                          <Badge className={`${getStatusColor(order.status)} border`}>
+                            {getStatusText(order.status)}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 border-t border-gray-100 pt-2">
+                          {Array.isArray(order.items) && order.items.length > 0 ? (
+                            <div className="space-y-1">
+                              {order.items.map((item: any, idx: number) => (
+                                <div key={idx} className="flex justify-between text-xs text-gray-600">
+                                  <span className="truncate pr-2">
+                                    {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
+                                  </span>
+                                  <span>${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-500">{t("orders.noItems")}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
         <Tabs defaultValue="pagos" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-card border border-border">
             <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
               {t("tabs.payments", { count: waiterCalls.length })}
@@ -440,9 +499,6 @@ export default function CajeroDashboard() {
             </TabsTrigger>
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               {t("tabs.tables", { count: mesas.length })}
-            </TabsTrigger>
-            <TabsTrigger value="pedidos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              {t("tabs.orders", { count: activeOrders.length })}
             </TabsTrigger>
           </TabsList>
 
@@ -513,6 +569,13 @@ export default function CajeroDashboard() {
                           ) : (
                             <p className="text-sm text-gray-500">{t("tables.noOrders")}</p>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedMesa(mesa)}
+                          >
+                            {t("tables.viewOrders")}
+                          </Button>
                           
                           {/* Controles de estado de mesa */}
                           <div className="space-y-2">
@@ -549,69 +612,8 @@ export default function CajeroDashboard() {
             )}
           </TabsContent>
 
-          <TabsContent value="pedidos">
-            {loading ? (
-              <div className="text-center py-12">
-                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
-                <p className="text-gray-600">{t("orders.loading")}</p>
-              </div>
-            ) : activeOrders.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4 opacity-30">📋</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t("orders.emptyTitle")}</h3>
-                <p className="text-gray-600">{t("orders.emptySubtitle")}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {activeOrders.map((order) => (
-                  <Card key={order.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {t("orders.tableLabel", { id: order.mesa_id })}
-                          </h3>
-                          <p className="text-xs text-gray-500">
-                            {t("orders.orderId", { id: order.id })}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {t("orders.total", { total: order.total_amount.toFixed(2) })}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(order.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={`${getStatusColor(order.status)} border`}>
-                            {getStatusText(order.status)}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="mt-3 border-t border-gray-100 pt-3">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">{t("orders.itemsTitle")}</p>
-                        {Array.isArray(order.items) && order.items.length > 0 ? (
-                          <div className="space-y-1">
-                            {order.items.map((item: any, idx: number) => (
-                              <div key={idx} className="flex justify-between text-xs text-gray-600">
-                                <span className="truncate pr-2">
-                                  {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
-                                </span>
-                                <span>${(item.price * item.quantity).toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">{t("orders.noItems")}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
         </Tabs>
       </div>
     </div>
   )
-} 
+}
