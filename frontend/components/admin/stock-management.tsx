@@ -99,7 +99,8 @@ export default function StockManagement({ branchId }: StockManagementProps) {
       setProductsLoading(true)
       // Use the same direct backend call as the working products management
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu`, {
+      const params = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetch(`${backendUrl}/menu${params}`, {
         headers: {
           ...authHeader,
         },
@@ -207,6 +208,14 @@ export default function StockManagement({ branchId }: StockManagementProps) {
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!branchId) {
+      toast({
+        title: t("toast.errorTitle"),
+        description: t("categories.branchRequired"),
+        variant: "destructive"
+      })
+      return
+    }
     try {
       // Use the same direct backend call as the working products management
       const productData = {
@@ -214,7 +223,8 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         category: newProductForm.category,
         price: newProductForm.price,
         description: newProductForm.description,
-        available: true
+        available: true,
+        branch_id: branchId
       }
 
       const response = await fetch(`${backendUrl}/menu`, {

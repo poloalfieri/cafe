@@ -50,6 +50,8 @@ class MenuService:
             )
             query = supabase.table("menu").select("*")
             query = query.eq("restaurant_id", restaurant_id)
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
 
             if category:
                 query = query.eq("category", category)
@@ -132,7 +134,10 @@ class MenuService:
         price = self._validate_price(data["price"])
         
         # Preparar datos
-        restaurant_id = branches_service.get_restaurant_id(user_id)
+        restaurant_id, resolved_branch_id = self._resolve_restaurant_and_branch(
+            user_id=user_id,
+            branch_id=data.get("branch_id"),
+        )
         menu_data = {
             "name": data["name"].strip(),
             "category": data["category"].strip(),
@@ -141,6 +146,7 @@ class MenuService:
             "available": bool(data.get("available", True)),
             "image_url": data.get("image_url"),
             "restaurant_id": restaurant_id,
+            "branch_id": resolved_branch_id,
         }
         
         try:
@@ -173,7 +179,10 @@ class MenuService:
             ValueError: Si los datos son inválidos
             Exception: Si hay error al actualizar
         """
-        restaurant_id = branches_service.get_restaurant_id(user_id)
+        restaurant_id, resolved_branch_id = self._resolve_restaurant_and_branch(
+            user_id=user_id,
+            branch_id=data.get("branch_id"),
+        )
         
         # Preparar datos para actualización
         update_data = {}
@@ -206,6 +215,7 @@ class MenuService:
                 .update(update_data)
                 .eq("id", item_id)
                 .eq("restaurant_id", restaurant_id)
+                .eq("branch_id", resolved_branch_id)
                 .execute()
             )
             
@@ -221,7 +231,7 @@ class MenuService:
             logger.error(f"Error al actualizar producto {item_id}: {str(e)}")
             raise Exception(f"Error al actualizar el producto: {str(e)}")
     
-    def delete_item(self, item_id: int, user_id: str) -> bool:
+    def delete_item(self, item_id: int, user_id: str, branch_id: Optional[str] = None) -> bool:
         """
         Eliminar un producto del menú
         
@@ -234,7 +244,10 @@ class MenuService:
         Raises:
             Exception: Si hay error al eliminar
         """
-        restaurant_id = branches_service.get_restaurant_id(user_id)
+        restaurant_id, resolved_branch_id = self._resolve_restaurant_and_branch(
+            user_id=user_id,
+            branch_id=branch_id,
+        )
         
         try:
             response = (
@@ -242,6 +255,7 @@ class MenuService:
                 .delete()
                 .eq("id", item_id)
                 .eq("restaurant_id", restaurant_id)
+                .eq("branch_id", resolved_branch_id)
                 .execute()
             )
             
@@ -382,6 +396,45 @@ class MenuService:
                 raise LookupError("Mesa no encontrada")
             return mesa.get("restaurant_id")
         raise ValueError("restaurant_id requerido")
+
+    def _resolve_restaurant_and_branch(
+        self,
+        user_id: str,
+        branch_id: Optional[str],
+    ) -> (str, str):
+        def _run_membership():
+            return (
+                supabase.table("restaurant_users")
+                .select("restaurant_id, branch_id")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+        resp = execute_with_retry(_run_membership)
+        membership = (resp.data or [None])[0]
+        if not membership or not membership.get("restaurant_id"):
+            raise LookupError("Usuario sin restaurante asociado")
+
+        restaurant_id = membership.get("restaurant_id")
+        resolved_branch = branch_id or membership.get("branch_id")
+        if not resolved_branch:
+            raise ValueError("branch_id requerido")
+
+        if branch_id and branch_id != membership.get("branch_id"):
+            def _run_branch():
+                return (
+                    supabase.table("branches")
+                    .select("id, restaurant_id")
+                    .eq("id", branch_id)
+                    .limit(1)
+                    .execute()
+                )
+            branch_resp = execute_with_retry(_run_branch)
+            branch = (branch_resp.data or [None])[0]
+            if not branch or branch.get("restaurant_id") != restaurant_id:
+                raise LookupError("Sucursal no encontrada")
+
+        return restaurant_id, resolved_branch
 
     @staticmethod
     def _parse_bool(value: Optional[str]) -> bool:

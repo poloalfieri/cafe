@@ -120,8 +120,10 @@ def update_menu_item_protected(item_id):
 def delete_menu_item_protected(item_id):
     """Eliminar un producto del menú (solo admin)"""
     try:
+        data = request.get_json(silent=True) or {}
+        branch_id = data.get("branch_id") or request.args.get("branch_id")
         # Delegar al servicio
-        deleted = menu_service.delete_item(item_id, g.user_id)
+        deleted = menu_service.delete_item(item_id, g.user_id, branch_id=branch_id)
         
         if not deleted:
             return jsonify({"error": "Producto no encontrado"}), 404

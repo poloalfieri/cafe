@@ -142,7 +142,7 @@ class OrderService:
             def _run():
                 query = (
                     supabase.table("orders")
-                    .select("id, creation_date, created_at")
+                    .select("id, creation_date")
                     .eq("mesa_id", mesa_id)
                 )
                 if branch_id:
@@ -178,7 +178,27 @@ class OrderService:
             if order.get("status") == OrderStatus.PAID.value:
                 return self._serialize_order(order)
 
-            return self.update_order_status(order.get("id"), OrderStatus.PAID)
+            try:
+                updated = self.update_order_status(order.get("id"), OrderStatus.PAID)
+                if updated:
+                    return updated
+            except ValueError:
+                pass
+
+            # Forzar el pago si la transición falla o no se actualizó
+            response = (
+                supabase.table("orders")
+                .update({"status": OrderStatus.PAID.value})
+                .eq("id", order.get("id"))
+                .execute()
+            )
+            updated = (response.data or [None])[0]
+            if updated and updated.get("branch_id"):
+                try:
+                    invalidate_token(updated.get("mesa_id"), updated.get("branch_id"))
+                except Exception:
+                    pass
+            return self._serialize_order(updated) if updated else None
         except Exception as e:
             logger.error(f"No se pudo marcar PAID el último pedido de mesa {mesa_id}: {str(e)}")
             return None
@@ -279,10 +299,8 @@ class OrderService:
                     f"Transición inválida de {current_status} a {status_value}"
                 )
 
-            now_iso = self._now_iso()
             update_data = {
                 "status": status_value,
-                "updated_at": now_iso,
             }
 
             if status_value == OrderStatus.PAID.value:
@@ -362,7 +380,6 @@ class OrderService:
             update_data = {
                 "items": current_items,
                 "total_amount": total_amount,
-                "updated_at": self._now_iso(),
             }
 
             response = (
@@ -409,7 +426,6 @@ class OrderService:
 
             update_data = {
                 "status": OrderStatus.PAYMENT_REJECTED.value,
-                "updated_at": self._now_iso(),
             }
 
             response = (

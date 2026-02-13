@@ -95,7 +95,8 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
     try {
       setProductsLoading(true)
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu`, {
+      const params = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetch(`${backendUrl}/menu${params}`, {
         headers: {
           ...authHeader,
         },
@@ -192,13 +193,18 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
 
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!branchId) {
+      toast({ title: t("toast.errorTitle"), description: t("categories.branchRequired"), variant: "destructive" })
+      return
+    }
     try {
       const productData = {
         name: newProductForm.name,
         category: newProductForm.category,
         price: newProductForm.price,
         description: newProductForm.description,
-        available: true
+        available: true,
+        branch_id: branchId
       }
       const response = await fetch(`${backendUrl}/menu`, {
         method: "POST",

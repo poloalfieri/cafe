@@ -163,7 +163,14 @@ export default function CajeroDashboard() {
       })
       if (ordersResponse.ok) {
         const ordersData = await ordersResponse.json()
-        setOrders(ordersData || [])
+        const cutoff = Date.now() - 24 * 60 * 60 * 1000
+        const filtered = (ordersData || []).filter((order: any) => {
+          const raw = order.created_at || order.creation_date
+          if (!raw) return false
+          const ts = new Date(raw).getTime()
+          return Number.isFinite(ts) && ts >= cutoff
+        })
+        setOrders(filtered)
       } else {
         setOrders([])
       }

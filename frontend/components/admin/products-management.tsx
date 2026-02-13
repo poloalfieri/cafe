@@ -63,7 +63,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
 
   useEffect(() => {
     fetchProducts()
-  }, [])
+  }, [branchId])
 
   useEffect(() => {
     if (!branchId) {
@@ -77,7 +77,8 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu`, {
+      const params = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetch(`${backendUrl}/menu${params}`, {
         headers: {
           ...authHeader,
         },
@@ -158,6 +159,14 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!branchId) {
+      toast({
+        title: t("toast.errorTitle"),
+        description: t("categories.branchRequired"),
+        variant: "destructive"
+      })
+      return
+    }
     
     let imageUrl = formData.image_url
     if (imageFile) {
@@ -190,7 +199,8 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
       price: parseFloat(formData.price),
       description: formData.description,
       available: formData.available,
-      image_url: imageUrl || null
+      image_url: imageUrl || null,
+      branch_id: branchId
     }
 
     try {
@@ -271,6 +281,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           headers: {
             ...authHeader,
           },
+          body: JSON.stringify({ branch_id: branchId })
         })
 
         if (!response.ok) {
@@ -303,7 +314,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           "Content-Type": "application/json",
           ...authHeader,
         },
-        body: JSON.stringify({ available: nextAvailable })
+        body: JSON.stringify({ available: nextAvailable, branch_id: branchId })
       })
 
       if (!response.ok) {
