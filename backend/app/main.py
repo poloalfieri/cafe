@@ -45,8 +45,15 @@ def create_app():
             "cors_origins": Config.CORS_ORIGINS
         })
 
+    @app.errorhandler(404)
+    def handle_404(e):
+        return jsonify({"error": "Ruta no encontrada"}), 404
+    
     @app.errorhandler(Exception)
     def handle_error(e):
+        # Don't catch 404 errors
+        if hasattr(e, 'code') and e.code == 404:
+            return jsonify({"error": str(e)}), 404
         app.logger.error(str(e))
         return jsonify({"error": str(e)}), 500
 

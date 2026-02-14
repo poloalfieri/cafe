@@ -1,15 +1,7 @@
 import 'server-only'
 import { NextResponse } from 'next/server'
-import { getServerSupabase } from '@/lib/supabase-server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-
-function getBearer(req: Request): string | null {
-  const h = req.headers.get('authorization') || req.headers.get('Authorization')
-  if (!h) return null
-  const [type, token] = h.split(' ')
-  if (type?.toLowerCase() !== 'bearer' || !token) return null
-  return token
-}
+import { requireRestaurantAuth } from '@/lib/api-auth'
 
 export async function POST(req: Request) {
   try {
@@ -18,18 +10,10 @@ export async function POST(req: Request) {
     if (typeof password !== 'string' || password.length < 6) return NextResponse.json({ error: 'Contraseña demasiado corta' }, { status: 400 })
     if (typeof branchId !== 'string' || !branchId) return NextResponse.json({ error: 'branchId inválido' }, { status: 400 })
 
-    const token = getBearer(req)
-    if (!token) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    const auth = await requireRestaurantAuth(req, ['admin', 'desarrollador'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-    const supabase = getServerSupabase()
-    const { data: ures, error: uerr } = await supabase.auth.getUser(token)
-    if (uerr || !ures.user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-
-    const appm = (ures.user.app_metadata as any) || {}
-    const role = appm.role
-    const orgId = appm.org_id
-    if (!orgId) return NextResponse.json({ error: 'Falta org_id en el usuario' }, { status: 403 })
-    if (role !== 'admin' && role !== 'desarrollador') return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+    const restaurantId = auth.restaurantId
 
     const admin = getSupabaseAdmin()
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -41,12 +25,22 @@ export async function POST(req: Request) {
 
     const uid = created.user?.id
     if (uid) {
-      const admin = getSupabaseAdmin()
-      await admin.auth.admin.updateUserById(uid, { app_metadata: { role: 'caja', org_id: orgId, branch_id: branchId } })
+      // Set role and org info in app_metadata
+      await admin.auth.admin.updateUserById(uid, {
+        app_metadata: { role: 'caja', org_id: restaurantId, branch_id: branchId },
+      })
+
+      // Also add to restaurant_users table for consistency
+      await admin.from('restaurant_users').insert({
+        user_id: uid,
+        restaurant_id: restaurantId,
+        branch_id: branchId,
+        role: 'caja',
+      })
     }
 
     return NextResponse.json({ ok: true, id: uid })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Error' }, { status: 500 })
   }
-} 
+}

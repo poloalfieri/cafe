@@ -16,6 +16,7 @@
       "add": "Add",
       "bestSellers": "Best Sellers",
       "all": "All",
+      "filters": "Filters",
       "defaultDescription": "Delicious dish made with fresh ingredients"
     },
     "cart": {
@@ -104,13 +105,13 @@
       "step2Title": "Select the quantity",
       "step2Body": "Use the + and - buttons to choose how many you want.",
       "step3Title": "Review your order",
-      "step3Body": "Press the cart button to see all selected products.",
-      "step3Cta": "View cart (3)",
+      "step3Body": "When you add products, a floating bar will appear at the bottom showing the total and item count.",
+      "step3Cta": "View Order",
       "step4Title": "Proceed to payment",
       "step4Body": "When you're ready, press \"Go to pay\" to finish your order.",
       "step4Cta": "Go to pay",
-      "helpTitle": "Need help?",
-      "helpBody": "If you have any questions or issues, press the \"Waiter\" button and a team member will come to your table.",
+      "helpTitle": "Waiter",
+      "helpBody": "If you have any questions or issues, press the blue \"Waiter\" button at the top of the screen, and a team member will come to your table.",
       "close": "Got it, start!"
     }
   }
@@ -152,7 +153,8 @@
         "schedule": "Mesas",
         "branches": "Sucursales",
         "analytics": "Analytics",
-        "banking": "Cuenta Bancaria"
+        "banking": "Cuenta Bancaria",
+        "cashiers": "Cashiers"
       },
       "analytics": {
         "title": "Estadísticas Avanzadas"
@@ -720,6 +722,80 @@
           "bankData": "Los datos bancarios están protegidos con cifrado de extremo a extremo",
           "ownerOnly": "Solo el titular de la cuenta puede modificar esta información"
         }
+      }
+    },
+    "cashiers": {
+      "header": {
+        "title": "Cashier Management",
+        "subtitle": "Create and manage cashier accounts for your branches"
+      },
+      "actions": {
+        "add": "New Cashier",
+        "create": "Create Cashier",
+        "creating": "Creating...",
+        "changePassword": "Change Password",
+        "changing": "Changing...",
+        "changeEmail": "Change Email",
+        "changingEmail": "Changing...",
+        "delete": "Delete",
+        "deleting": "Deleting...",
+        "cancel": "Cancel"
+      },
+      "dialog": {
+        "createTitle": "Create Cashier Account",
+        "createDescription": "The cashier will be able to log in with these credentials to access the register panel.",
+        "passwordTitle": "Change Password",
+        "passwordDescription": "Enter the new password for the cashier.",
+        "emailTitle": "Change Email",
+        "emailDescription": "Enter the new email for the cashier.",
+        "deleteTitle": "Delete Cashier",
+        "deleteDescription": "Are you sure you want to delete the cashier account {email}? This action cannot be undone."
+      },
+      "form": {
+        "email": "Cashier Email",
+        "emailPlaceholder": "cashier@myrestaurant.com",
+        "password": "Password",
+        "passwordPlaceholder": "Minimum 6 characters",
+        "branch": "Branch",
+        "branchPlaceholder": "Select branch",
+        "newPassword": "New Password",
+        "newPasswordPlaceholder": "Minimum 6 characters",
+        "newEmail": "New Email",
+        "newEmailPlaceholder": "new-email@example.com"
+      },
+      "stats": {
+        "total": "Total Cashiers",
+        "active": "Recently active"
+      },
+      "table": {
+        "email": "Email",
+        "branch": "Branch",
+        "created": "Created",
+        "lastLogin": "Last Login",
+        "actions": "Actions",
+        "never": "Never",
+        "unknownBranch": "No branch"
+      },
+      "empty": {
+        "title": "No cashiers registered",
+        "subtitle": "Create the first cashier account so they can operate the point of sale"
+      },
+      "toast": {
+        "successTitle": "Success",
+        "errorTitle": "Error",
+        "created": "Cashier created successfully",
+        "createError": "Could not create cashier",
+        "passwordChanged": "Password updated successfully",
+        "passwordError": "Could not change password",
+        "emailChanged": "Email updated successfully",
+        "emailError": "Could not change email",
+        "deleted": "Cashier deleted successfully",
+        "deleteError": "Could not delete cashier",
+        "loadError": "Could not load cashiers"
+      },
+      "errors": {
+        "fetchCashiers": "Error loading cashiers:",
+        "noBranches": "You need at least one branch to create cashiers"
       }
     },
     "metrics": {

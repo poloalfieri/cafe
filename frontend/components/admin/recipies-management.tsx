@@ -421,22 +421,25 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
                     {productSearch ? t("products.emptySearch") : t("products.emptyDefault")}
                   </div>
                 ) : (
-                  filteredProducts.map((product) => (
-                    <Button key={product.id} variant={selectedProduct?.id === product.id ? "default" : "outline"} className="w-full justify-start h-auto p-3" onClick={() => handleProductSelect(product)}>
+                  filteredProducts.map((product) => {
+                    const isSelected = selectedProduct?.id === product.id
+                    return (
+                    <Button key={product.id} variant={isSelected ? "default" : "outline"} className="w-full justify-start h-auto p-3" onClick={() => handleProductSelect(product)}>
                       <div className="text-left w-full">
                         <div className="font-medium">{product.name}</div>
-                        <div className="text-sm text-gray-500 flex justify-between">
+                        <div className={`text-sm flex justify-between ${isSelected ? "text-gray-300" : "text-gray-500"}`}>
                           <span>{product.category}</span>
                           <span>${product.price.toFixed(2)}</span>
                         </div>
                         {product.description && (
-                          <div className="text-xs text-gray-400 mt-1 truncate">
+                          <div className={`text-xs mt-1 truncate ${isSelected ? "text-gray-400" : "text-gray-400"}`}>
                             {product.description}
                           </div>
                         )}
                       </div>
                     </Button>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </ScrollArea>

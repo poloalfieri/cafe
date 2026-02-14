@@ -5,9 +5,9 @@ import { requireRestaurantAuth } from '@/lib/api-auth'
 
 export async function POST(req: Request) {
   try {
-    const { userId, newPassword } = await req.json()
+    const { userId, newEmail } = await req.json()
     if (typeof userId !== 'string' || !userId) return NextResponse.json({ error: 'userId inválido' }, { status: 400 })
-    if (typeof newPassword !== 'string' || newPassword.length < 6) return NextResponse.json({ error: 'Contraseña demasiado corta' }, { status: 400 })
+    if (typeof newEmail !== 'string' || !newEmail.includes('@')) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
 
     const auth = await requireRestaurantAuth(req, ['admin', 'desarrollador'])
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -23,7 +23,10 @@ export async function POST(req: Request) {
     const targetOrg = (target.app_metadata as any)?.org_id
     if (targetRole !== 'caja' || targetOrg !== restaurantId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-    const { error: updErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword })
+    const { error: updErr } = await admin.auth.admin.updateUserById(userId, {
+      email: newEmail,
+      email_confirm: true,
+    })
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 400 })
 
     return NextResponse.json({ ok: true })

@@ -16,6 +16,7 @@
       "add": "Agregar",
       "bestSellers": "Más Vendidos",
       "all": "Todos",
+      "filters": "Filtros",
       "defaultDescription": "Delicioso platillo preparado con ingredientes frescos"
     },
     "cart": {
@@ -104,13 +105,13 @@
       "step2Title": "Selecciona la cantidad",
       "step2Body": "Usa los botones + y - para seleccionar cuántos quieres de cada producto.",
       "step3Title": "Revisa tu pedido",
-      "step3Body": "Presiona el botón del carrito para ver todos tus productos seleccionados.",
-      "step3Cta": "Ver carrito (3)",
+      "step3Body": "Cuando agregues productos, aparecerá una barra flotante en la parte inferior mostrando el total y la cantidad de items.",
+      "step3Cta": "Ver mi Pedido",
       "step4Title": "Procede al pago",
       "step4Body": "Cuando estés listo, presiona \"Ir a pagar\" para finalizar tu pedido.",
       "step4Cta": "Ir a pagar",
-      "helpTitle": "¿Necesitas ayuda?",
-      "helpBody": "Si tienes alguna duda o problema, presiona el botón \"Mozo\" y un miembro de nuestro equipo se acercará a tu mesa.",
+      "helpTitle": "Mozo",
+      "helpBody": "Si tienes alguna duda o problema, presiona el botón azul \"Mozo\" que está en la parte superior de la pantalla, y un miembro de nuestro equipo se acercará a tu mesa.",
       "close": "¡Entendido, empezar!"
     }
   }
@@ -152,7 +153,8 @@
         "schedule": "Mesas",
         "branches": "Sucursales",
         "analytics": "Analytics",
-        "banking": "Cuenta Bancaria"
+        "banking": "Cuenta Bancaria",
+        "cashiers": "Cajeros"
       },
       "analytics": {
         "title": "Estadísticas Avanzadas"
@@ -720,6 +722,80 @@
           "bankData": "Los datos bancarios están protegidos con cifrado de extremo a extremo",
           "ownerOnly": "Solo el titular de la cuenta puede modificar esta información"
         }
+      }
+    },
+    "cashiers": {
+      "header": {
+        "title": "Gestión de Cajeros",
+        "subtitle": "Crea y administra las cuentas de cajeros para tus sucursales"
+      },
+      "actions": {
+        "add": "Nuevo Cajero",
+        "create": "Crear Cajero",
+        "creating": "Creando...",
+        "changePassword": "Cambiar Contraseña",
+        "changing": "Cambiando...",
+        "changeEmail": "Cambiar Email",
+        "changingEmail": "Cambiando...",
+        "delete": "Eliminar",
+        "deleting": "Eliminando...",
+        "cancel": "Cancelar"
+      },
+      "dialog": {
+        "createTitle": "Crear Cuenta de Cajero",
+        "createDescription": "El cajero podrá iniciar sesión con estas credenciales para acceder al panel de caja.",
+        "passwordTitle": "Cambiar Contraseña",
+        "passwordDescription": "Ingresa la nueva contraseña para el cajero.",
+        "emailTitle": "Cambiar Email",
+        "emailDescription": "Ingresa el nuevo email para el cajero.",
+        "deleteTitle": "Eliminar Cajero",
+        "deleteDescription": "¿Estás seguro de que quieres eliminar la cuenta del cajero {email}? Esta acción no se puede deshacer."
+      },
+      "form": {
+        "email": "Email del Cajero",
+        "emailPlaceholder": "cajero@mirestaurante.com",
+        "password": "Contraseña",
+        "passwordPlaceholder": "Mínimo 6 caracteres",
+        "branch": "Sucursal",
+        "branchPlaceholder": "Seleccionar sucursal",
+        "newPassword": "Nueva Contraseña",
+        "newPasswordPlaceholder": "Mínimo 6 caracteres",
+        "newEmail": "Nuevo Email",
+        "newEmailPlaceholder": "nuevo-email@ejemplo.com"
+      },
+      "stats": {
+        "total": "Total Cajeros",
+        "active": "Con actividad reciente"
+      },
+      "table": {
+        "email": "Email",
+        "branch": "Sucursal",
+        "created": "Creado",
+        "lastLogin": "Último acceso",
+        "actions": "Acciones",
+        "never": "Nunca",
+        "unknownBranch": "Sin sucursal"
+      },
+      "empty": {
+        "title": "No hay cajeros registrados",
+        "subtitle": "Crea la primera cuenta de cajero para que pueda operar el punto de venta"
+      },
+      "toast": {
+        "successTitle": "Éxito",
+        "errorTitle": "Error",
+        "created": "Cajero creado correctamente",
+        "createError": "No se pudo crear el cajero",
+        "passwordChanged": "Contraseña actualizada correctamente",
+        "passwordError": "No se pudo cambiar la contraseña",
+        "emailChanged": "Email actualizado correctamente",
+        "emailError": "No se pudo cambiar el email",
+        "deleted": "Cajero eliminado correctamente",
+        "deleteError": "No se pudo eliminar el cajero",
+        "loadError": "No se pudieron cargar los cajeros"
+      },
+      "errors": {
+        "fetchCashiers": "Error al cargar cajeros:",
+        "noBranches": "Debes tener al menos una sucursal para crear cajeros"
       }
     },
     "metrics": {

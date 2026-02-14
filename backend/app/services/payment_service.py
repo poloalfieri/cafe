@@ -13,6 +13,7 @@ from ..utils.logger import setup_logger
 from ..utils.token_manager import invalidate_token
 
 logger = setup_logger(__name__)
+# Global fallback instance (used only when restaurant context is unavailable)
 mp_service = MercadoPagoService()
 
 
@@ -47,17 +48,21 @@ class PaymentService:
             mesa = (mesa_resp.data or [None])[0]
             if not mesa:
                 raise ValueError("Mesa no encontrada")
+
+            restaurant_id = mesa.get("restaurant_id")
+            mesa_branch_id = mesa.get("branch_id")
+
             insert_data = {
                 "mesa_id": mesa_id,
                 "status": OrderStatus.PAYMENT_PENDING.value,
                 "token": order_token,
                 "total_amount": total_amount,
                 "items": priced_items,
-                "payment_method": "BILLETERA",
+                "payment_method": "mercadopago",
                 "creation_date": now_iso,
                 "updated_at": now_iso,
-                "restaurant_id": mesa.get("restaurant_id"),
-                "branch_id": mesa.get("branch_id"),
+                "restaurant_id": restaurant_id,
+                "branch_id": mesa_branch_id,
             }
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:
@@ -72,7 +77,11 @@ class PaymentService:
                 "mesa_id": mesa_id,
             }
 
-            mp_response = mp_service.create_preference(order_data)
+            # Use per-restaurant MercadoPago credentials
+            restaurant_mp = MercadoPagoService.for_restaurant(
+                restaurant_id, mesa_branch_id
+            )
+            mp_response = restaurant_mp.create_preference(order_data)
 
             if not mp_response.get("success"):
                 supabase.table("orders").delete().eq("id", new_order["id"]).execute()
@@ -142,7 +151,14 @@ class PaymentService:
         if not order:
             raise ValueError("Orden no encontrada")
 
-        payment_info = mp_service.get_payment_info(payment_id)
+        # Use per-restaurant credentials when available
+        restaurant_id = order.get("restaurant_id")
+        order_branch_id = order.get("branch_id")
+        if restaurant_id:
+            order_mp = MercadoPagoService.for_restaurant(restaurant_id, order_branch_id)
+        else:
+            order_mp = mp_service
+        payment_info = order_mp.get_payment_info(payment_id)
         if not payment_info.get("success"):
             raise Exception("Error al obtener información del pago")
 
@@ -270,7 +286,14 @@ class PaymentService:
         refund_id = None
         payment_id = PaymentService._payment_ids.get(order_id)
         if payment_id:
-            refund_response = mp_service.refund_payment(payment_id)
+            # Use per-restaurant credentials for refund
+            restaurant_id = order.get("restaurant_id")
+            order_branch_id = order.get("branch_id")
+            if restaurant_id:
+                refund_mp = MercadoPagoService.for_restaurant(restaurant_id, order_branch_id)
+            else:
+                refund_mp = mp_service
+            refund_response = refund_mp.refund_payment(payment_id)
             if not refund_response.get("success"):
                 raise Exception(refund_response.get("error", "Error al reembolsar"))
             refund_id = refund_response.get("refund_id")

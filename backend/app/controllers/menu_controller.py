@@ -4,6 +4,9 @@ Controller de Menú - Solo maneja HTTP, delega lógica al servicio
 from flask import Blueprint, request, jsonify, g
 from ..services.menu_service import menu_service
 from ..middleware.auth import require_auth, require_roles, optional_auth
+import logging
+
+logger = logging.getLogger(__name__)
 
 menu_bp = Blueprint("menu", __name__, url_prefix="/menu")
 
@@ -51,11 +54,14 @@ def create_menu_item_protected():
         
     except ValueError as e:
         # Error de validación
+        logger.warning(f"Error de validación al crear producto: {str(e)} | Data: {data}")
         return jsonify({"error": str(e)}), 400
     except LookupError as e:
+        logger.warning(f"Recurso no encontrado al crear producto: {str(e)}")
         return jsonify({"error": str(e)}), 404
     except Exception as e:
         # Error interno
+        logger.error(f"Error interno al crear producto: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
 

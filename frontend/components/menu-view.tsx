@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, ShoppingCart, RefreshCw, Search, Plus, Minus, Trash2 } from "lucide-react"
+import { Bell, Search, Plus, Minus, Trash2, SlidersHorizontal, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart, Product } from "@/contexts/cart-context"
-import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import { useSearchParams } from "next/navigation"
 import InstructionsModal from "./instructions-modal"
+import FloatingCartBar from "./floating-cart-bar"
+import CategoryFiltersModal from "./category-filters-modal"
 import { useTranslations } from "next-intl"
 import { toast } from "@/hooks/use-toast"
 
@@ -33,12 +34,11 @@ export default function MenuView() {
   const [showCallWaiterModal, setShowCallWaiterModal] = useState<boolean>(false)
   const [showInstructionsModal, setShowInstructionsModal] = useState<boolean>(true)
   const [searchQuery, setSearchQuery] = useState<string>("")
+  const [showFiltersModal, setShowFiltersModal] = useState<boolean>(false)
   const t = useTranslations("usuario.menu")
   useEffect(() => {
     setSelectedCategory(t("all"))
   }, [t])
-
-  const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
   
   // Obtener parámetros de la URL
   const searchParams = useSearchParams()
@@ -114,14 +114,19 @@ export default function MenuView() {
   }, [])
 
   // Filtrar productos basado en categoría, búsqueda y disponibilidad
-  const filteredProducts = products.filter((product: ApiProduct) => {
-    const matchesCategory = selectedCategory === t("all") || product.category === selectedCategory
-    const matchesSearch = !searchQuery || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    const isAvailable = product.available !== false // Mostrar solo productos disponibles
-    return matchesCategory && matchesSearch && isAvailable
-  })
+  // y ordenar alfabéticamente por nombre dentro de cada categoría
+  const filteredProducts = products
+    .filter((product: ApiProduct) => {
+      const matchesCategory = selectedCategory === t("all") || product.category === selectedCategory
+      const matchesSearch = !searchQuery || 
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      const isAvailable = product.available !== false // Mostrar solo productos disponibles
+      return matchesCategory && matchesSearch && isAvailable
+    })
+    .sort((a: ApiProduct, b: ApiProduct) =>
+      a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+    )
 
   const handleSearch = (query: string): void => {
     setSearchQuery(query)
@@ -154,25 +159,11 @@ export default function MenuView() {
     return item ? item.quantity : 0
   }
 
-  const toggleLike = (productId: string): void => {
-    setLikedItems(prev => {
-      if (prev.includes(productId)) {
-        return prev.filter(id => id !== productId)
-      } else {
-        return [...prev, productId]
-      }
-    })
-  }
-
-  const isLiked = (productId: string): boolean => {
-    return likedItems.includes(productId)
-  }
-
   const handleCallWaiter = (): void => {
     setShowCallWaiterModal(true)
   }
 
-  const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
+  const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
       const session = getMesaSession()
       if (!session.mesa_id || !session.token || !session.branch_id) {
@@ -190,7 +181,6 @@ export default function MenuView() {
           mesa_id: session.mesa_id,
           branch_id: session.branch_id,
           token: session.token,
-          payment_method: data.paymentMethod,
           message: data.message || ""
         }),
       })
@@ -224,20 +214,20 @@ export default function MenuView() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-full">
       {/* Header moderno con mejor contraste */}
-      <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-3">
+      <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-gray-200 z-50 shadow-sm w-full">
+        <div className="container mx-auto px-4 py-3 max-w-full">
           <div className="flex items-center justify-between">
             {/* Search bar desktop */}
-            <div className="hidden sm:flex items-center bg-secondary rounded-full px-4 py-2 min-w-[300px]">
-              <Search className="w-4 h-4 text-muted-foreground mr-2" />
+            <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-4 py-2 min-w-[300px]">
+              <Search className="w-4 h-4 text-gray-600 mr-2" />
               <input 
                 type="text" 
                 placeholder={t("searchDesktopPlaceholder")}
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="bg-transparent border-none outline-none flex-1 text-sm text-text placeholder:text-muted-foreground"
+                className="bg-transparent border-none outline-none flex-1 text-sm text-gray-900 placeholder:text-gray-500"
               />
             </div>
 
@@ -245,75 +235,71 @@ export default function MenuView() {
             <div className="ml-auto flex items-center gap-2">
               <Button 
                 onClick={handleCallWaiter}
-                className="rounded-full bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
+                className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-200"
               >
-                <Bell className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">{t("waiter")}</span>
+                <Bell className="w-5 h-5" />
+                <span className="text-sm font-medium">{t("waiter")}</span>
               </Button>
-
-              <Link href={`/usuario/cart`}>
-                <Button variant="ghost" size="icon" className="rounded-full relative hover:bg-secondary">
-                  <ShoppingCart className="w-5 h-5 text-text" />
-                  {totalItems > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
-                      {totalItems}
-                    </span>
-                  )}
-                </Button>
-              </Link>
             </div>
           </div>
 
           {/* Search bar móvil */}
           <div className="sm:hidden mt-3">
-            <div className="flex items-center bg-secondary rounded-full px-4 py-2">
-              <Search className="w-4 h-4 text-muted-foreground mr-2" />
+            <div className="flex items-center bg-gray-100 rounded-full px-4 py-2">
+              <Search className="w-4 h-4 text-gray-600 mr-2" />
               <input 
                 type="text" 
                 placeholder={t("searchMobilePlaceholder")}
                 value={searchQuery}
                 onChange={handleSearchChange}
-                className="bg-transparent border-none outline-none flex-1 text-sm text-text placeholder:text-muted-foreground"
+                className="bg-transparent border-none outline-none flex-1 text-sm text-gray-900 placeholder:text-gray-500"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 py-6 pb-32">
         {/* Welcome Section */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-text mb-2">{t("exploreTitle")}</h1>
-            <p className="text-muted-foreground text-sm">{t("exploreSubtitle")}</p>
-          </div>
-          <Button
-            onClick={fetchProducts}
-            variant="outline"
-            size="icon"
-            className="rounded-full border-border hover:bg-secondary w-10 h-10"
-            disabled={loading}
-          >
-            <RefreshCw className={`w-5 h-5 text-text ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("exploreTitle")}</h1>
+          <p className="text-gray-600 text-sm">{t("exploreSubtitle")}</p>
         </div>
-
-        {/* Categories con mejor padding */}
-        <div className="flex gap-3 mb-6 overflow-x-auto pb-2">
-          {categories.map((category: string) => (
-            <Button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              variant={selectedCategory === category ? "default" : "outline"}
-              className={`whitespace-nowrap rounded-full px-6 py-3 text-sm font-medium ${
-                selectedCategory === category
-                  ? "bg-primary text-white hover:bg-primary-hover"
-                  : "bg-card text-text border-border hover:bg-secondary"
-              }`}
-            >
-              {category}
-            </Button>
-          ))}
+        {/* Categories - Single chip status + Filters button */}
+        <div className="sticky top-[73px] bg-gray-50 z-40 w-full overflow-hidden">
+          <div className="w-full px-4 py-3">
+            <div className="flex gap-3 items-center justify-between w-full max-w-full">
+              {/* Chip de estado único - muestra categoría actual */}
+              <Button
+                onClick={() => {
+                  if (selectedCategory !== t("all")) {
+                    setSelectedCategory(t("all"))
+                  }
+                }}
+                variant={selectedCategory === t("all") ? "default" : "outline"}
+                className={`rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap flex items-center gap-2 ${
+                  selectedCategory === t("all")
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
+                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <span className="truncate max-w-[200px]">{selectedCategory}</span>
+                {selectedCategory !== t("all") && (
+                  <X className="w-4 h-4 flex-shrink-0" />
+                )}
+              </Button>
+              
+              {/* Botón de "Filtros" - siempre visible */}
+              <Button
+                onClick={() => setShowFiltersModal(true)}
+                variant="outline"
+                className="rounded-full px-4 py-2 text-sm font-medium bg-white text-gray-700 border-gray-300 hover:bg-gray-50 flex items-center gap-2 whitespace-nowrap flex-shrink-0"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span>{t("filters")}</span>
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Loading State */}
@@ -348,8 +334,8 @@ export default function MenuView() {
                 {filteredProducts.map((product: ApiProduct) => {
                   const quantity = getProductQuantity(product.id)
                   return (
-                    <div key={product.id} className="bg-card rounded-xl p-4 shadow-sm border border-border hover:shadow-md transition-all duration-200">
-                      <div className="flex items-center gap-4">
+                    <div key={product.id} className="bg-card rounded-xl p-4 shadow-sm border border-border hover:shadow-md transition-all duration-200 overflow-hidden">
+                      <div className="flex items-center gap-4 w-full">
                         {/* Product Image */}
                         <div className="relative w-20 h-20 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
                           {product.image ? (
@@ -364,39 +350,39 @@ export default function MenuView() {
                         </div>
                         
                         {/* Product Info */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-text text-lg mb-1">{product.name}</h3>
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <h3 className="font-semibold text-text text-lg mb-1 truncate">{product.name}</h3>
                           <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
                             {product.description || t("defaultDescription")}
                           </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xl font-bold text-text">${product.price.toFixed(2)}</span>
+                          <div className="flex items-center justify-between gap-3 w-full">
+                            <span className="text-xl font-bold text-text flex-shrink-0">${product.price.toFixed(0)}</span>
                             
                             {/* Selector de cantidad mejorado */}
                             {quantity === 0 ? (
                                 <Button
                                   onClick={() => handleAddToCart(product)}
-                                  className="rounded-full bg-primary hover:bg-primary-hover text-white px-6 py-2 flex items-center gap-2"
+                                  className="rounded-full bg-primary hover:bg-primary-hover text-white px-6 py-2 flex items-center gap-2 flex-shrink-0"
                                 >
                                   <Plus className="w-4 h-4" />
                                   {t("add")}
                                 </Button>
                               ) : (
-                              <div className="flex items-center gap-3 bg-secondary rounded-full px-3 py-2">
+                              <div className="flex items-center gap-2 bg-secondary rounded-full px-2 py-1.5 flex-shrink-0">
                                 <Button
                                   onClick={() => handleQuantityChange(product.id, quantity - 1)}
                                   size="icon"
                                   variant="ghost"
-                                  className="h-8 w-8 rounded-full hover:bg-card"
+                                  className="h-7 w-7 rounded-full hover:bg-card p-0 flex-shrink-0"
                                 >
                                   {quantity === 1 ? (
-                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
                                   ) : (
-                                    <Minus className="w-4 h-4 text-text" />
+                                    <Minus className="w-3.5 h-3.5 text-text" />
                                   )}
                                 </Button>
                                 
-                                <span className="font-semibold text-text min-w-[20px] text-center">
+                                <span className="font-semibold text-text min-w-[24px] text-center text-sm">
                                   {quantity}
                                 </span>
                                 
@@ -404,9 +390,9 @@ export default function MenuView() {
                                   onClick={() => handleQuantityChange(product.id, quantity + 1)}
                                   size="icon"
                                   variant="ghost"
-                                  className="h-8 w-8 rounded-full hover:bg-card"
+                                  className="h-7 w-7 rounded-full hover:bg-card p-0 flex-shrink-0"
                                 >
-                                  <Plus className="w-4 h-4 text-text" />
+                                  <Plus className="w-3.5 h-3.5 text-text" />
                                 </Button>
                               </div>
                             )}
@@ -439,10 +425,10 @@ export default function MenuView() {
                             <span className="text-2xl">🍽️</span>
                           )}
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-text text-sm">{product.name}</h3>
-                          <p className="text-xs text-muted-foreground">{product.description}</p>
-                          <p className="font-bold text-text mt-1">${product.price.toFixed(2)}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{product.description}</p>
+                          <p className="font-bold text-text mt-1">${product.price.toFixed(0)}</p>
                         </div>
                         
                         {/* Selector de cantidad para más vendidos */}
@@ -450,18 +436,18 @@ export default function MenuView() {
                           <Button
                             onClick={() => handleAddToCart(product)}
                             size="sm"
-                            className="rounded-full bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2"
+                            className="rounded-full bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2 flex-shrink-0"
                           >
                             <Plus className="w-3 h-3" />
                             {t("add")}
                           </Button>
                         ) : (
-                          <div className="flex items-center gap-2 bg-secondary rounded-full px-2 py-1">
+                          <div className="flex items-center gap-1.5 bg-secondary rounded-full px-2 py-1 flex-shrink-0">
                             <Button
                               onClick={() => handleQuantityChange(product.id, quantity - 1)}
                               size="icon"
                               variant="ghost"
-                              className="h-6 w-6 rounded-full hover:bg-card"
+                              className="h-6 w-6 rounded-full hover:bg-card p-0"
                             >
                               {quantity === 1 ? (
                                 <Trash2 className="w-3 h-3 text-destructive" />
@@ -470,7 +456,7 @@ export default function MenuView() {
                               )}
                             </Button>
                             
-                            <span className="font-semibold text-text min-w-[16px] text-center text-sm">
+                            <span className="font-semibold text-text min-w-[20px] text-center text-xs">
                               {quantity}
                             </span>
                             
@@ -478,7 +464,7 @@ export default function MenuView() {
                               onClick={() => handleQuantityChange(product.id, quantity + 1)}
                               size="icon"
                               variant="ghost"
-                              className="h-6 w-6 rounded-full hover:bg-card"
+                              className="h-6 w-6 rounded-full hover:bg-card p-0"
                             >
                               <Plus className="w-3 h-3 text-text" />
                             </Button>
@@ -505,6 +491,17 @@ export default function MenuView() {
         isOpen={showInstructionsModal}
         onClose={() => setShowInstructionsModal(false)}
       />
+
+      <CategoryFiltersModal
+        isOpen={showFiltersModal}
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        onClose={() => setShowFiltersModal(false)}
+      />
+
+      {/* Floating Cart Bar - Zona del pulgar y visibilidad del estado */}
+      <FloatingCartBar />
     </div>
   )
 }

@@ -5,9 +5,8 @@ import { requireRestaurantAuth } from '@/lib/api-auth'
 
 export async function POST(req: Request) {
   try {
-    const { userId, newPassword } = await req.json()
+    const { userId } = await req.json()
     if (typeof userId !== 'string' || !userId) return NextResponse.json({ error: 'userId inválido' }, { status: 400 })
-    if (typeof newPassword !== 'string' || newPassword.length < 6) return NextResponse.json({ error: 'Contraseña demasiado corta' }, { status: 400 })
 
     const auth = await requireRestaurantAuth(req, ['admin', 'desarrollador'])
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
@@ -23,8 +22,12 @@ export async function POST(req: Request) {
     const targetOrg = (target.app_metadata as any)?.org_id
     if (targetRole !== 'caja' || targetOrg !== restaurantId) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
 
-    const { error: updErr } = await admin.auth.admin.updateUserById(userId, { password: newPassword })
-    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 400 })
+    // Remove from restaurant_users table
+    await admin.from('restaurant_users').delete().eq('user_id', userId)
+
+    // Delete the auth user
+    const { error: delErr } = await admin.auth.admin.deleteUser(userId)
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
 
     return NextResponse.json({ ok: true })
   } catch (e: any) {

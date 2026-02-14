@@ -17,6 +17,8 @@ class Config:
     USE_ORM = os.getenv("USE_ORM", "true").lower() == "true"
     
     # Mercado Pago Configuration
+    # NOTE: These global credentials are used only as a development fallback.
+    # In production, credentials come from payment_configs table per restaurant.
     MERCADO_PAGO_ACCESS_TOKEN = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
     MERCADO_PAGO_PUBLIC_KEY = os.getenv("MERCADO_PAGO_PUBLIC_KEY", "")
     MERCADO_PAGO_WEBHOOK_SECRET = os.getenv("MERCADO_PAGO_WEBHOOK_SECRET", "")

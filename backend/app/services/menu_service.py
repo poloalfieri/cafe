@@ -343,7 +343,9 @@ class MenuService:
     def _validate_required_fields(self, data: Dict, required: List[str]) -> None:
         """Validar que existan campos requeridos"""
         for field in required:
-            if field not in data or not data[field]:
+            value = data.get(field)
+            # Permitir 0 como valor válido (ej: precio=0), solo rechazar None y strings vacíos
+            if field not in data or value is None or (isinstance(value, str) and not value.strip()):
                 raise ValueError(f"Campo requerido: {field}")
     
     def _validate_price(self, price) -> float:

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { 
@@ -18,7 +18,8 @@ import {
   CreditCard,
   Share,
   Archive,
-  ChefHat
+  ChefHat,
+  UserPlus
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -28,9 +29,13 @@ import BranchesManagement from "./admin/branches-management"
 import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
+import CashierManagement from "./admin/cashier-management"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
+import { supabase } from "@/lib/auth/supabase-browser"
+import { useRouter } from "next/navigation"
+import { LogOut } from "lucide-react"
 
 interface DashboardMetrics {
   dailySales: number
@@ -49,6 +54,7 @@ interface DashboardMetrics {
 
 export default function AdminDashboard() {
   const t = useTranslations("admin.dashboard")
+  const router = useRouter()
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     dailySales: 0,
     weeklySales: 0,
@@ -60,6 +66,7 @@ export default function AdminDashboard() {
     topProducts: []
   })
   const [loading, setLoading] = useState(true)
+  const [loggingOut, setLoggingOut] = useState(false)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
@@ -153,6 +160,17 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleLogout = useCallback(async () => {
+    try {
+      setLoggingOut(true)
+      await supabase.auth.signOut()
+    } finally {
+      sessionStorage.removeItem("supabase_session")
+      router.replace("/login?next=/admin")
+      setLoggingOut(false)
+    }
+  }, [router])
+
   const refreshData = () => {
     fetchDashboardData(selectedBranchId)
   }
@@ -198,6 +216,15 @@ export default function AdminDashboard() {
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 {t("actions.refresh")}
+              </Button>
+              <Button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                variant="outline"
+                className="px-4 py-2 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
               </Button>
             </div>
           </div>
@@ -317,7 +344,7 @@ export default function AdminDashboard() {
         </DialogContent>
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <BarChart3 className="w-4 h-4" />
               {t("tabs.dashboard")}
@@ -350,6 +377,10 @@ export default function AdminDashboard() {
               <CreditCard className="w-4 h-4" />
               {t("tabs.banking")}
             </TabsTrigger>
+            <TabsTrigger value="cashiers" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+              <UserPlus className="w-4 h-4" />
+              {t("tabs.cashiers")}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
@@ -381,7 +412,11 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="banking">
-            <BankConfigManagement />
+            <BankConfigManagement branchId={selectedBranchId || undefined} />
+          </TabsContent>
+
+          <TabsContent value="cashiers">
+            <CashierManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
         </Tabs>
       </div>

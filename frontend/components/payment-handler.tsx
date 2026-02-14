@@ -62,27 +62,32 @@ export function PaymentHandler({
         },
         body: JSON.stringify({
           mesa_id: mesaId,
-          token: mesaToken, // Agregar el token de la mesa
-          items: items,
+          token: mesaToken,
+          items: items.map(item => ({
+            id: (item as any).id || '',
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          })),
           total_amount: totalAmount
         })
       })
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        const errData = await response.json().catch(() => null)
+        throw new Error(errData?.error || `Error ${response.status}: ${response.statusText}`)
       }
 
-      const data: PaymentResponse = await response.json()
+      const data = await response.json()
       
       if (data.success) {
         setPaymentUrl(data.init_point)
-        // Redirigir automáticamente a Mercado Pago
+        // Redirect to Mercado Pago
         window.location.href = data.init_point
       } else {
-        throw new Error('Error al crear la preferencia de pago')
+        throw new Error(data.error || 'Error al crear la preferencia de pago')
       }
     } catch (error) {
-      // Error ya manejado por onPaymentError
       onPaymentError?.(error instanceof Error ? error.message : 'Error desconocido')
     } finally {
       setIsLoading(false)

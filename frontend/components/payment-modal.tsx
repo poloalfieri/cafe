@@ -29,6 +29,7 @@ interface PaymentModalProps {
   mesaToken: string
   totalAmount: number
   items: Array<{
+    id?: string
     name: string
     price: number
     quantity: number
@@ -74,7 +75,7 @@ export default function PaymentModal({
     setIsLoading(true)
     setErrorMessage(null)
     
-    // Validar que mesaId y mesaToken sean válidos
+    // Validar que mesaId y mesaToken sean validos
     if (!isValidParam(mesaId)) {
       setErrorMessage(t('errorMesa'))
       setIsLoading(false)
@@ -88,23 +89,34 @@ export default function PaymentModal({
     }
     
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
-      const response = await fetch(`${backendUrl}/payment/init`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Enviar token en header Authorization para mayor seguridad (no aparece en logs/URLs)
-          'Authorization': `Bearer ${mesaToken}`,
-        },
-        body: JSON.stringify({
-          monto: totalAmount,
-          mesa_id: mesaId,
-          branch_id: branchId,
-          token: mesaToken,  // También en body para compatibilidad con código legacy
-          items: items,  // Enviar items reales del carrito
-          descripcion: `Pedido Mesa ${mesaId} - ${items.map(item => `${item.name} x${item.quantity}`).join(', ')}`
-        }),
-      })
+      const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+        throw new Error('Variables de entorno de Supabase no configuradas')
+      }
+
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/create-payment-preference`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            mesa_id: mesaId,
+            token: mesaToken,
+            items: items.map(item => ({
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+            })),
+            total_amount: totalAmount,
+          }),
+        }
+      )
 
       const data = await response.json()
       
@@ -113,8 +125,7 @@ export default function PaymentModal({
         throw new Error(errorMsg)
       }
       
-      // Soportar tanto init_point como payment_link (compatibilidad)
-      const paymentUrl = data.init_point || data.payment_link
+      const paymentUrl = data.init_point
       
       if (data.success && paymentUrl) {
         window.open(paymentUrl, '_blank')
@@ -123,7 +134,6 @@ export default function PaymentModal({
         throw new Error(data.error || t('payLinkError'))
       }
     } catch (error) {
-      // Error ya manejado por setErrorMessage
       setErrorMessage(error instanceof Error ? error.message : t('unknownError'))
     } finally {
       setIsLoading(false)
@@ -297,7 +307,6 @@ export default function PaymentModal({
       <DialogContent className="w-[95vw] max-w-md mx-auto p-0 overflow-hidden bg-white rounded-2xl max-h-[90vh] flex flex-col">
         {/* Header con botón de cierre */}
         <DialogHeader className="bg-white text-gray-900 p-4 border-b">
-          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-100 rounded-lg">
                 <ShoppingCart className="w-5 h-5 text-gray-600" />
@@ -311,15 +320,6 @@ export default function PaymentModal({
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handleClose}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-full hover:bg-gray-100"
-            >
-              <X className="h-4 w-4 text-gray-500" />
-            </Button>
-          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">

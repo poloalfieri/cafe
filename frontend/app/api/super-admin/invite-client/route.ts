@@ -1,15 +1,7 @@
 import 'server-only'
 import { NextResponse } from 'next/server'
-import { getServerSupabase } from '@/lib/supabase-server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
-
-function getBearer(req: Request): string | null {
-  const h = req.headers.get('authorization') || req.headers.get('Authorization')
-  if (!h) return null
-  const [type, token] = h.split(' ')
-  if (type?.toLowerCase() !== 'bearer' || !token) return null
-  return token
-}
+import { requireStaffAuth } from '@/lib/api-auth'
 
 export async function POST(req: Request) {
   try {
@@ -21,17 +13,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nombre de organización inválido' }, { status: 400 })
     }
 
-    const token = getBearer(req)
-    if (!token) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-
-    const supabase = getServerSupabase()
-    const { data: ures, error: uerr } = await supabase.auth.getUser(token)
-    if (uerr || !ures.user) return NextResponse.json({ error: 'Token inválido' }, { status: 401 })
-
-    const role = (ures.user.app_metadata as any)?.role
-    if (role !== 'desarrollador') {
-      return NextResponse.json({ error: 'Solo desarrollador' }, { status: 403 })
-    }
+    const auth = await requireStaffAuth(req, ['desarrollador'])
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
     const orgId = crypto.randomUUID()
 

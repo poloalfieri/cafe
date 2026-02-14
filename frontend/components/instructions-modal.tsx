@@ -1,6 +1,6 @@
 "use client"
 
-import { X, ShoppingCart, Plus, Minus, Bell, CreditCard } from "lucide-react"
+import { X, ShoppingBag, Plus, Minus, Bell, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"
 
@@ -46,8 +46,13 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
                 <span>{t("step1Hint")}</span>
-                <span className="bg-gray-900 text-white px-2 py-1 rounded-full">Pizzas</span>
-                <span className="bg-white border border-gray-200 px-2 py-1 rounded-full">Pastas</span>
+                <Button
+                  variant="outline"
+                  className="rounded-full px-3 py-1 text-xs font-medium bg-white text-gray-700 border-gray-300 flex items-center gap-1.5 h-auto pointer-events-none"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Filtros</span>
+                </Button>
               </div>
             </div>
           </div>
@@ -84,8 +89,8 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <p className="text-gray-600 text-sm mb-2">
                 {t("step3Body")}
               </p>
-              <div className="inline-flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm">
-                <ShoppingCart className="w-4 h-4" />
+              <div className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-full text-sm font-semibold shadow-md">
+                <ShoppingBag className="w-4 h-4" />
                 <span>{t("step3Cta")}</span>
               </div>
             </div>
@@ -101,20 +106,21 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
               <p className="text-gray-600 text-sm mb-2">
                 {t("step4Body")}
               </p>
-              <div className="inline-flex items-center gap-2 bg-red-600 text-white px-3 py-2 rounded-lg text-sm">
-                <CreditCard className="w-4 h-4" />
-                <span>{t("step4Cta")}</span>
+              <div className="inline-flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-full text-sm font-semibold shadow-lg">
+                <span>Pay</span>
               </div>
             </div>
           </div>
 
           {/* Ayuda adicional */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Bell className="w-4 h-4 text-orange-600" />
-              <h4 className="font-semibold text-orange-800">{t("helpTitle")}</h4>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3 mb-2">
+              <div className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+                <Bell className="w-4 h-4" />
+                <span>{t("helpTitle")}</span>
+              </div>
             </div>
-            <p className="text-orange-700 text-sm">
+            <p className="text-blue-800 text-sm leading-relaxed">
               {t("helpBody")}
             </p>
           </div>

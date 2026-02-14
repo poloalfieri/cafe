@@ -20,6 +20,12 @@
   --color-accent: #e9dcc6;
   --color-accent-hover: #deceb5;
 
+  --color-primary-foreground: #ffffff;
+  --color-secondary-foreground: #2f2a22;
+  --color-accent-foreground: #2f2a22;
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #ffffff;
+
   --color-success: #1f7a55;
   --color-error: #b42318;
 }
@@ -27,6 +33,12 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   body {
@@ -51,6 +63,15 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+
+  /* Ocultar scrollbar pero mantener funcionalidad */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
   }
 
   /* Clase para elementos touch-friendly */
@@ -138,10 +159,19 @@
   }
 }
 
-/* Animaciones suaves para transiciones */
-@media (prefers-reduced-motion: no-preference) {
-  * {
-    transition-duration: 150ms;
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Animación para el bottom sheet */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
   }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
 }

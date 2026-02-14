@@ -15,22 +15,35 @@ const config: Config = {
         primary: {
           DEFAULT: "var(--color-primary)",
           hover: "var(--color-primary-hover)",
+          foreground: "var(--color-primary-foreground)",
         },
         secondary: {
           DEFAULT: "var(--color-secondary)",
           hover: "var(--color-secondary-hover)",
+          foreground: "var(--color-secondary-foreground)",
         },
         accent: {
           DEFAULT: "var(--color-accent)",
           hover: "var(--color-accent-hover)",
+          foreground: "var(--color-accent-foreground)",
+        },
+        destructive: {
+          DEFAULT: "var(--color-destructive)",
+          foreground: "var(--color-destructive-foreground)",
         },
         card: {
           DEFAULT: "var(--color-card)",
           hover: "var(--color-card-hover)",
         },
+        popover: {
+          DEFAULT: "var(--color-card)",
+          foreground: "var(--color-text)",
+        },
         text: "var(--color-text)",
         "muted-foreground": "var(--color-muted-foreground)",
         border: "var(--color-border)",
+        input: "var(--color-border)",
+        ring: "var(--color-primary)",
         background: "var(--color-background)",
       },
       borderRadius: {

@@ -180,9 +180,13 @@ def renew_mesa_token(mesa_id):
         return jsonify({"error": "Error interno del servidor"}), 500
         return jsonify({"error": str(e)}), 500 
 
-@mesa_bp.route("/session", methods=["POST"])
+@mesa_bp.route("/session", methods=["POST", "OPTIONS"])
 def start_mesa_session():
     """Obtener o crear un token de sesión para una mesa (clientes)"""
+    # Handle preflight OPTIONS request
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+    
     try:
         data = request.get_json() or {}
         mesa_id = data.get("mesa_id")

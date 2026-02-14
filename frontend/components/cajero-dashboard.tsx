@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell, LogOut } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -361,8 +361,9 @@ export default function CajeroDashboard() {
                 onClick={handleLogout}
                 disabled={loggingOut}
                 variant="outline"
-                className="px-4 py-2"
+                className="px-4 py-2 flex items-center gap-2"
               >
+                <LogOut className="w-4 h-4" />
                 {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
               </Button>
             </div>

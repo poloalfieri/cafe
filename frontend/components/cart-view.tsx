@@ -65,7 +65,7 @@ export default function CartView() {
     setShowWaiterNotice(true)
   }
 
-  const handleConfirmCallWaiter = async (data: { message?: string, paymentMethod: 'CARD' | 'CASH' | 'QR' }): Promise<void> => {
+  const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
       const session = getMesaSession()
       if (!session.mesa_id || !session.token || !session.branch_id) {
@@ -83,7 +83,6 @@ export default function CartView() {
           mesa_id: session.mesa_id,
           branch_id: session.branch_id,
           token: session.token,
-          payment_method: data.paymentMethod,
           message: data.message || ""
         }),
       })
@@ -152,7 +151,7 @@ export default function CartView() {
   const subtotal = state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-48">
       {/* Header */}
       <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
@@ -302,7 +301,7 @@ export default function CartView() {
           {mesaSession.mesa_id && mesaSession.token ? (
             <Button
               onClick={() => setShowPaymentModal(true)}
-              className="w-full bg-primary hover:bg-primary-hover text-white py-3 rounded-xl font-semibold text-lg"
+              className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200"
               size="lg"
             >
               {t("pay")} ${state.total.toFixed(2)}
