@@ -10,6 +10,8 @@ import {
   Settings,
   Pencil,
   LogOut,
+  Trash2,
+  Shield,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -68,6 +70,14 @@ interface Stats {
   active_restaurants: number
   revenue_monthly_total: number
   orders_total: number
+}
+
+interface SuperAdmin {
+  id: string
+  email: string | undefined
+  full_name: string
+  created_at: string
+  last_sign_in_at: string | null
 }
 
 interface NewBusinessForm {
@@ -141,6 +151,22 @@ export default function SuperAdminDashboard() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [form, setForm] = useState<NewBusinessForm>(EMPTY_FORM)
 
+  /* ---- super-admin creation state ---- */
+  const [showCreateSuperAdmin, setShowCreateSuperAdmin] = useState(false)
+  const [creatingSuperAdmin, setCreatingSuperAdmin] = useState(false)
+  const [superAdminError, setSuperAdminError] = useState<string | null>(null)
+  const [superAdminForm, setSuperAdminForm] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+  })
+
+  /* ---- super-admin list state ---- */
+  const [superAdmins, setSuperAdmins] = useState<SuperAdmin[]>([])
+  const [loadingSuperAdmins, setLoadingSuperAdmins] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<SuperAdmin | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   /* ---- helpers ---- */
   const authHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = { "Content-Type": "application/json" }
@@ -172,9 +198,34 @@ export default function SuperAdminDashboard() {
     }
   }, [authHeaders])
 
+  /* ---- fetch super-admins ---- */
+  const fetchSuperAdmins = useCallback(async () => {
+    setLoadingSuperAdmins(true)
+    try {
+      const res = await fetch("/api/super-admin/list-super-admins", {
+        headers: authHeaders(),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        console.error("Error fetching super-admins:", body.error ?? res.statusText)
+        return
+      }
+      const data = await res.json()
+      setSuperAdmins(data.superAdmins ?? [])
+    } catch (err) {
+      console.error("Error fetching super-admins:", err)
+    } finally {
+      setLoadingSuperAdmins(false)
+    }
+  }, [authHeaders])
+
   useEffect(() => {
     if (session?.accessToken) fetchData()
   }, [session?.accessToken, fetchData])
+
+  useEffect(() => {
+    if (session?.accessToken) fetchSuperAdmins()
+  }, [session?.accessToken, fetchSuperAdmins])
 
   /* ---- create restaurant ---- */
   const handleCreate = async () => {
@@ -203,6 +254,63 @@ export default function SuperAdminDashboard() {
       console.error(err)
     } finally {
       setCreating(false)
+    }
+  }
+
+  /* ---- create super-admin ---- */
+  const handleCreateSuperAdmin = async () => {
+    setCreatingSuperAdmin(true)
+    setSuperAdminError(null)
+    try {
+      const res = await fetch("/api/super-admin/create-super-admin", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          email: superAdminForm.email,
+          password: superAdminForm.password,
+          fullName: superAdminForm.fullName,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSuperAdminError(data.error ?? "Error creando super admin")
+        return
+      }
+      // Success
+      setSuperAdminForm({ email: "", password: "", fullName: "" })
+      setShowCreateSuperAdmin(false)
+      await fetchSuperAdmins()
+      alert(`Super admin creado exitosamente: ${data.email}`)
+    } catch (err) {
+      setSuperAdminError("Error de red al crear super admin")
+      console.error(err)
+    } finally {
+      setCreatingSuperAdmin(false)
+    }
+  }
+
+  /* ---- delete super-admin ---- */
+  const handleDeleteSuperAdmin = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/super-admin/delete-super-admin", {
+        method: "DELETE",
+        headers: authHeaders(),
+        body: JSON.stringify({ userId: deleteTarget.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(`Error: ${data.error}`)
+        return
+      }
+      setDeleteTarget(null)
+      await fetchSuperAdmins()
+    } catch (err) {
+      alert("Error de red al eliminar super admin")
+      console.error(err)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -389,7 +497,7 @@ export default function SuperAdminDashboard() {
               className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-600 data-[state=active]:text-white"
             >
               <Settings className="w-4 h-4" />
-              Planes
+              Configuración
             </TabsTrigger>
           </TabsList>
 
@@ -751,17 +859,208 @@ export default function SuperAdminDashboard() {
             )}
           </TabsContent>
 
-          {/* ---- TAB: Planes (placeholder) ---- */}
+          {/* ---- TAB: Planes ---- */}
           <TabsContent value="planes">
-            <div className="text-center py-16">
-              <Settings className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-semibold text-gray-700 mb-1">
-                Próximamente
-              </h3>
-              <p className="text-gray-500 text-sm">
-                La gestión de planes estará disponible en una próxima
-                actualización.
-              </p>
+            <div className="space-y-8">
+              {/* Super Admin List Section */}
+              <Card className="border-purple-200">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-purple-600" />
+                        Super Administradores
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Cuentas con acceso total al sistema
+                      </p>
+                    </div>
+                    <Button
+                      onClick={fetchSuperAdmins}
+                      disabled={loadingSuperAdmins}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 ${loadingSuperAdmins ? "animate-spin" : ""}`}
+                      />
+                    </Button>
+                  </div>
+
+                  {loadingSuperAdmins ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600" />
+                      <p className="text-sm text-gray-600">Cargando...</p>
+                    </div>
+                  ) : superAdmins.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                      <p className="text-sm text-gray-500">No hay super admins registrados</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {superAdmins.map((sa) => (
+                        <div
+                          key={sa.id}
+                          className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-purple-300 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-medium text-gray-900">
+                                {sa.email}
+                              </p>
+                              {sa.id === session?.user?.id && (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                  Tú
+                                </span>
+                              )}
+                            </div>
+                            {sa.full_name && (
+                              <p className="text-sm text-gray-600">{sa.full_name}</p>
+                            )}
+                            <div className="text-xs text-gray-500 mt-1">
+                              Creado: {new Date(sa.created_at).toLocaleDateString('es')}
+                              {sa.last_sign_in_at && (
+                                <> · Último acceso: {new Date(sa.last_sign_in_at).toLocaleDateString('es')}</>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTarget(sa)}
+                            disabled={sa.id === session?.user?.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Super Admin Creation Section */}
+              <Card className="border-purple-200">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                        Crear Super Admin
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Crea una nueva cuenta con permisos de super administrador
+                      </p>
+                    </div>
+                    <Users className="w-8 h-8 text-purple-600" />
+                  </div>
+
+                  <Dialog
+                    open={showCreateSuperAdmin}
+                    onOpenChange={(open) => {
+                      setShowCreateSuperAdmin(open)
+                      if (!open) {
+                        setSuperAdminForm({ email: "", password: "", fullName: "" })
+                        setSuperAdminError(null)
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Crear Super Admin
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Crear Cuenta Super Admin</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="superAdminEmail">Email</Label>
+                          <Input
+                            id="superAdminEmail"
+                            type="email"
+                            value={superAdminForm.email}
+                            onChange={(e) =>
+                              setSuperAdminForm({
+                                ...superAdminForm,
+                                email: e.target.value,
+                              })
+                            }
+                            placeholder="superadmin@ejemplo.com"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="superAdminPassword">Contraseña</Label>
+                          <Input
+                            id="superAdminPassword"
+                            type="password"
+                            value={superAdminForm.password}
+                            onChange={(e) =>
+                              setSuperAdminForm({
+                                ...superAdminForm,
+                                password: e.target.value,
+                              })
+                            }
+                            placeholder="Mínimo 6 caracteres"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="superAdminFullName">
+                            Nombre Completo (opcional)
+                          </Label>
+                          <Input
+                            id="superAdminFullName"
+                            value={superAdminForm.fullName}
+                            onChange={(e) =>
+                              setSuperAdminForm({
+                                ...superAdminForm,
+                                fullName: e.target.value,
+                              })
+                            }
+                            placeholder="Nombre completo"
+                          />
+                        </div>
+
+                        {superAdminError && (
+                          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+                            {superAdminError}
+                          </p>
+                        )}
+
+                        <Button
+                          onClick={handleCreateSuperAdmin}
+                          disabled={
+                            creatingSuperAdmin ||
+                            !superAdminForm.email.includes("@") ||
+                            superAdminForm.password.length < 6
+                          }
+                          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                        >
+                          {creatingSuperAdmin ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              Creando...
+                            </>
+                          ) : (
+                            "Crear Super Admin"
+                          )}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardContent>
+              </Card>
+
+              {/* Placeholder for future plans */}
+              <div className="text-center py-8">
+                <Settings className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500 text-sm">
+                  Más configuraciones disponibles próximamente
+                </p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
@@ -1001,6 +1300,51 @@ export default function SuperAdminDashboard() {
               className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
             >
               Confirmar cambio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ---- Confirm delete super-admin AlertDialog ---- */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar Super Admin</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Estás por eliminar permanentemente la cuenta de super admin:
+                </p>
+                <p className="font-semibold text-gray-900">
+                  {deleteTarget?.email}
+                  {deleteTarget?.full_name && ` (${deleteTarget.full_name})`}
+                </p>
+                <p className="text-red-600">
+                  Esta acción <span className="font-semibold">no se puede deshacer</span>. El usuario perderá acceso inmediatamente.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSuperAdmin}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                "Eliminar"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
