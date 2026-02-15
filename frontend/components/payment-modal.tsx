@@ -165,11 +165,10 @@ export default function PaymentModal({
     }
     
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
-      const orderResponse = await fetch(`${backendUrl}/orders`, {
+      const { apiFetchTenant } = await import('@/lib/apiClient')
+      await apiFetchTenant('/orders', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
@@ -184,16 +183,9 @@ export default function PaymentModal({
         }),
       })
 
-      if (!orderResponse.ok) {
-        const orderData = await orderResponse.json().catch(() => null)
-        const orderMsg = orderData?.error || `Error ${orderResponse.status}: ${orderResponse.statusText}`
-        throw new Error(orderMsg)
-      }
-
-      const response = await fetch(`${backendUrl}/waiter/calls`, {
+      const data = await apiFetchTenant('/waiter/calls', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${mesaToken}`,
         },
         body: JSON.stringify({
@@ -204,14 +196,6 @@ export default function PaymentModal({
           message: `Solicitud de pago - ${paymentMethod}`
         }),
       })
-
-      const data = await response.json()
-      
-      // Manejar respuestas de error del backend
-      if (!response.ok) {
-        const errorMsg = data.error || `Error ${response.status}: ${response.statusText}`
-        throw new Error(errorMsg)
-      }
       
       if (data.success) {
         const message = t('successWaiter')

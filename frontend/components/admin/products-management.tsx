@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -59,7 +60,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const backendUrl = getTenantApiBase()
 
   useEffect(() => {
     fetchProducts()

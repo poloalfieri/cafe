@@ -1,11 +1,13 @@
 "use client"
 
+import { getRestaurantSlug } from "@/lib/apiClient"
 import { useCart } from "@/contexts/cart-context"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
 
 export default function FloatingCartBar() {
+  const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
   const { state } = useCart()
   
   // Solo mostrar si hay items en el carrito
@@ -28,7 +30,7 @@ export default function FloatingCartBar() {
           </div>
 
           {/* Right side - Botón de acción */}
-          <Link href="/usuario/cart" className="flex-shrink-0">
+          <Link href={`/${slug}/usuario/cart`} className="flex-shrink-0">
             <Button 
               size="lg"
               className="rounded-full bg-green-500 hover:bg-green-600 text-white px-8 py-6 text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-3"

@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const { data: restaurants, error } = await admin
     .from("restaurants")
     .select(
-      "id, name, created_at, branches(id, name, address, phone, email, manager, active, share_menu, monthly_sales, total_orders, created_at)",
+      "id, name, slug, created_at, branches(id, name, address, phone, email, manager, active, share_menu, monthly_sales, total_orders, created_at)",
     )
     .order("created_at", { ascending: false })
 
@@ -78,6 +78,7 @@ export async function GET(req: Request) {
     return {
       id: r.id,
       name: r.name,
+      slug: r.slug ?? null,
       created_at: r.created_at,
       branches_count: branchesCount,
       active,
@@ -118,8 +119,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { restaurantName, branch, admin: adminInput } = body as {
+  const { restaurantName, restaurantSlug, branch, admin: adminInput } = body as {
     restaurantName?: string
+    restaurantSlug?: string
     branch?: Record<string, unknown>
     admin?: { email?: string; fullName?: string; setPassword?: boolean; password?: string }
   }
@@ -127,6 +129,16 @@ export async function POST(req: Request) {
   // ---------- validation ----------
   if (!restaurantName?.trim()) {
     return NextResponse.json({ error: "Nombre del restaurante requerido" }, { status: 400 })
+  }
+  if (!restaurantSlug?.trim()) {
+    return NextResponse.json({ error: "Slug del restaurante requerido" }, { status: 400 })
+  }
+  const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+  if (!slugPattern.test(restaurantSlug.trim())) {
+    return NextResponse.json(
+      { error: "Slug invalido. Solo minusculas, numeros y guiones (ej: cafe-central)" },
+      { status: 400 },
+    )
   }
   if (!branch?.name || !(branch.name as string).trim()) {
     return NextResponse.json({ error: "Nombre de sucursal requerido" }, { status: 400 })
@@ -153,7 +165,7 @@ export async function POST(req: Request) {
     // -------- 1. Create restaurant --------
     const { data: restaurant, error: restErr } = await supabaseAdmin
       .from("restaurants")
-      .insert({ name: restaurantName.trim() })
+      .insert({ name: restaurantName.trim(), slug: restaurantSlug.trim() })
       .select("id")
       .single()
 
@@ -335,6 +347,7 @@ export async function PATCH(req: Request) {
   const {
     restaurantId,
     restaurantName,
+    restaurantSlug,
     mainBranchId,
     branch,
     newAdminEmail,
@@ -342,6 +355,7 @@ export async function PATCH(req: Request) {
   } = body as {
     restaurantId?: string
     restaurantName?: string
+    restaurantSlug?: string
     mainBranchId?: string
     branch?: Record<string, unknown>
     newAdminEmail?: string
@@ -355,17 +369,34 @@ export async function PATCH(req: Request) {
   const supabaseAdmin = getSupabaseAdmin()
   const errors: string[] = []
 
-  // -------- Update restaurant name --------
+  // -------- Update restaurant name + slug --------
+  const restaurantUpdate: Record<string, unknown> = {}
+
   if (restaurantName !== undefined) {
     if (!restaurantName.trim()) {
       return NextResponse.json(
-        { error: "Nombre del restaurante no puede estar vacío" },
+        { error: "Nombre del restaurante no puede estar vacio" },
         { status: 400 },
       )
     }
+    restaurantUpdate.name = restaurantName.trim()
+  }
+
+  if (restaurantSlug !== undefined) {
+    const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+    if (!restaurantSlug.trim() || !slugPattern.test(restaurantSlug.trim())) {
+      return NextResponse.json(
+        { error: "Slug invalido. Solo minusculas, numeros y guiones (ej: cafe-central)" },
+        { status: 400 },
+      )
+    }
+    restaurantUpdate.slug = restaurantSlug.trim()
+  }
+
+  if (Object.keys(restaurantUpdate).length > 0) {
     const { error } = await supabaseAdmin
       .from("restaurants")
-      .update({ name: restaurantName.trim() })
+      .update(restaurantUpdate)
       .eq("id", restaurantId)
 
     if (error) errors.push(`restaurant: ${error.message}`)

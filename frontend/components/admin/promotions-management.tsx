@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -63,7 +64,7 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
     { value: "timeframe", label: t("types.timeframe"), icon: Clock }
   ]
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const backendUrl = getTenantApiBase()
 
   useEffect(() => {
     fetchPromotions()

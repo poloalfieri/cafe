@@ -28,6 +28,7 @@ class MenuService:
         user_id: Optional[str] = None,
         mesa_id: Optional[str] = None,
         branch_id: Optional[str] = None,
+        restaurant_id: Optional[str] = None,
     ) -> List[Dict]:
         """
         Listar productos con filtros opcionales.
@@ -38,16 +39,18 @@ class MenuService:
             user_id: Usuario autenticado para resolver restaurant_id
             mesa_id: Mesa pública para resolver restaurant_id
             branch_id: Sucursal para resolver restaurant_id cuando es público
+            restaurant_id: Restaurant ID directo (desde g.restaurant_id en middleware)
 
         Returns:
             Lista de productos normalizados
         """
         try:
-            restaurant_id = self._resolve_restaurant_id(
-                user_id=user_id,
-                mesa_id=mesa_id,
-                branch_id=branch_id,
-            )
+            if not restaurant_id:
+                restaurant_id = self._resolve_restaurant_id(
+                    user_id=user_id,
+                    mesa_id=mesa_id,
+                    branch_id=branch_id,
+                )
             query = supabase.table("menu").select("*")
             query = query.eq("restaurant_id", restaurant_id)
             if branch_id:

@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -89,7 +90,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
     description: ''
   })
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const backendUrl = getTenantApiBase()
 
   const fetchProducts = async () => {
     try {

@@ -1,5 +1,6 @@
 "use client"
 
+import { getRestaurantSlug } from "@/lib/apiClient"
 import { useState } from "react"
 import { ArrowLeft, Minus, Plus, Trash2, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
 
 export default function CartView() {
+  const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
   const { state, updateQuantity, removeItem, clearCart } = useCart()
   const [showCallWaiterModal, setShowCallWaiterModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -42,12 +44,10 @@ export default function CartView() {
       return { mesa_id, token, branch_id }
     }
   }
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
   const mesaSession = getMesaSession()
 
   const handlePaymentComplete = (orderId: string, status: string) => {
     setSuccess(t("paymentProcessed", { orderId }))
-    // Aquí podrías limpiar el carrito o hacer otras acciones
   }
 
   const handlePaymentError = (error: string) => {
@@ -73,10 +73,10 @@ export default function CartView() {
         return
       }
       
-      const response = await fetch(`${backendUrl}/waiter/calls`, {
+      const { apiFetchTenant } = await import('@/lib/apiClient')
+      await apiFetchTenant('/waiter/calls', {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "Authorization": `Bearer ${session.token}`,
         },
         body: JSON.stringify({
@@ -86,14 +86,8 @@ export default function CartView() {
           message: data.message || ""
         }),
       })
-
-      if (response.ok) {
-        // Llamada al mozo exitosa
-      } else {
-        // Error ya manejado silenciosamente
-      }
     } catch (error) {
-      // Error ya manejado silenciosamente
+      // Error already handled silently
     } finally {
       setShowCallWaiterModal(false)
     }
@@ -107,7 +101,7 @@ export default function CartView() {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Link href="/usuario">
+                <Link href={`/${slug}/usuario`}>
                   <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
                     <ArrowLeft className="w-5 h-5 text-text" />
                   </Button>
@@ -131,7 +125,7 @@ export default function CartView() {
           <div className="text-6xl mb-4 opacity-30">🛒</div>
           <h2 className="text-xl font-semibold text-text mb-2">{t("emptyTitle")}</h2>
           <p className="text-muted-foreground mb-6">{t("emptySubtitle")}</p>
-          <Link href="/usuario">
+          <Link href={`/${slug}/usuario`}>
             <Button className="bg-primary hover:bg-primary-hover text-white px-8 py-3 rounded-full">
               {t("backToMenu")}
             </Button>
@@ -157,7 +151,7 @@ export default function CartView() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/usuario">
+              <Link href={`/${slug}/usuario`}>
                 <Button variant="ghost" size="icon" className="rounded-full hover:bg-gray-100">
                     <ArrowLeft className="w-5 h-5 text-text" />
                   </Button>
@@ -257,7 +251,7 @@ export default function CartView() {
 
         {/* Botón "Buscar más productos" con flecha hacia atrás */}
         <div className="mb-6">
-          <Link href="/usuario">
+          <Link href={`/${slug}/usuario`}>
             <Button variant="outline" className="w-full border-border hover:bg-secondary">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Buscar más productos
@@ -349,7 +343,7 @@ export default function CartView() {
             <Button
               onClick={() => {
                 setShowWaiterNotice(false)
-                router.push("/usuario")
+                router.push(`/${slug}/usuario`)
               }}
               className="mt-4 w-full bg-primary hover:bg-primary-hover text-white"
             >

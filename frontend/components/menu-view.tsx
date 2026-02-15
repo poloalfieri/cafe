@@ -73,9 +73,6 @@ export default function MenuView() {
     return [t("all"), ...Object.keys(categoryMap)]
   }
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
-
-  // Mantener exactamente la misma llamada a la API que ya tienes
   const fetchProducts = async (): Promise<void> => {
     try {
       setLoading(true)
@@ -88,18 +85,16 @@ export default function MenuView() {
       }
 
       const query = `?mesa_id=${encodeURIComponent(session.mesa_id)}&branch_id=${encodeURIComponent(session.branch_id)}`
-      const response = await fetch(`${backendUrl}/menu${query}`)
-      if (!response.ok) throw new Error("Error al cargar el menú")
+      const { apiFetchTenant } = await import('@/lib/apiClient')
+      const data: ApiProduct[] = await apiFetchTenant(`/menu${query}`)
       
-      const data: ApiProduct[] = await response.json()
       const normalized = Array.isArray(data) ? data.map((item: any) => ({
         ...item,
         image: item.image || item.image_url || undefined
       })) : []
       setProducts(normalized)
       
-      // Extraer categorías únicas sin usar Set
-      const uniqueCategories = getUniqueCategories(data)
+      const uniqueCategories = getUniqueCategories(normalized)
       setCategories(uniqueCategories)
       
     } catch (err) {
@@ -171,7 +166,8 @@ export default function MenuView() {
         return
       }
       
-      const response = await fetch(`${backendUrl}/waiter/calls`, {
+      const { getTenantApiBase } = await import('@/lib/apiClient')
+      const response = await fetch(`${getTenantApiBase()}/waiter/calls`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -21,12 +21,14 @@ def get_menu():
         mesa_id = request.args.get("mesa_id")
         branch_id = request.args.get("branch_id")
         user_id = getattr(g, "user_id", None)
+        restaurant_id = getattr(g, "restaurant_id", None)
         items = menu_service.list_items(
             category=category,
             available=available,
             user_id=user_id,
             mesa_id=mesa_id,
             branch_id=branch_id,
+            restaurant_id=restaurant_id,
         )
         return jsonify(items), 200
     except ValueError as e:

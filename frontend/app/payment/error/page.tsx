@@ -67,7 +67,7 @@ function PaymentErrorContent() {
           </div>
           
           <div className="flex flex-col gap-2 pt-4">
-            <Link href="/usuario">
+            <Link href="/">
               <Button className="w-full bg-gray-900 hover:bg-gray-800">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver al Menú

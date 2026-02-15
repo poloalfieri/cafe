@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import {
@@ -33,7 +34,9 @@ interface MetricsData {
   paymentMethods: { labels: string[]; values: number[] }
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+function getApiBaseUrl() {
+  return getTenantApiBase()
+}
 
 const COLORS = {
   primary: "#8884d8",
@@ -86,7 +89,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       const query = params.toString() ? `?${params.toString()}` : ""
       const results = await Promise.all(
         endpoints.map(endpoint => 
-          fetch(`${API_BASE_URL}/metrics/${endpoint}${query}`, {
+          fetch(`${getApiBaseUrl()}/metrics/${endpoint}${query}`, {
             headers: {
               'Authorization': `Bearer ${session.accessToken}`,
               'Content-Type': 'application/json'

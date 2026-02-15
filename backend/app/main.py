@@ -18,7 +18,11 @@ def create_app():
     )
     
     setup_logger(__name__)
-    app.logger.info(f"✅ CORS configurado - Origins permitidos: {Config.CORS_ORIGINS}")
+    app.logger.info(f"CORS configurado - Origins permitidos: {Config.CORS_ORIGINS}")
+    
+    # Register multi-tenant middleware
+    from .middleware.tenant import tenant_middleware
+    app.before_request(tenant_middleware)
     
     # Endpoints básicos
     @app.route("/")

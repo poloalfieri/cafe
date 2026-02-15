@@ -48,6 +48,7 @@ import { useRouter } from "next/navigation"
 interface Restaurant {
   id: string
   name: string
+  slug: string | null
   created_at: string
   branches_count: number
   active: boolean
@@ -82,6 +83,7 @@ interface SuperAdmin {
 
 interface NewBusinessForm {
   restaurantName: string
+  restaurantSlug: string
   branch: {
     name: string
     address: string
@@ -100,6 +102,7 @@ interface NewBusinessForm {
 
 const EMPTY_FORM: NewBusinessForm = {
   restaurantName: "",
+  restaurantSlug: "",
   branch: {
     name: "",
     address: "",
@@ -115,6 +118,7 @@ interface EditForm {
   restaurantId: string
   mainBranchId: string | null
   restaurantName: string
+  restaurantSlug: string
   branch: {
     name: string
     address: string
@@ -166,6 +170,16 @@ export default function SuperAdminDashboard() {
   const [loadingSuperAdmins, setLoadingSuperAdmins] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<SuperAdmin | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  /* ---- slug generation helper ---- */
+  const generateSlug = (name: string): string => {
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+  }
 
   /* ---- helpers ---- */
   const authHeaders = useCallback((): HeadersInit => {
@@ -237,6 +251,7 @@ export default function SuperAdminDashboard() {
         headers: authHeaders(),
         body: JSON.stringify({
           restaurantName: form.restaurantName,
+          restaurantSlug: form.restaurantSlug,
           branch: form.branch,
           admin: form.admin,
         }),
@@ -324,6 +339,7 @@ export default function SuperAdminDashboard() {
       restaurantId: r.id,
       mainBranchId: r.main_branch_id,
       restaurantName: r.name,
+      restaurantSlug: r.slug ?? "",
       branch: {
         name: r.branch_name ?? "",
         address: r.address ?? "",
@@ -361,6 +377,7 @@ export default function SuperAdminDashboard() {
       const payload: Record<string, unknown> = {
         restaurantId: editTarget.restaurantId,
         restaurantName: editTarget.restaurantName,
+        restaurantSlug: editTarget.restaurantSlug,
         mainBranchId: editTarget.mainBranchId,
         branch: editTarget.branch,
       }
@@ -539,11 +556,31 @@ export default function SuperAdminDashboard() {
                         <Input
                           id="restaurantName"
                           value={form.restaurantName}
-                          onChange={(e) =>
-                            setForm({ ...form, restaurantName: e.target.value })
-                          }
-                          placeholder="Ej: Café Central"
+                          onChange={(e) => {
+                            const newName = e.target.value
+                            const autoSlug = generateSlug(newName)
+                            setForm({
+                              ...form,
+                              restaurantName: newName,
+                              restaurantSlug: autoSlug,
+                            })
+                          }}
+                          placeholder="Ej: Cafe Central"
                         />
+                      </div>
+                      <div>
+                        <Label htmlFor="restaurantSlug">Slug (URL)</Label>
+                        <Input
+                          id="restaurantSlug"
+                          value={form.restaurantSlug}
+                          onChange={(e) =>
+                            setForm({ ...form, restaurantSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })
+                          }
+                          placeholder="cafe-central"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          URL del restaurante: /{form.restaurantSlug || "slug"}/usuario
+                        </p>
                       </div>
                     </fieldset>
 
@@ -752,6 +789,7 @@ export default function SuperAdminDashboard() {
                       disabled={
                         creating ||
                         !form.restaurantName.trim() ||
+                        !form.restaurantSlug.trim() ||
                         !form.branch.name.trim() ||
                         !form.admin.email.includes("@") ||
                         (form.admin.setPassword && form.admin.password.length < 6)
@@ -798,6 +836,11 @@ export default function SuperAdminDashboard() {
                             <h3 className="text-lg font-semibold text-gray-900">
                               {r.name}
                             </h3>
+                            {r.slug && (
+                              <Badge variant="outline" className="text-xs font-mono">
+                                /{r.slug}
+                              </Badge>
+                            )}
                             <Badge
                               className={`${getStatusColor(r.active)} border`}
                             >
@@ -1100,6 +1143,22 @@ export default function SuperAdminDashboard() {
                       })
                     }
                   />
+                </div>
+                <div>
+                  <Label htmlFor="editRestaurantSlug">Slug (URL)</Label>
+                  <Input
+                    id="editRestaurantSlug"
+                    value={editTarget.restaurantSlug}
+                    onChange={(e) =>
+                      setEditTarget({
+                        ...editTarget,
+                        restaurantSlug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                      })
+                    }
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    URL del restaurante: /{editTarget.restaurantSlug || "slug"}/usuario
+                  </p>
                 </div>
               </fieldset>
 

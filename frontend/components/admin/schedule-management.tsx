@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -32,7 +33,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [mesaActive, setMesaActive] = useState(true)
   const [creatingMesa, setCreatingMesa] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const backendUrl = getTenantApiBase()
 
   useEffect(() => {
     fetchData()

@@ -34,7 +34,7 @@ function PaymentPendingContent() {
 
   const fetchOrderStatus = async () => {
     try {
-      const response = await fetch(`http://localhost:5001/payment/order-status/${orderId}`)
+      const response = await fetch(`/api/payment/order-status/${orderId}`)
       if (response.ok) {
         const data = await response.json()
         setOrderStatus(data)
@@ -139,7 +139,7 @@ function PaymentPendingContent() {
           </div>
           
           <div className="flex flex-col gap-2 pt-4">
-            <Link href="/usuario">
+            <Link href="/">
               <Button variant="outline" className="w-full border-gray-300 hover:bg-gray-50">
                 Volver al Menú
               </Button>

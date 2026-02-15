@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell, LogOut } from "lucide-react"
@@ -56,7 +57,7 @@ export default function CajeroDashboard() {
   const [branchId, setBranchId] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const backendUrl = getTenantApiBase()
 
   const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
     try {

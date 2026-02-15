@@ -15,6 +15,7 @@ interface Mesa {
 interface Restaurant {
   id: string
   name: string
+  slug: string
 }
 
 export default function TestSessionPage() {
@@ -26,7 +27,6 @@ export default function TestSessionPage() {
   const [loadingMesas, setLoadingMesas] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -40,7 +40,7 @@ export default function TestSessionPage() {
         }
 
         const response = await fetch(
-          `${supabaseUrl}/rest/v1/restaurants?select=id,name&order=name`,
+          `${supabaseUrl}/rest/v1/restaurants?select=id,name,slug&order=name`,
           {
             headers: {
               apikey: supabaseAnonKey,
@@ -103,13 +103,18 @@ export default function TestSessionPage() {
     loadMesas()
   }, [supabaseUrl, supabaseAnonKey, selectedRestaurant])
 
+  const selectedSlug = restaurants.find(r => r.id === selectedRestaurant)?.slug
+
   const startWithMesa = async (mesaId: string, branchId: string | undefined) => {
     try {
       setError(null)
       if (!branchId) {
         throw new Error('branch_id requerido')
       }
-      const response = await fetch(`${backendUrl}/mesas/session`, {
+      if (!selectedSlug) {
+        throw new Error('slug del restaurante no encontrado')
+      }
+      const response = await fetch(`/api/${selectedSlug}/mesas/session`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +138,7 @@ export default function TestSessionPage() {
         token,
       }))
 
-      router.push(`/usuario?mesa_id=${mesaId}&branch_id=${branchId}&token=${token}`)
+      router.push(`/${selectedSlug}/usuario?mesa_id=${mesaId}&branch_id=${branchId}&token=${token}`)
     } catch (err) {
       setError('No se pudo iniciar la sesión para esa mesa')
     }

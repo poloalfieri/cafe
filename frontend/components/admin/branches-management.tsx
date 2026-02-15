@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Plus, Edit, Trash2, MapPin, Share, Building, Eye, ToggleLeft, ToggleRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -34,7 +35,7 @@ export default function BranchesManagement() {
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
   const [shareMenuGlobally, setShareMenuGlobally] = useState(true)
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const backendUrl = getTenantApiBase()
 
   // Estados para crear/editar sucursal
   const [branchForm, setBranchForm] = useState({

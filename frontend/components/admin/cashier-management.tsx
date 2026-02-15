@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Plus, KeyRound, Users, UserCheck, Mail, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -43,7 +44,7 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
   const [changingEmail, setChangingEmail] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const backendUrl = getTenantApiBase()
 
   const [createForm, setCreateForm] = useState({
     email: "",

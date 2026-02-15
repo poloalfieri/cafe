@@ -32,7 +32,7 @@ class Config:
     # En producción, especificar dominios exactos separados por coma
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", FRONTEND_URL).split(",")
     CORS_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    CORS_ALLOW_HEADERS = ["Content-Type", "Authorization"]
+    CORS_ALLOW_HEADERS = ["Content-Type", "Authorization", "X-Internal-Key", "X-Restaurant-Slug"]
     CORS_SUPPORTS_CREDENTIALS = True
     
     # Other configurations

@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
 import OrderCard from "@/components/order-card"
 import WaiterCallCard from "@/components/waiter-call-card"
@@ -42,7 +43,7 @@ export default function KitchenDashboard() {
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "paid" | "pending">("all")
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'
+  const backendUrl = getTenantApiBase()
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchWaiterCalls = useCallback(async () => {

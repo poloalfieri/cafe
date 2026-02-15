@@ -1,5 +1,6 @@
 "use client"
 
+import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -72,7 +73,7 @@ export default function AdminDashboard() {
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5001"
+  const backendUrl = getTenantApiBase()
 
   useEffect(() => {
     fetchBranches()
