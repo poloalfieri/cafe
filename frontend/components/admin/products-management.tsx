@@ -361,14 +361,14 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
-          <p className="text-gray-600">{t("header.subtitle")}</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
+            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
               <Plus className="w-4 h-4 mr-2" />
               {t("actions.newProduct")}
             </Button>
@@ -506,9 +506,10 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
         />
       </div>
 
-      {/* Tabla de productos */}
+      {/* Tabla de productos (desktop) */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
@@ -589,6 +590,67 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card layout */}
+        <div className="md:hidden divide-y divide-gray-200">
+          {filteredProducts.map((product) => (
+            <div key={product.id} className="p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-gray-900">{product.name}</p>
+                  {product.description && (
+                    <p className="text-xs text-gray-600 line-clamp-2">{product.description}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {product.available ? (
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-700">
+                    {product.category}
+                  </span>
+                  <span className="font-medium text-gray-900">${product.price.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleAvailability(product)}
+                  className={`text-xs font-medium transition-all duration-200 ${
+                    product.available 
+                      ? "border-orange-300 text-orange-700 hover:bg-orange-50 bg-orange-50/50" 
+                      : "border-green-300 text-green-700 hover:bg-green-50 bg-green-50/50"
+                  }`}
+                >
+                  {product.available ? t("actions.deactivate") : t("actions.activate")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(product)}
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50 bg-blue-50/50 font-medium transition-all duration-200"
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(product.id)}
+                  className="border-red-300 text-red-700 hover:bg-red-50 bg-red-50/50 font-medium transition-all duration-200"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
         
         {filteredProducts.length === 0 && (

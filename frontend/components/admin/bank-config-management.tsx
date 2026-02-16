@@ -313,9 +313,9 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
       {/* MercadoPago Configuration */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-blue-600 font-bold text-sm">MP</span>
               </div>
               <div>
@@ -323,7 +323,7 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
                 <p className="text-sm text-gray-600">{t("payments.mpSubtitle")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {getScopeBadge()}
               <Badge
                 className={
@@ -656,7 +656,7 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex items-center space-x-2">
               <input
                 type="checkbox"

@@ -196,20 +196,20 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
         <button
           onClick={fetchMetricsData}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto"
         >
           <Loader2 className="h-4 w-4" />
           {t("actions.refresh")}
         </button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Ventas Mensuales - LineChart */}
-        <Card className="col-span-2">
+        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
@@ -301,7 +301,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         </Card>
 
         {/* Métodos de Pago - RadarChart */}
-        <Card className="col-span-2">
+        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />

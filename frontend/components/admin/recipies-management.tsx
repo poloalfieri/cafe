@@ -526,45 +526,80 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
                 <p className="text-sm">{t("recipe.emptySubtitle")}</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("table.ingredient")}</TableHead>
-                    <TableHead>{t("table.unit")}</TableHead>
-                    <TableHead>{t("table.quantity")}</TableHead>
-                    <TableHead>{t("table.unitCost")}</TableHead>
-                    <TableHead>{t("table.totalCost")}</TableHead>
-                    <TableHead className="text-right">{t("table.actions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("table.ingredient")}</TableHead>
+                        <TableHead>{t("table.unit")}</TableHead>
+                        <TableHead>{t("table.quantity")}</TableHead>
+                        <TableHead>{t("table.unitCost")}</TableHead>
+                        <TableHead>{t("table.totalCost")}</TableHead>
+                        <TableHead className="text-right">{t("table.actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recipes.map((recipe) => (
+                        <TableRow key={recipe.ingredientId}>
+                          <TableCell className="font-medium">{recipe.name}</TableCell>
+                          <TableCell>{recipe.unit}</TableCell>
+                          <TableCell>
+                            <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
+                              const newQuantity = parseFloat(e.target.value)
+                              if (newQuantity > 0) {
+                                handleUpdateQuantity(recipe.ingredientId, newQuantity)
+                              }
+                            }} className="w-20" />
+                          </TableCell>
+                          <TableCell>
+                            {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}
+                          </TableCell>
+                          <TableCell>
+                            {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile card layout */}
+                <div className="md:hidden divide-y divide-gray-200">
                   {recipes.map((recipe) => (
-                    <TableRow key={recipe.ingredientId}>
-                      <TableCell className="font-medium">{recipe.name}</TableCell>
-                      <TableCell>{recipe.unit}</TableCell>
-                      <TableCell>
-                        <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
-                          const newQuantity = parseFloat(e.target.value)
-                          if (newQuantity > 0) {
-                            handleUpdateQuantity(recipe.ingredientId, newQuantity)
-                          }
-                        }} className="w-20" />
-                      </TableCell>
-                      <TableCell>
-                        {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}
-                      </TableCell>
-                      <TableCell>
-                        {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}
-                      </TableCell>
-                      <TableCell className="text-right">
+                    <div key={recipe.ingredientId} className="py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">{recipe.name}</span>
+                        <span className="text-xs text-gray-500">{recipe.unit}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <label className="text-xs text-gray-500">{t("table.quantity")}</label>
+                          <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
+                            const newQuantity = parseFloat(e.target.value)
+                            if (newQuantity > 0) {
+                              handleUpdateQuantity(recipe.ingredientId, newQuantity)
+                            }
+                          }} className="w-full" />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">{t("table.unitCost")}: {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}</p>
+                          <p className="text-sm font-medium">{t("table.totalCost")}: {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}</p>
+                        </div>
                         <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -572,66 +607,66 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
 
       {/* Cost Analysis */}
       {selectedProduct && recipes.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Calculator className="w-5 h-5 text-blue-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Calculator className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">${calculateEstimatedCost().toFixed(4)}</p>
-                  <p className="text-sm text-gray-600">{t("summary.ingredientsCost")}</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">${calculateEstimatedCost().toFixed(4)}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">{t("summary.ingredientsCost")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-green-600" />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">${selectedProduct.price.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">{t("summary.salePrice")}</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">${selectedProduct.price.toFixed(2)}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">{t("summary.salePrice")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center`}>
-                  <TrendingUp className={`w-5 h-5 text-yellow-600`} />
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold truncate">
                     ${(selectedProduct.price - calculateEstimatedCost()).toFixed(2)}
                   </p>
-                  <p className="text-sm text-gray-600">{t("summary.grossProfit")}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">{t("summary.grossProfit")}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
                   getMarginPercentage() > 60 ? 'bg-green-100' : 
                   getMarginPercentage() > 30 ? 'bg-yellow-100' : 'bg-red-100'
                 }`}>
-                  <TrendingUp className={`w-5 h-5 ${
+                  <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${
                     getMarginPercentage() > 60 ? 'text-green-600' : 
                     getMarginPercentage() > 30 ? 'text-yellow-600' : 'text-red-600'
                   }`} />
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{getMarginPercentage().toFixed(1)}%</p>
-                  <p className="text-sm text-gray-600">{t("summary.margin")}</p>
+                <div className="min-w-0">
+                  <p className="text-lg sm:text-2xl font-bold">{getMarginPercentage().toFixed(1)}%</p>
+                  <p className="text-xs sm:text-sm text-gray-600">{t("summary.margin")}</p>
                 </div>
               </div>
             </CardContent>
