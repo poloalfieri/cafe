@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { api } from '@/lib/fetcher'
+import { getTenantApiBase } from '@/lib/apiClient'
 import { ALLOWED_UNITS } from '@/lib/validation'
 import { useTranslations } from "next-intl"
 import { 
@@ -51,6 +52,7 @@ interface IngredientsManagementProps {
 
 export default function IngredientsManagement({ branchId }: IngredientsManagementProps) {
   const t = useTranslations("admin.ingredients")
+  const backendUrl = getTenantApiBase()
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -77,7 +79,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       if (branchId) {
         params.set('branch_id', branchId)
       }
-      const response = await api.get(`/api/ingredients?${params.toString()}`)
+      const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
       setIngredients(response.data.ingredients)
       setTotalPages(response.data.pagination.totalPages)
     } catch (error) {
@@ -100,7 +102,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     e.preventDefault()
     try {
       if (editingId) {
-        await api.patch(`/api/ingredients/${editingId}`, {
+        await api.patch(`${backendUrl}/ingredients/${editingId}`, {
           ...formData,
           branch_id: branchId
         })
@@ -109,7 +111,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
           description: t("toast.updated")
         })
       } else {
-        await api.post('/api/ingredients', {
+        await api.post(`${backendUrl}/ingredients`, {
           ...formData,
           branch_id: branchId
         })
@@ -149,7 +151,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     if (!confirm(t("confirmDelete"))) return
     
     try {
-      await api.delete(`/api/ingredients/${id}`, {
+      await api.delete(`${backendUrl}/ingredients/${id}`, {
         branch_id: branchId
       })
       toast({
@@ -306,64 +308,64 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Archive className="w-5 h-5 text-blue-600" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Archive className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">{ingredients.length}</p>
-                <p className="text-sm text-gray-600">{t("stats.total")}</p>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold truncate">{ingredients.length}</p>
+                <p className="text-xs sm:text-sm text-gray-600">{t("stats.total")}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   {ingredients.filter(i => i.currentStock < 50).length}
                 </p>
-                <p className="text-sm text-gray-600">{t("stats.lowStock")}</p>
+                <p className="text-xs sm:text-sm text-gray-600">{t("stats.lowStock")}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-green-600" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   {ingredients.reduce((sum, i) => sum + i.currentStock, 0).toFixed(0)}
                 </p>
-                <p className="text-sm text-gray-600">{t("stats.totalStock")}</p>
+                <p className="text-xs sm:text-sm text-gray-600">{t("stats.totalStock")}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-yellow-600" />
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
               </div>
-              <div>
-                <p className="text-2xl font-bold">
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold truncate">
                   ${ingredients.reduce((sum, i) => sum + (i.currentStock * (i.unitCost || 0)), 0).toFixed(2)}
                 </p>
-                <p className="text-sm text-gray-600">{t("stats.inventoryValue")}</p>
+                <p className="text-xs sm:text-sm text-gray-600">{t("stats.inventoryValue")}</p>
               </div>
             </div>
           </CardContent>
@@ -399,58 +401,92 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("table.name")}</TableHead>
-                  <TableHead>{t("table.unit")}</TableHead>
-                  <TableHead>{t("table.currentStock")}</TableHead>
-                  <TableHead>{t("table.min")}</TableHead>
-                  <TableHead>{t("table.status")}</TableHead>
-                  <TableHead>{t("table.unitCost")}</TableHead>
-                  <TableHead>{t("table.totalValue")}</TableHead>
-                  <TableHead className="text-right">{t("table.actions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("table.name")}</TableHead>
+                      <TableHead>{t("table.unit")}</TableHead>
+                      <TableHead>{t("table.currentStock")}</TableHead>
+                      <TableHead>{t("table.min")}</TableHead>
+                      <TableHead>{t("table.status")}</TableHead>
+                      <TableHead>{t("table.unitCost")}</TableHead>
+                      <TableHead>{t("table.totalValue")}</TableHead>
+                      <TableHead className="text-right">{t("table.actions")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIngredients.map((ingredient) => {
+                      const status = getStockStatus(ingredient.currentStock, ingredient.minStock)
+                      return (
+                        <TableRow key={ingredient.id} className={ingredient.currentStock <= ingredient.minStock ? 'bg-red-50' : ''}>
+                          <TableCell className="font-medium">{ingredient.name}</TableCell>
+                          <TableCell>{ingredient.unit}</TableCell>
+                          <TableCell>{ingredient.currentStock.toFixed(2)}</TableCell>
+                          <TableCell>{ingredient.minStock.toFixed(2)}</TableCell>
+                          <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                          <TableCell>
+                            {ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : t("table.notAvailable")}
+                          </TableCell>
+                          <TableCell>
+                            {ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : t("table.notAvailable")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(ingredient)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(ingredient.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile card layout */}
+              <div className="md:hidden divide-y divide-gray-200">
                 {filteredIngredients.map((ingredient) => {
                   const status = getStockStatus(ingredient.currentStock, ingredient.minStock)
                   return (
-                    <TableRow key={ingredient.id} className={ingredient.currentStock <= ingredient.minStock ? 'bg-red-50' : ''}>
-                      <TableCell className="font-medium">{ingredient.name}</TableCell>
-                      <TableCell>{ingredient.unit}</TableCell>
-                      <TableCell>{ingredient.currentStock.toFixed(2)}</TableCell>
-                      <TableCell>{ingredient.minStock.toFixed(2)}</TableCell>
-                      <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
-                      <TableCell>
-                        {ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : t("table.notAvailable")}
-                      </TableCell>
-                      <TableCell>
-                        {ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : t("table.notAvailable")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEdit(ingredient)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(ingredient.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                    <div key={ingredient.id} className={`py-3 space-y-2 ${ingredient.currentStock <= ingredient.minStock ? 'bg-red-50 -mx-4 px-4 rounded-lg' : ''}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">{ingredient.name}</span>
+                        <Badge variant={status.variant}>{status.label}</Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
+                        <span>{t("table.currentStock")}: <strong>{ingredient.currentStock.toFixed(2)} {ingredient.unit}</strong></span>
+                        <span>{t("table.min")}: <strong>{ingredient.minStock.toFixed(2)}</strong></span>
+                        <span>{t("table.unitCost")}: <strong>{ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : t("table.notAvailable")}</strong></span>
+                        <span>{t("table.totalValue")}: <strong>{ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : t("table.notAvailable")}</strong></span>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit(ingredient)}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDelete(ingredient.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
                   )
                 })}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

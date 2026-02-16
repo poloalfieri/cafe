@@ -402,11 +402,80 @@
         "actions": "Acciones",
         "notAvailable": "N/A"
       },
+      "tabs": {
+        "recipe": "Recipe",
+        "options": "Options"
+      },
       "summary": {
         "ingredientsCost": "Costo de Ingredientes",
         "salePrice": "Precio de Venta",
         "grossProfit": "Ganancia Bruta",
         "margin": "Margen de Ganancia"
+      }
+    },
+    "productOptions": {
+      "subtitle": "Configure options the customer can choose when ordering this product",
+      "toast": {
+        "errorTitle": "Error",
+        "successTitle": "Success",
+        "loadError": "Could not load product options",
+        "groupCreated": "Option group created",
+        "groupUpdated": "Option group updated",
+        "groupSaveError": "Error saving option group",
+        "groupDeleted": "Option group deleted",
+        "groupDeleteError": "Error deleting group",
+        "itemAdded": "Option added successfully",
+        "itemAddError": "Error adding option",
+        "priceUpdated": "Price updated",
+        "priceUpdateError": "Error updating price",
+        "itemDeleted": "Option deleted",
+        "itemDeleteError": "Error deleting option"
+      },
+      "confirmDeleteGroup": "Delete this group and all its options?",
+      "confirmDeleteItem": "Delete this option from the group?",
+      "actions": {
+        "newGroup": "New Group",
+        "addItem": "Add Option",
+        "cancel": "Cancel",
+        "create": "Create",
+        "update": "Update",
+        "add": "Add"
+      },
+      "dialog": {
+        "newGroupTitle": "New Option Group",
+        "newGroupDescription": "Create a group for the customer to choose from (e.g.: Milk Type, Extras, Sauce)",
+        "editGroupTitle": "Edit Group",
+        "editGroupDescription": "Modify the option group settings",
+        "addItemTitle": "Add Option",
+        "addItemDescription": "Select a stock ingredient as an option for this group"
+      },
+      "form": {
+        "groupName": "Group Name",
+        "groupNamePlaceholder": "E.g.: Milk Type, Extras, Protein...",
+        "isRequired": "Required",
+        "isRequiredHint": "Customer must select at least one option",
+        "maxSelections": "Maximum selections",
+        "maxSelectionsHint": "How many options the customer can choose (1 = single choice)",
+        "ingredient": "Ingredient",
+        "ingredientPlaceholder": "Select ingredient from stock",
+        "noIngredientsAvailable": "No ingredients available",
+        "priceAddition": "Additional price",
+        "priceAdditionHint": "Amount added to the base product price (0 = no extra cost)"
+      },
+      "badge": {
+        "required": "Required",
+        "optional": "Optional",
+        "selectOne": "Choose 1",
+        "selectUpTo": "Choose up to {count}"
+      },
+      "groupItemCount": "{count, plural, =0 {No options} =1 {1 option} other {# options}}",
+      "empty": {
+        "title": "No options configured",
+        "subtitle": "Create an option group so customers can customize this product when ordering"
+      },
+      "items": {
+        "empty": "This group has no options yet",
+        "noStock": "Out of stock"
       }
     },
     "stock": {

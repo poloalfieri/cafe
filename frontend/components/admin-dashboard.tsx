@@ -53,9 +53,17 @@ interface DashboardMetrics {
   }>
 }
 
+function formatCompact(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 10_000) return `$${(value / 1_000).toFixed(1)}K`
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(2)}K`
+  return `$${value.toFixed(2)}`
+}
+
 export default function AdminDashboard() {
   const t = useTranslations("admin.dashboard")
   const router = useRouter()
+  const [expandedMetric, setExpandedMetric] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     dailySales: 0,
     weeklySales: 0,
@@ -80,7 +88,7 @@ export default function AdminDashboard() {
     // Low stock check on each load
     ;(async () => {
       try {
-        const json = await api.get('/api/ingredients?page=1&pageSize=1000')
+        const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
         const list = json.data?.ingredients || []
         const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
           .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
@@ -181,19 +189,19 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="sticky top-0 bg-card/95 backdrop-blur-md border-b border-border z-50 shadow-sm">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                <Settings className="text-white w-6 h-6" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-xl flex items-center justify-center flex-shrink-0">
+                <Settings className="text-white w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-text">{t("header.title")}</h1>
-                <p className="text-muted-foreground text-sm">{t("header.subtitle")}</p>
+                <h1 className="text-xl sm:text-3xl font-bold text-text">{t("header.title")}</h1>
+                <p className="text-muted-foreground text-xs sm:text-sm">{t("header.subtitle")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {branches.length > 0 && (
-                <div className="min-w-[220px]">
+                <div className="w-full sm:w-auto sm:min-w-[220px]">
                   <label className="block text-xs text-muted-foreground mb-1">
                     {t("branchSelector.label")}
                   </label>
@@ -213,108 +221,71 @@ export default function AdminDashboard() {
               <Button
                 onClick={refreshData}
                 disabled={loading}
-                className="bg-primary hover:bg-primary-hover text-white px-4 py-2 flex items-center gap-2"
+                className="bg-primary hover:bg-primary-hover text-white px-3 sm:px-4 py-2 flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                {t("actions.refresh")}
+                <span className="hidden sm:inline">{t("actions.refresh")}</span>
               </Button>
               <Button
                 onClick={handleLogout}
                 disabled={loggingOut}
                 variant="outline"
-                className="px-4 py-2 flex items-center gap-2"
+                className="px-3 sm:px-4 py-2 flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
-                {loggingOut ? t("actions.loggingOut") : t("actions.logout")}
+                <span className="hidden sm:inline">{loggingOut ? t("actions.loggingOut") : t("actions.logout")}</span>
               </Button>
             </div>
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <DollarSign className="w-5 h-5 text-text" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-6">
+            {([
+              { key: "daily", icon: DollarSign, value: metrics.dailySales, isCurrency: true, label: t("metrics.dailySales") },
+              { key: "weekly", icon: TrendingUp, value: metrics.weeklySales, isCurrency: true, label: t("metrics.weeklySales") },
+              { key: "monthly", icon: BarChart3, value: metrics.monthlySales, isCurrency: true, label: t("metrics.monthlySales") },
+              { key: "orders", icon: ShoppingCart, value: metrics.totalOrders, isCurrency: false, label: t("metrics.totalOrders") },
+              { key: "avg", icon: Users, value: metrics.averageOrderValue, isCurrency: true, label: t("metrics.averageTicket") },
+              { key: "ingredients", icon: Archive, value: metrics.totalIngredients, isCurrency: false, label: t("metrics.ingredients") },
+              { key: "lowStock", icon: Package, value: metrics.lowStockItems, isCurrency: false, label: t("metrics.lowStock") },
+            ] as const).map((metric) => {
+              const Icon = metric.icon
+              const fullValue = metric.isCurrency ? `$${metric.value.toFixed(2)}` : metric.value.toString()
+              const compactValue = metric.isCurrency ? formatCompact(metric.value) : metric.value.toString()
+              const isExpanded = expandedMetric === metric.key
+              return (
+                <div
+                  key={metric.key}
+                  className="bg-card rounded-xl border border-border shadow-sm overflow-hidden cursor-pointer sm:cursor-default active:scale-[0.97] sm:active:scale-100 transition-transform"
+                  onClick={() => setExpandedMetric(isExpanded ? null : metric.key)}
+                >
+                  {/* Mobile: vertical layout */}
+                  <div className="sm:hidden p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center">
+                        <Icon className="w-3.5 h-3.5 text-text" />
+                      </div>
+                    </div>
+                    <p className={`font-bold text-text leading-tight ${isExpanded && fullValue !== compactValue ? "text-sm" : "text-lg"}`}>
+                      {isExpanded ? fullValue : compactValue}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{metric.label}</p>
+                  </div>
+                  {/* Desktop: horizontal layout (unchanged) */}
+                  <div className="hidden sm:block p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
+                        <Icon className="w-5 h-5 text-text" />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-text">{fullValue}</p>
+                        <p className="text-xs text-muted-foreground">{metric.label}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">${metrics.dailySales.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.dailySales")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">${metrics.weeklySales.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.weeklySales")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">${metrics.monthlySales.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.monthlySales")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">{metrics.totalOrders}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.totalOrders")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">${metrics.averageOrderValue.toFixed(2)}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.averageTicket")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <Archive className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">{metrics.totalIngredients}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.ingredients")}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
-                  <Package className="w-5 h-5 text-text" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-text">{metrics.lowStockItems}</p>
-                  <p className="text-xs text-muted-foreground">{t("metrics.lowStock")}</p>
-                </div>
-              </div>
-            </div>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -345,44 +316,46 @@ export default function AdminDashboard() {
         </DialogContent>
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6 bg-card border border-border">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <BarChart3 className="w-4 h-4" />
-              {t("tabs.dashboard")}
-            </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Package className="w-4 h-4" />
-              {t("tabs.products")}
-            </TabsTrigger>
-            <TabsTrigger value="stock" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Archive className="w-4 h-4" />
-              {t("tabs.stock")}
-            </TabsTrigger>
-            <TabsTrigger value="recipes" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <ChefHat className="w-4 h-4" />
-              {t("tabs.recipes")}
-            </TabsTrigger>
-            <TabsTrigger value="promotions" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <TrendingUp className="w-4 h-4" />
-              {t("tabs.promotions")}
-            </TabsTrigger>
-            <TabsTrigger value="schedule" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Clock className="w-4 h-4" />
-              {t("tabs.schedule")}
-            </TabsTrigger>
-            <TabsTrigger value="branches" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Building className="w-4 h-4" />
-              {t("tabs.branches")}
-            </TabsTrigger>
-            <TabsTrigger value="banking" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <CreditCard className="w-4 h-4" />
-              {t("tabs.banking")}
-            </TabsTrigger>
-            <TabsTrigger value="cashiers" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-              <UserPlus className="w-4 h-4" />
-              {t("tabs.cashiers")}
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 mb-6">
+            <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-9 bg-card border border-border">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <BarChart3 className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.dashboard")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="products" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Package className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.products")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="stock" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Archive className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.stock")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="recipes" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <ChefHat className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.recipes")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="promotions" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <TrendingUp className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.promotions")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Clock className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.schedule")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="branches" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Building className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.branches")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="banking" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <CreditCard className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.banking")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="cashiers" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <UserPlus className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.cashiers")}</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="dashboard">
             <MetricsDashboard branchId={selectedBranchId || undefined} />

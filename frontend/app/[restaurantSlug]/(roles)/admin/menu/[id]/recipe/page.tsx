@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { api } from '@/lib/fetcher'
+import { getTenantApiBase } from '@/lib/apiClient'
 
 interface Recipe {
   ingredientId: string
@@ -39,13 +40,14 @@ export default function RecipePage() {
   const [selectedIngredientId, setSelectedIngredientId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const backendUrl = getTenantApiBase()
 
   const fetchData = async () => {
     try {
       setLoading(true)
       const [recipesResponse, ingredientsResponse] = await Promise.all([
-        api.get(`/api/recipes?productId=${productId}`),
-        api.get('/api/ingredients?pageSize=1000')
+        api.get(`${backendUrl}/recipes?productId=${productId}`),
+        api.get(`${backendUrl}/ingredients?pageSize=1000`)
       ])
       
       setRecipes(recipesResponse.data)
@@ -60,7 +62,7 @@ export default function RecipePage() {
 
   const fetchProduct = async () => {
     try {
-      const productResponse = await api.get(`/api/menu/${productId}`)
+      const productResponse = await api.get(`${backendUrl}/menu/${productId}`)
       setProduct(productResponse.data)
     } catch (error) {
       console.error('Failed to fetch product:', error)
@@ -78,7 +80,7 @@ export default function RecipePage() {
 
     try {
       setError(null)
-      await api.post('/api/recipes', {
+      await api.post(`${backendUrl}/recipes`, {
         productId,
         ingredientId: selectedIngredientId,
         quantity: parseFloat(quantity)
@@ -94,7 +96,7 @@ export default function RecipePage() {
 
   const handleUpdateQuantity = async (ingredientId: string, newQuantity: number) => {
     try {
-      await api.patch('/api/recipes', {
+      await api.patch(`${backendUrl}/recipes`, {
         productId,
         ingredientId,
         quantity: newQuantity
@@ -109,7 +111,7 @@ export default function RecipePage() {
     if (!confirm('Are you sure you want to remove this ingredient from the recipe?')) return
     
     try {
-      await api.delete('/api/recipes', {
+      await api.delete(`${backendUrl}/recipes`, {
         productId,
         ingredientId
       })

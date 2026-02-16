@@ -185,7 +185,8 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
       endDate: promotion.endDate,
       startTime: promotion.startTime || "",
       endTime: promotion.endTime || "",
-      active: promotion.active
+      active: promotion.active,
+      allDay: !promotion.startTime && !promotion.endTime
     })
     setIsDialogOpen(true)
   }
@@ -273,14 +274,14 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
-          <p className="text-gray-600">{t("header.subtitle")}</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+          <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white">
+            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
               <Plus className="w-4 h-4 mr-2" />
               {t("actions.new")}
             </Button>
@@ -475,22 +476,22 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                   : "border-gray-200 bg-gray-50/30"
               }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0 ${
                     promotion.active 
                       ? "bg-green-100 border-2 border-green-200" 
                       : "bg-gray-100 border-2 border-gray-200"
                   }`}>
-                    <TypeIcon className={`w-6 h-6 ${
+                    <TypeIcon className={`w-5 h-5 sm:w-6 sm:h-6 ${
                       promotion.active ? "text-green-600" : "text-gray-600"
                     }`} />
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-bold text-lg text-gray-900 truncate">{promotion.name}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="font-bold text-base sm:text-lg text-gray-900 truncate">{promotion.name}</h3>
+                      <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                         promotion.active 
                           ? "bg-green-100 text-green-700 border border-green-200" 
                           : "bg-gray-100 text-gray-700 border border-gray-200"
@@ -499,22 +500,22 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                       </span>
                     </div>
                     
-                    <p className="text-gray-700 mb-3 leading-relaxed">{promotion.description}</p>
+                    <p className="text-gray-700 mb-3 leading-relaxed text-sm sm:text-base">{promotion.description}</p>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       <div className="flex items-center gap-2 text-sm">
-                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Calendar className="w-4 h-4 text-blue-600" />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-medium text-gray-900">{t("card.period")}</p>
-                          <p className="text-gray-600 text-xs">{promotion.startDate} - {promotion.endDate}</p>
+                          <p className="text-gray-600 text-xs truncate">{promotion.startDate} - {promotion.endDate}</p>
                         </div>
                       </div>
                       
                       {promotion.startTime && promotion.endTime && (
                         <div className="flex items-center gap-2 text-sm">
-                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
                             <Clock className="w-4 h-4 text-purple-600" />
                           </div>
                           <div>
@@ -525,7 +526,7 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                       )}
                       
                       <div className="flex items-center gap-2 text-sm">
-                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Tag className="w-4 h-4 text-orange-600" />
                         </div>
                         <div>
@@ -537,12 +538,12 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 self-start sm:ml-4">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => toggleActive(promotion.id)}
-                    className={`font-medium transition-all duration-200 ${
+                    className={`text-xs sm:text-sm font-medium transition-all duration-200 ${
                       promotion.active 
                         ? "border-orange-300 text-orange-700 hover:bg-orange-50 hover:border-orange-400 hover:text-orange-800 bg-orange-50/50" 
                         : "border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400 hover:text-green-800 bg-green-50/50"

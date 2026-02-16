@@ -227,14 +227,14 @@ export default function BranchesManagement() {
     <div className="space-y-6">
       {/* Header y configuración global */}
       <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
-            <p className="text-gray-600">{t("header.subtitle")}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+            <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
           </div>
           <Dialog open={showCreateBranch} onOpenChange={setShowCreateBranch}>
             <DialogTrigger asChild>
-              <Button className="bg-gray-900 hover:bg-gray-800 text-white">
+              <Button className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 {t("actions.add")}
               </Button>
@@ -309,16 +309,16 @@ export default function BranchesManagement() {
 
         {/* Configuración global de carta */}
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <Share className="w-5 h-5 text-blue-600" />
+              <Share className="w-5 h-5 text-blue-600 flex-shrink-0" />
               <div>
-                <h3 className="font-semibold text-blue-900">{t("globalMenu.title")}</h3>
-                <p className="text-sm text-blue-600">{t("globalMenu.subtitle")}</p>
+                <h3 className="font-semibold text-blue-900 text-sm sm:text-base">{t("globalMenu.title")}</h3>
+                <p className="text-xs sm:text-sm text-blue-600">{t("globalMenu.subtitle")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="global-share" className="text-sm text-blue-900">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <Label htmlFor="global-share" className="text-xs sm:text-sm text-blue-900">
                 {shareMenuGlobally ? t("globalMenu.shared") : t("globalMenu.independent")}
               </Label>
               <Switch
@@ -331,40 +331,40 @@ export default function BranchesManagement() {
         </div>
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <Building className="w-5 h-5 text-gray-600" />
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{branches.length}</p>
-                <p className="text-xs text-gray-600">{t("stats.total")}</p>
+              <Building className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">{branches.length}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">{t("stats.total")}</p>
               </div>
             </div>
           </div>
-          <div className="bg-green-50 rounded-lg p-4">
+          <div className="bg-green-50 rounded-lg p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <Building className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold text-green-600">{activeBranches}</p>
-                <p className="text-xs text-gray-600">{t("stats.active")}</p>
+              <Building className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-green-600">{activeBranches}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">{t("stats.active")}</p>
               </div>
             </div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-blue-50 rounded-lg p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <span className="text-lg">💰</span>
-              <div>
-                <p className="text-2xl font-bold text-blue-600">${totalSales.toLocaleString()}</p>
-                <p className="text-xs text-gray-600">{t("stats.sales")}</p>
+              <span className="text-base sm:text-lg">💰</span>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-blue-600 truncate">${totalSales.toLocaleString()}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">{t("stats.sales")}</p>
               </div>
             </div>
           </div>
-          <div className="bg-purple-50 rounded-lg p-4">
+          <div className="bg-purple-50 rounded-lg p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <span className="text-lg">📊</span>
-              <div>
-                <p className="text-2xl font-bold text-purple-600">{totalOrders}</p>
-                <p className="text-xs text-gray-600">{t("stats.orders")}</p>
+              <span className="text-base sm:text-lg">📊</span>
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-purple-600">{totalOrders}</p>
+                <p className="text-[10px] sm:text-xs text-gray-600">{t("stats.orders")}</p>
               </div>
             </div>
           </div>
@@ -375,11 +375,11 @@ export default function BranchesManagement() {
       <div className="space-y-4">
         {branches.map((branch) => (
           <Card key={branch.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900">{branch.name}</h3>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">{branch.name}</h3>
                     <Badge className={`${getStatusColor(branch.active ? "activa" : "inactiva")} border`}>
                       {branch.active ? t("status.active") : t("status.inactive")}
                     </Badge>
@@ -391,38 +391,38 @@ export default function BranchesManagement() {
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-sm">
                     <div>
                       <div className="flex items-center gap-2 text-gray-600 mb-1">
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
                         <span className="font-medium">{t("table.address")}</span>
                       </div>
-                      <p className="text-gray-900">{branch.address || "-"}</p>
+                      <p className="text-gray-900 text-xs sm:text-sm">{branch.address || "-"}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.manager")}</span>
-                      <p className="text-gray-900">{branch.manager || "-"}</p>
+                      <p className="text-gray-900 text-xs sm:text-sm">{branch.manager || "-"}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.monthlySales")}</span>
-                      <p className="text-gray-900">${(branch.monthly_sales || 0).toLocaleString()}</p>
+                      <p className="text-gray-900 text-xs sm:text-sm truncate">${(branch.monthly_sales || 0).toLocaleString()}</p>
                     </div>
                     <div>
                       <span className="font-medium text-gray-600">{t("table.orders")}</span>
-                      <p className="text-gray-900">{branch.total_orders || 0}</p>
+                      <p className="text-gray-900 text-xs sm:text-sm">{branch.total_orders || 0}</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 text-xs sm:text-sm text-gray-600">
                     <span>📞 {branch.phone || "-"}</span>
                     <span>📧 {branch.email || "-"}</span>
                   </div>
                 </div>
                 
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
-                      <Eye className="w-4 h-4" />
-                    </Button>
+                <div className="flex items-center gap-2 self-start">
+                  <Button variant="outline" size="sm">
+                    <Eye className="w-4 h-4" />
+                  </Button>
                   <Button 
                     variant="outline" 
                     size="sm"

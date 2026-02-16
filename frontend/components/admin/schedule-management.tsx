@@ -112,12 +112,12 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
     <div className="space-y-8">
       {/* Gestión de Mesas */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{t("tables.title")}</h2>
-            <p className="text-gray-600">{t("tables.subtitle")}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("tables.title")}</h2>
+            <p className="text-sm text-gray-600">{t("tables.subtitle")}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-start sm:self-auto">
             <Dialog open={showCreateMesa} onOpenChange={setShowCreateMesa}>
               <DialogTrigger asChild>
                 <Button className="bg-gray-900 hover:bg-gray-800 text-white">
@@ -169,7 +169,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
         </div>
 
         {/* Vista de mesas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {mesas.map((mesa) => {
             const statusInfo = getStatusInfo(mesa.is_active)
             

@@ -276,14 +276,14 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
-            <p className="text-gray-600">{t("header.subtitle")}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("header.title")}</h2>
+            <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-gray-900 hover:bg-gray-800 text-white">
+              <Button className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 {t("actions.add")}
               </Button>
@@ -383,27 +383,27 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
         <div className="space-y-3">
           {cashiers.map((cashier) => (
             <Card key={cashier.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t("table.email")}</p>
-                      <p className="font-medium text-gray-900 text-sm">{cashier.email}</p>
+                      <p className="font-medium text-gray-900 text-xs sm:text-sm truncate">{cashier.email}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t("table.branch")}</p>
-                      <p className="text-sm text-gray-900">{getBranchName(cashier.branch_id)}</p>
+                      <p className="text-xs sm:text-sm text-gray-900">{getBranchName(cashier.branch_id)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t("table.created")}</p>
-                      <p className="text-sm text-gray-900">{formatDate(cashier.created_at)}</p>
+                      <p className="text-xs sm:text-sm text-gray-900">{formatDate(cashier.created_at)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">{t("table.lastLogin")}</p>
-                      <p className="text-sm text-gray-900">{formatDate(cashier.last_sign_in_at)}</p>
+                      <p className="text-xs sm:text-sm text-gray-900">{formatDate(cashier.last_sign_in_at)}</p>
                     </div>
                   </div>
-                  <div className="ml-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto sm:ml-4">
                     <Button
                       variant="outline"
                       size="sm"
