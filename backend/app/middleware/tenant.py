@@ -28,7 +28,7 @@ def is_global_path(path):
     # Super-admin paths are global (handled by Next.js API routes)
     # These requests won't reach the Flask backend
     for global_path in GLOBAL_PATHS:
-        if path.startswith(global_path):
+        if path == global_path or (global_path != '/' and path.startswith(global_path)):
             return True
     return False
 

@@ -23,8 +23,10 @@ import {
   TrendingUp,
   Calculator,
   Search,
-  RefreshCw
+  RefreshCw,
+  ListChecks
 } from 'lucide-react'
+import ProductOptionsManagement from './product-options-management'
 
 interface Recipe {
   ingredientId: string
@@ -83,6 +85,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
   const [productSearch, setProductSearch] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'recipe' | 'options'>('recipe')
   const [newProductForm, setNewProductForm] = useState<NewProductForm>({
     name: '',
     category: '',
@@ -130,7 +133,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
       if (branchId) {
         params.set('branch_id', branchId)
       }
-      const response = await api.get(`/api/ingredients?${params.toString()}`)
+      const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
       // API shape: { data: { ingredients: [...] } }
       const list = (response as any).data?.ingredients || []
       setIngredients(list)
@@ -141,7 +144,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
 
   const fetchRecipes = async (productId: string) => {
     try {
-      const response = await api.get(`/api/recipes?productId=${productId}`)
+      const response = await api.get(`${backendUrl}/recipes?productId=${productId}`)
       const data = (response as any).data || []
       setRecipes(data)
     } catch (error) {
@@ -189,6 +192,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
+    setActiveTab('recipe')
     fetchRecipes(product.id)
   }
 
@@ -243,7 +247,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
     e.preventDefault()
     if (!selectedProduct || !selectedIngredientId || !quantity) return
     try {
-      await api.post('/api/recipes', {
+      await api.post(`${backendUrl}/recipes`, {
         productId: selectedProduct.id,
         ingredientId: selectedIngredientId,
         quantity: parseFloat(quantity)
@@ -261,7 +265,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
   const handleUpdateQuantity = async (ingredientId: string, newQuantity: number) => {
     if (!selectedProduct) return
     try {
-      await api.patch('/api/recipes', {
+      await api.patch(`${backendUrl}/recipes`, {
         productId: selectedProduct.id,
         ingredientId,
         quantity: newQuantity
@@ -276,7 +280,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
   const handleDeleteRecipe = async (ingredientId: string) => {
     if (!selectedProduct || !confirm(t("confirmDeleteIngredient"))) return
     try {
-      await api.delete('/api/recipes', { productId: selectedProduct.id, ingredientId })
+      await api.delete(`${backendUrl}/recipes`, { productId: selectedProduct.id, ingredientId })
       toast({ title: t("toast.successTitle"), description: t("toast.ingredientDeleted") })
       fetchRecipes(selectedProduct.id)
     } catch (error: any) {
@@ -447,9 +451,9 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
           </CardContent>
         </Card>
 
-        {/* Recipe Configuration */}
+        {/* Recipe & Options Configuration */}
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -465,7 +469,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
                   </CardDescription>
                 )}
               </div>
-              {selectedProduct && (
+              {selectedProduct && activeTab === 'recipe' && (
                 <Dialog open={showRecipeModal} onOpenChange={setShowRecipeModal}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="bg-gray-900 hover:bg-gray-800">
@@ -513,100 +517,140 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
                 </Dialog>
               )}
             </div>
+
+            {/* Tabs: Receta / Opcionales */}
+            {selectedProduct && (
+              <div className="flex gap-1 mt-3 p-1 bg-gray-100 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('recipe')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                    activeTab === 'recipe'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <ChefHat className="w-4 h-4" />
+                  {t("tabs.recipe")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('options')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all ${
+                    activeTab === 'options'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <ListChecks className="w-4 h-4" />
+                  {t("tabs.options")}
+                </button>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {!selectedProduct ? (
               <div className="text-center py-8 text-gray-500">
                 {t("recipe.emptySelect")}
               </div>
-            ) : recipes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <ChefHat className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="mb-2">{t("recipe.emptyTitle")}</p>
-                <p className="text-sm">{t("recipe.emptySubtitle")}</p>
-              </div>
-            ) : (
-              <>
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("table.ingredient")}</TableHead>
-                        <TableHead>{t("table.unit")}</TableHead>
-                        <TableHead>{t("table.quantity")}</TableHead>
-                        <TableHead>{t("table.unitCost")}</TableHead>
-                        <TableHead>{t("table.totalCost")}</TableHead>
-                        <TableHead className="text-right">{t("table.actions")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recipes.map((recipe) => (
-                        <TableRow key={recipe.ingredientId}>
-                          <TableCell className="font-medium">{recipe.name}</TableCell>
-                          <TableCell>{recipe.unit}</TableCell>
-                          <TableCell>
+            ) : activeTab === 'recipe' ? (
+              /* ─── Recipe Tab ─── */
+              recipes.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <ChefHat className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p className="mb-2">{t("recipe.emptyTitle")}</p>
+                  <p className="text-sm">{t("recipe.emptySubtitle")}</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t("table.ingredient")}</TableHead>
+                          <TableHead>{t("table.unit")}</TableHead>
+                          <TableHead>{t("table.quantity")}</TableHead>
+                          <TableHead>{t("table.unitCost")}</TableHead>
+                          <TableHead>{t("table.totalCost")}</TableHead>
+                          <TableHead className="text-right">{t("table.actions")}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recipes.map((recipe) => (
+                          <TableRow key={recipe.ingredientId}>
+                            <TableCell className="font-medium">{recipe.name}</TableCell>
+                            <TableCell>{recipe.unit}</TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
+                                const newQuantity = parseFloat(e.target.value)
+                                if (newQuantity > 0) {
+                                  handleUpdateQuantity(recipe.ingredientId, newQuantity)
+                                }
+                              }} className="w-20" />
+                            </TableCell>
+                            <TableCell>
+                              {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}
+                            </TableCell>
+                            <TableCell>
+                              {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile card layout */}
+                  <div className="md:hidden divide-y divide-gray-200">
+                    {recipes.map((recipe) => (
+                      <div key={recipe.ingredientId} className="py-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">{recipe.name}</span>
+                          <span className="text-xs text-gray-500">{recipe.unit}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <label className="text-xs text-gray-500">{t("table.quantity")}</label>
                             <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
                               const newQuantity = parseFloat(e.target.value)
                               if (newQuantity > 0) {
                                 handleUpdateQuantity(recipe.ingredientId, newQuantity)
                               }
-                            }} className="w-20" />
-                          </TableCell>
-                          <TableCell>
-                            {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}
-                          </TableCell>
-                          <TableCell>
-                            {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Mobile card layout */}
-                <div className="md:hidden divide-y divide-gray-200">
-                  {recipes.map((recipe) => (
-                    <div key={recipe.ingredientId} className="py-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{recipe.name}</span>
-                        <span className="text-xs text-gray-500">{recipe.unit}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <label className="text-xs text-gray-500">{t("table.quantity")}</label>
-                          <Input type="number" step="0.01" min="0.01" value={recipe.quantity} onChange={(e) => {
-                            const newQuantity = parseFloat(e.target.value)
-                            if (newQuantity > 0) {
-                              handleUpdateQuantity(recipe.ingredientId, newQuantity)
-                            }
-                          }} className="w-full" />
+                            }} className="w-full" />
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">{t("table.unitCost")}: {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}</p>
+                            <p className="text-sm font-medium">{t("table.totalCost")}: {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}</p>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-500">{t("table.unitCost")}: {recipe.unitCost ? `$${recipe.unitCost.toFixed(4)}` : t("table.notAvailable")}</p>
-                          <p className="text-sm font-medium">{t("table.totalCost")}: {recipe.unitCost ? `$${(recipe.quantity * recipe.unitCost).toFixed(4)}` : t("table.notAvailable")}</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteRecipe(recipe.ingredientId)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </>
+                    ))}
+                  </div>
+                </>
+              )
+            ) : (
+              /* ─── Options Tab ─── */
+              <ProductOptionsManagement
+                product={selectedProduct}
+                ingredients={ingredients}
+                branchId={branchId}
+              />
             )}
           </CardContent>
         </Card>
       </div>
 
       {/* Cost Analysis */}
-      {selectedProduct && recipes.length > 0 && (
+      {selectedProduct && recipes.length > 0 && activeTab === 'recipe' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardContent className="p-4 sm:p-6">

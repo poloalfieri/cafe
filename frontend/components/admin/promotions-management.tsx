@@ -185,7 +185,8 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
       endDate: promotion.endDate,
       startTime: promotion.startTime || "",
       endTime: promotion.endTime || "",
-      active: promotion.active
+      active: promotion.active,
+      allDay: !promotion.startTime && !promotion.endTime
     })
     setIsDialogOpen(true)
   }

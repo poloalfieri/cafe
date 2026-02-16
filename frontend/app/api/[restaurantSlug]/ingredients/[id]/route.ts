@@ -17,6 +17,14 @@ export async function PUT(
   return proxyToBackend(request, restaurantSlug, `/ingredients/${id}`)
 }
 
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ restaurantSlug: string; id: string }> }
+) {
+  const { restaurantSlug, id } = await context.params
+  return proxyToBackend(request, restaurantSlug, `/ingredients/${id}`)
+}
+
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ restaurantSlug: string; id: string }> }

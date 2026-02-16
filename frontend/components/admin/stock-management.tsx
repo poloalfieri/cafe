@@ -144,7 +144,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
       if (branchId) {
         params.set('branch_id', branchId)
       }
-      const response = await api.get(`/api/ingredients?${params.toString()}`)
+      const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
       setIngredients(response.data.ingredients)
     } catch (error) {
       // Error ya manejado
@@ -153,7 +153,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
 
   const fetchRecipes = async (productId: string) => {
     try {
-      const response = await api.get(`/api/recipes?productId=${productId}`)
+      const response = await api.get(`${backendUrl}/recipes?productId=${productId}`)
       setRecipes(response.data)
     } catch (error) {
       // Error ya manejado
@@ -288,7 +288,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
     if (!selectedProduct || !selectedIngredientId || !quantity) return
 
     try {
-      await api.post('/api/recipes', {
+      await api.post(`${backendUrl}/recipes`, {
         productId: selectedProduct.id,
         ingredientId: selectedIngredientId,
         quantity: parseFloat(quantity)
@@ -316,7 +316,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
     if (!selectedProduct) return
 
     try {
-      await api.patch('/api/recipes', {
+      await api.patch(`${backendUrl}/recipes`, {
         productId: selectedProduct.id,
         ingredientId,
         quantity: newQuantity
@@ -341,7 +341,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
     if (!selectedProduct || !confirm(t("confirmDeleteIngredient"))) return
     
     try {
-      await api.delete('/api/recipes', {
+      await api.delete(`${backendUrl}/recipes`, {
         productId: selectedProduct.id,
         ingredientId
       })

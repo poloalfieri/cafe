@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { api } from '@/lib/fetcher'
+import { getTenantApiBase } from '@/lib/apiClient'
 import { ALLOWED_UNITS } from '@/lib/validation'
 import { useTranslations } from "next-intl"
 import { 
@@ -51,6 +52,7 @@ interface IngredientsManagementProps {
 
 export default function IngredientsManagement({ branchId }: IngredientsManagementProps) {
   const t = useTranslations("admin.ingredients")
+  const backendUrl = getTenantApiBase()
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -77,7 +79,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       if (branchId) {
         params.set('branch_id', branchId)
       }
-      const response = await api.get(`/api/ingredients?${params.toString()}`)
+      const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
       setIngredients(response.data.ingredients)
       setTotalPages(response.data.pagination.totalPages)
     } catch (error) {
@@ -100,7 +102,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     e.preventDefault()
     try {
       if (editingId) {
-        await api.patch(`/api/ingredients/${editingId}`, {
+        await api.patch(`${backendUrl}/ingredients/${editingId}`, {
           ...formData,
           branch_id: branchId
         })
@@ -109,7 +111,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
           description: t("toast.updated")
         })
       } else {
-        await api.post('/api/ingredients', {
+        await api.post(`${backendUrl}/ingredients`, {
           ...formData,
           branch_id: branchId
         })
@@ -149,7 +151,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     if (!confirm(t("confirmDelete"))) return
     
     try {
-      await api.delete(`/api/ingredients/${id}`, {
+      await api.delete(`${backendUrl}/ingredients/${id}`, {
         branch_id: branchId
       })
       toast({

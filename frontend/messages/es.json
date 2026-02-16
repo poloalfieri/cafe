@@ -402,11 +402,80 @@
         "actions": "Acciones",
         "notAvailable": "N/A"
       },
+      "tabs": {
+        "recipe": "Receta",
+        "options": "Opcionales"
+      },
       "summary": {
         "ingredientsCost": "Costo de Ingredientes",
         "salePrice": "Precio de Venta",
         "grossProfit": "Ganancia Bruta",
         "margin": "Margen de Ganancia"
+      }
+    },
+    "productOptions": {
+      "subtitle": "Configura las opciones que el cliente podrá elegir al pedir este producto",
+      "toast": {
+        "errorTitle": "Error",
+        "successTitle": "Éxito",
+        "loadError": "No se pudieron cargar las opciones del producto",
+        "groupCreated": "Grupo de opciones creado",
+        "groupUpdated": "Grupo de opciones actualizado",
+        "groupSaveError": "Error al guardar el grupo de opciones",
+        "groupDeleted": "Grupo de opciones eliminado",
+        "groupDeleteError": "Error al eliminar el grupo",
+        "itemAdded": "Opción agregada correctamente",
+        "itemAddError": "Error al agregar la opción",
+        "priceUpdated": "Precio actualizado",
+        "priceUpdateError": "Error al actualizar el precio",
+        "itemDeleted": "Opción eliminada",
+        "itemDeleteError": "Error al eliminar la opción"
+      },
+      "confirmDeleteGroup": "¿Eliminar este grupo y todas sus opciones?",
+      "confirmDeleteItem": "¿Eliminar esta opción del grupo?",
+      "actions": {
+        "newGroup": "Nuevo Grupo",
+        "addItem": "Agregar Opción",
+        "cancel": "Cancelar",
+        "create": "Crear",
+        "update": "Actualizar",
+        "add": "Agregar"
+      },
+      "dialog": {
+        "newGroupTitle": "Nuevo Grupo de Opciones",
+        "newGroupDescription": "Crea un grupo para que el cliente pueda elegir (ej: Tipo de Leche, Extras, Salsa)",
+        "editGroupTitle": "Editar Grupo",
+        "editGroupDescription": "Modifica la configuración del grupo de opciones",
+        "addItemTitle": "Agregar Opción",
+        "addItemDescription": "Selecciona un ingrediente del stock como opción para este grupo"
+      },
+      "form": {
+        "groupName": "Nombre del Grupo",
+        "groupNamePlaceholder": "Ej: Tipo de Leche, Extras, Proteína...",
+        "isRequired": "Obligatorio",
+        "isRequiredHint": "El cliente debe elegir al menos una opción",
+        "maxSelections": "Máximo de selecciones",
+        "maxSelectionsHint": "Cuántas opciones puede elegir el cliente (1 = una sola opción)",
+        "ingredient": "Ingrediente",
+        "ingredientPlaceholder": "Seleccionar ingrediente del stock",
+        "noIngredientsAvailable": "No hay ingredientes disponibles",
+        "priceAddition": "Precio adicional",
+        "priceAdditionHint": "Monto que se suma al precio base del producto (0 = sin costo extra)"
+      },
+      "badge": {
+        "required": "Obligatorio",
+        "optional": "Opcional",
+        "selectOne": "Elegir 1",
+        "selectUpTo": "Elegir hasta {count}"
+      },
+      "groupItemCount": "{count, plural, =0 {Sin opciones} =1 {1 opción} other {# opciones}}",
+      "empty": {
+        "title": "Sin opciones configuradas",
+        "subtitle": "Crea un grupo de opciones para que el cliente pueda personalizar este producto al pedirlo"
+      },
+      "items": {
+        "empty": "Este grupo no tiene opciones aún",
+        "noStock": "Sin stock"
       }
     },
     "stock": {

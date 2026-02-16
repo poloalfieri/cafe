@@ -88,7 +88,7 @@ export default function AdminDashboard() {
     // Low stock check on each load
     ;(async () => {
       try {
-        const json = await api.get('/api/ingredients?page=1&pageSize=1000')
+        const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
         const list = json.data?.ingredients || []
         const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
           .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))

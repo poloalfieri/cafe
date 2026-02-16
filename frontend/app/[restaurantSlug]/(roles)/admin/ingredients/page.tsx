@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/fetcher'
+import { getTenantApiBase } from '@/lib/apiClient'
 import { ALLOWED_UNITS } from '@/lib/validation'
 
 interface Ingredient {
@@ -36,11 +37,12 @@ export default function IngredientsPage() {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const backendUrl = getTenantApiBase()
 
   const fetchIngredients = async () => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/ingredients?page=${page}&search=${searchTerm}`)
+      const response = await api.get(`${backendUrl}/ingredients?page=${page}&search=${searchTerm}`)
       setIngredients(response.data.ingredients)
       setTotalPages(response.data.pagination.totalPages)
     } catch (error) {
@@ -61,9 +63,9 @@ export default function IngredientsPage() {
       setError(null)
       
       if (editingId) {
-        await api.patch(`/api/ingredients/${editingId}`, formData)
+        await api.patch(`${backendUrl}/ingredients/${editingId}`, formData)
       } else {
-        await api.post('/api/ingredients', formData)
+        await api.post(`${backendUrl}/ingredients`, formData)
       }
       
       setShowModal(false)
@@ -90,7 +92,7 @@ export default function IngredientsPage() {
     if (!confirm('Are you sure you want to delete this ingredient?')) return
     
     try {
-      await api.delete(`/api/ingredients/${id}`)
+      await api.delete(`${backendUrl}/ingredients/${id}`)
       fetchIngredients()
     } catch (error: any) {
       if (error.status === 409) {
