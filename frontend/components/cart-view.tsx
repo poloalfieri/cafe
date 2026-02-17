@@ -10,6 +10,7 @@ import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
+import { formatSelectedOptionLabel } from "@/lib/product-options"
 
 export default function CartView() {
   const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
@@ -199,7 +200,7 @@ export default function CartView() {
         {/* Cart Items */}
         <div className="space-y-4 mb-6">
           {state.items.map((item) => (
-            <div key={item.id} className="bg-card rounded-xl p-4 shadow-sm border border-border">
+            <div key={item.lineId} className="bg-card rounded-xl p-4 shadow-sm border border-border">
               <div className="flex items-center gap-4">
                 {/* Product Image */}
                 <div className="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
@@ -218,11 +219,21 @@ export default function CartView() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-text text-sm mb-1">{item.name}</h3>
                   <p className="text-xs text-muted-foreground">{item.description || "Delicioso platillo"}</p>
+                  {item.selectedOptions.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {item.selectedOptions.map((option) => (
+                        <p key={`${item.lineId}-${option.groupId}-${option.id}`} className="text-[11px] text-muted-foreground">
+                          • {formatSelectedOptionLabel(option)}
+                          {option.priceAddition > 0 ? ` (+$${option.priceAddition.toFixed(2)})` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-sm font-bold text-text">${item.price.toFixed(2)}</span>
                     <div className="flex items-center gap-2">
                       <Button
-                        onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                        onClick={() => updateQuantity(item.lineId, Math.max(0, item.quantity - 1))}
                         size="icon"
                         variant="outline"
                         className="h-8 w-8 rounded-full border-border hover:bg-secondary"
@@ -235,7 +246,7 @@ export default function CartView() {
                       </span>
                       
                       <Button
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
                         size="icon"
                         className="h-8 w-8 rounded-full bg-primary hover:bg-primary-hover"
                       >
@@ -324,9 +335,12 @@ export default function CartView() {
         totalAmount={state.total}
         items={state.items.map((item) => ({
           id: item.id,
+          lineId: item.lineId,
           name: item.name,
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
+          basePrice: item.basePrice,
+          selectedOptions: item.selectedOptions,
         }))}
       />
 

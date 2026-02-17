@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
-const INTERNAL_PROXY_KEY = process.env.INTERNAL_PROXY_KEY
-
 export interface ProxyOptions {
   requireAuth?: boolean
   allowedRoles?: string[]
@@ -15,6 +12,9 @@ export async function proxyToBackend(
   options: ProxyOptions = {}
 ): Promise<NextResponse> {
   try {
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'
+    const INTERNAL_PROXY_KEY = process.env.INTERNAL_PROXY_KEY
+
     const url = new URL(backendPath, BACKEND_URL)
     
     const searchParams = request.nextUrl.searchParams

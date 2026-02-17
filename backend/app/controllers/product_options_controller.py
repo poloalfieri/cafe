@@ -12,15 +12,18 @@ product_options_bp = Blueprint("product_options", __name__, url_prefix="/product
 # ── Groups ──────────────────────────────────────────────────
 
 @product_options_bp.route("/groups", methods=["GET"])
-@require_auth
-@require_roles("desarrollador", "admin", "caja")
 def list_groups():
     try:
         product_id = request.args.get("productId")
         if not product_id:
             return jsonify({"error": "productId es requerido"}), 400
 
-        restaurant_id = getattr(g, "restaurant_id", None) or product_options_service.resolve_restaurant_id(g.user_id)
+        restaurant_id = getattr(g, "restaurant_id", None)
+        if not restaurant_id:
+            user_id = getattr(g, "user_id", None)
+            if not user_id:
+                return jsonify({"error": "No se pudo resolver el restaurante"}), 400
+            restaurant_id = product_options_service.resolve_restaurant_id(user_id)
         data = product_options_service.list_groups(restaurant_id, product_id)
         return jsonify({"data": data}), 200
     except Exception as e:

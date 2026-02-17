@@ -13,6 +13,7 @@ import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
+import { formatSelectedOptionLabel, getItemSelectedOptions } from "@/lib/product-options"
 
 interface Mesa {
   id: string
@@ -474,14 +475,31 @@ export default function CajeroDashboard() {
                         <div className="mt-2 border-t border-gray-100 pt-2">
                           {Array.isArray(order.items) && order.items.length > 0 ? (
                             <div className="space-y-1">
-                              {order.items.map((item: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-xs text-gray-600">
-                                  <span className="truncate pr-2">
-                                    {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
-                                  </span>
-                                  <span>${(item.price * item.quantity).toFixed(2)}</span>
-                                </div>
-                              ))}
+                              {order.items.map((item: any, idx: number) => {
+                                const selectedOptions = getItemSelectedOptions(item)
+                                return (
+                                  <div key={item?.lineId || item?.id || idx} className="space-y-1 text-xs text-gray-600">
+                                    <div className="flex justify-between">
+                                      <span className="truncate pr-2">
+                                        {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
+                                      </span>
+                                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                    {selectedOptions.length > 0 && (
+                                      <div className="pl-2 space-y-1">
+                                        {selectedOptions.map((option) => (
+                                          <p key={`${option.groupId}-${option.id}`} className="text-[11px] text-gray-500">
+                                            • {formatSelectedOptionLabel(option)}
+                                            {option.priceAddition > 0
+                                              ? ` (+$${option.priceAddition.toFixed(2)})`
+                                              : ""}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           ) : (
                             <p className="text-xs text-gray-500">{t("orders.noItems")}</p>
