@@ -820,11 +820,6 @@ export default function CajeroDashboard() {
     return orders.filter(order => order.mesa_id === mesaId)
   }
 
-  const getMesaTotal = (mesaId: string) => {
-    const mesaOrders = getMesaOrders(mesaId)
-    return mesaOrders.reduce((total, order) => total + order.total_amount, 0)
-  }
-
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
@@ -1489,7 +1484,6 @@ export default function CajeroDashboard() {
                   {mesas.map((mesa) => {
                     const status = getMesaStatus(mesa.mesa_id)
                     const mesaOrders = getMesaOrders(mesa.mesa_id)
-                    const mesaTotal = getMesaTotal(mesa.mesa_id)
                     
                     return (
                       <Card key={mesa.id} className="hover:shadow-md transition-shadow">
@@ -1507,9 +1501,6 @@ export default function CajeroDashboard() {
                               <div className="space-y-2">
                                 <p className="text-sm text-gray-600">
                                   {t("tables.ordersCount", { count: mesaOrders.length })}
-                                </p>
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {t("tables.total", { total: mesaTotal.toFixed(2) })}
                                 </p>
                                 <div className="text-xs text-gray-500">
                                   {t("tables.lastUpdate", { value: new Date(mesa.updated_at).toLocaleTimeString() })}
