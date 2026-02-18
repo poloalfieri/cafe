@@ -1,6 +1,6 @@
 "use client"
 
-import { getTenantApiBase } from "@/lib/apiClient"
+import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -9,6 +9,8 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { 
+  Check,
+  Copy,
   MapPin
 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -16,6 +18,7 @@ import { useTranslations } from "next-intl"
 interface Mesa {
   id: string
   mesa_id: string
+  branch_id?: string
   is_active: boolean
   created_at?: string
   updated_at?: string
@@ -33,6 +36,8 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [mesaActive, setMesaActive] = useState(true)
   const [creatingMesa, setCreatingMesa] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [tableActionError, setTableActionError] = useState<string | null>(null)
+  const [copiedMesaId, setCopiedMesaId] = useState<string | null>(null)
   const backendUrl = getTenantApiBase()
 
   useEffect(() => {
@@ -42,6 +47,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const fetchData = async () => {
     try {
       setCreateError(null)
+      setTableActionError(null)
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
 
@@ -99,6 +105,46 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setCreateError(error?.message || t("tables.createError"))
     } finally {
       setCreatingMesa(false)
+    }
+  }
+
+  const getMesaQrUrl = (mesa: Mesa): string | null => {
+    if (typeof window === "undefined") return null
+
+    const resolvedBranchId = mesa.branch_id || branchId
+    if (!resolvedBranchId) return null
+
+    let slug = ""
+    try {
+      slug = getRestaurantSlug()
+    } catch {
+      return null
+    }
+
+    const params = new URLSearchParams({
+      mesa_id: mesa.mesa_id,
+      branch_id: resolvedBranchId,
+    })
+
+    return `${window.location.origin}/${slug}/usuario?${params.toString()}`
+  }
+
+  const handleCopyMesaQr = async (mesa: Mesa) => {
+    const qrUrl = getMesaQrUrl(mesa)
+    if (!qrUrl) {
+      setTableActionError(t("tables.qrMissingData"))
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(qrUrl)
+      setTableActionError(null)
+      setCopiedMesaId(mesa.id)
+      setTimeout(() => {
+        setCopiedMesaId((current) => (current === mesa.id ? null : current))
+      }, 2000)
+    } catch {
+      setTableActionError(t("tables.qrCopyError"))
     }
   }
 
@@ -168,10 +214,15 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
           </div>
         </div>
 
+        {tableActionError && (
+          <div className="text-sm text-red-600">{tableActionError}</div>
+        )}
+
         {/* Vista de mesas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {mesas.map((mesa) => {
             const statusInfo = getStatusInfo(mesa.is_active)
+            const qrUrl = getMesaQrUrl(mesa)
             
             return (
               <div
@@ -192,6 +243,26 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                   {t("tables.lastUpdate", {
                     value: mesa.updated_at ? new Date(mesa.updated_at).toLocaleString() : "—"
                   })}
+                </div>
+
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleCopyMesaQr(mesa)}
+                    disabled={!qrUrl}
+                    className="w-full"
+                  >
+                    {copiedMesaId === mesa.id ? (
+                      <Check className="w-4 h-4 mr-2" />
+                    ) : (
+                      <Copy className="w-4 h-4 mr-2" />
+                    )}
+                    {copiedMesaId === mesa.id ? t("tables.qrCopied") : t("tables.qrCopy")}
+                  </Button>
+                  {!qrUrl && (
+                    <p className="mt-2 text-xs text-red-600">{t("tables.qrMissingData")}</p>
+                  )}
                 </div>
               </div>
             )
