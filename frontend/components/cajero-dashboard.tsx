@@ -2,7 +2,7 @@
 
 import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -65,6 +65,8 @@ const PREBILL_TEXT = {
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
@@ -466,7 +468,9 @@ export default function CajeroDashboard() {
       await supabase.auth.signOut()
     } finally {
       sessionStorage.removeItem("supabase_session")
-      router.replace("/login?next=/cajero")
+      const qs = searchParams.toString()
+      const next = qs ? `${pathname}?${qs}` : pathname
+      router.replace(`/login?next=${encodeURIComponent(next)}`)
       setLoggingOut(false)
     }
   }

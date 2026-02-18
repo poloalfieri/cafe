@@ -9,18 +9,51 @@ export class ApiError extends Error {
   }
 }
 
+const ACTIVE_RESTAURANT_SLUG_KEY = "active_restaurant_slug"
+const RESERVED_SLUGS = new Set(["api", "print", "login", "payment", "super-admin", "test-session"])
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+function isValidRestaurantSlug(slug: string): boolean {
+  return (
+    slug.length >= 2 &&
+    slug.length <= 50 &&
+    SLUG_PATTERN.test(slug) &&
+    !RESERVED_SLUGS.has(slug)
+  )
+}
+
+function getStoredRestaurantSlug(): string {
+  try {
+    const stored = localStorage.getItem(ACTIVE_RESTAURANT_SLUG_KEY) || ""
+    return isValidRestaurantSlug(stored) ? stored : ""
+  } catch {
+    return ""
+  }
+}
+
 export function getRestaurantSlug(): string {
   if (typeof window === "undefined") {
     throw new Error("getRestaurantSlug can only be called on the client side")
   }
-  
+
   const pathParts = window.location.pathname.split("/").filter(Boolean)
-  
-  if (pathParts.length === 0 || pathParts[0] === "super-admin") {
-    throw new Error("No restaurant slug found in URL")
+  const firstSegment = pathParts[0] || ""
+
+  if (isValidRestaurantSlug(firstSegment)) {
+    try {
+      localStorage.setItem(ACTIVE_RESTAURANT_SLUG_KEY, firstSegment)
+    } catch {
+      // Ignore storage errors and continue.
+    }
+    return firstSegment
   }
-  
-  return pathParts[0]
+
+  const storedSlug = getStoredRestaurantSlug()
+  if (storedSlug) {
+    return storedSlug
+  }
+
+  throw new Error("No restaurant slug found in URL")
 }
 
 /**
