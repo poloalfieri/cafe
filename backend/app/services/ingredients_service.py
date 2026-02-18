@@ -2,8 +2,7 @@ import math
 from typing import Dict, List, Optional
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
-
-ALLOWED_UNITS = ['kg', 'g', 'l', 'ml', 'unidad']
+from ..utils.units import ALLOWED_UNITS, normalize_unit, to_display_unit
 
 
 def _row_to_camel(row: Dict) -> Dict:
@@ -11,7 +10,7 @@ def _row_to_camel(row: Dict) -> Dict:
     return {
         "id": str(row["id"]),
         "name": row["name"],
-        "unit": row["unit"],
+        "unit": to_display_unit(row.get("unit")),
         "currentStock": row.get("current_stock", 0),
         "unitCost": row.get("unit_cost"),
         "minStock": row.get("min_stock", 0),
@@ -76,7 +75,7 @@ class IngredientsService:
 
     def create_ingredient(self, user_id: str, restaurant_id: str, payload: Dict) -> Dict:
         name = (payload.get("name") or "").strip()
-        unit = (payload.get("unit") or "").strip()
+        unit = normalize_unit(payload.get("unit"))
         if not name:
             raise ValueError("name es requerido")
         if unit not in ALLOWED_UNITS:
@@ -126,8 +125,11 @@ class IngredientsService:
             if camel in payload:
                 update_data[snake] = payload[camel]
 
-        if "unit" in update_data and update_data["unit"] not in ALLOWED_UNITS:
-            raise ValueError(f"Unidad inválida. Permitidas: {', '.join(ALLOWED_UNITS)}")
+        if "unit" in update_data:
+            normalized_unit = normalize_unit(update_data["unit"])
+            if normalized_unit not in ALLOWED_UNITS:
+                raise ValueError(f"Unidad inválida. Permitidas: {', '.join(ALLOWED_UNITS)}")
+            update_data["unit"] = normalized_unit
 
         if not update_data:
             raise ValueError("No hay datos para actualizar")

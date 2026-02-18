@@ -1,9 +1,9 @@
 "use client"
 
-import { getTenantApiBase } from "@/lib/apiClient"
+import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Plus, Minus, Bell, LogOut } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,6 +13,7 @@ import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
+import { formatSelectedOptionLabel, getItemSelectedOptions } from "@/lib/product-options"
 
 interface Mesa {
   id: string
@@ -29,6 +30,7 @@ interface Order {
   total_amount: number
   created_at: string
   items: any[]
+  prebill_printed_at?: string | null
 }
 
 interface WaiterCall {
@@ -40,7 +42,25 @@ interface WaiterCall {
   payment_method: "CARD" | "CASH" | "QR"
 }
 
+type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
+
 const POLLING_INTERVAL_MS = 5000
+const PREBILL_TEXT = {
+  printedBadge: "Precuenta impresa",
+  printedAt: "Precuenta impresa",
+  completedTitle: "Pedido completado",
+  askPrint: "Querés imprimir la precuenta?",
+  confirmTitle: "Confirmar impresión",
+  confirmPrinted: "Salió el ticket?",
+  print: "Imprimir precuenta",
+  skip: "No imprimir",
+  fiscalPlaceholder: "Imprimir comprobante fiscal (próximamente)",
+  confirmPrintedAction: "Sí, salió",
+  marking: "Marcando...",
+  retry: "No / Reintentar",
+  close: "Cerrar",
+  reprint: "Reimprimir",
+}
 
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
@@ -55,6 +75,10 @@ export default function CajeroDashboard() {
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branchName, setBranchName] = useState<string | null>(null)
   const [branchId, setBranchId] = useState<string | null>(null)
+  const [prebillDialogOpen, setPrebillDialogOpen] = useState(false)
+  const [prebillStep, setPrebillStep] = useState<PrebillDialogStep>("ASK_PRINT")
+  const [prebillOrder, setPrebillOrder] = useState<Order | null>(null)
+  const [markingPrebill, setMarkingPrebill] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const backendUrl = getTenantApiBase()
@@ -138,11 +162,12 @@ export default function CajeroDashboard() {
     }
   }, [fetchWaiterCalls, branchId])
 
-  const fetchData = async (currentBranchId?: string | null) => {
+  const fetchData = async (currentBranchId?: string | null): Promise<Order[]> => {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
       const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
+      let nextOrders: Order[] = []
       // Fetch mesas
       const mesasResponse = await fetch(`${backendUrl}/mesas${branchQuery}`, {
         headers: {
@@ -171,14 +196,18 @@ export default function CajeroDashboard() {
           const ts = new Date(raw).getTime()
           return Number.isFinite(ts) && ts >= cutoff
         })
+        nextOrders = filtered
         setOrders(filtered)
       } else {
+        nextOrders = []
         setOrders([])
       }
+      return nextOrders
     } catch (error) {
       console.error(t("errors.fetchData"), error)
       setMesas([])
       setOrders([])
+      return []
     } finally {
       setLoading(false)
     }
@@ -246,6 +275,110 @@ export default function CajeroDashboard() {
     }
   }
 
+  const getOrderTimestamp = (order: Order): number => {
+    const ts = new Date(order.created_at).getTime()
+    return Number.isFinite(ts) ? ts : 0
+  }
+
+  const getLatestOrderForMesa = (mesaId: string, sourceOrders: Order[]): Order | null => {
+    const mesaOrders = sourceOrders.filter((order) => String(order.mesa_id) === String(mesaId))
+    if (mesaOrders.length === 0) {
+      return null
+    }
+
+    const sorted = [...mesaOrders].sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
+    return sorted[0] || null
+  }
+
+  const getCurrentRestaurantSlug = () => {
+    try {
+      const slug = getRestaurantSlug()
+      localStorage.setItem("active_restaurant_slug", slug)
+      return slug
+    } catch {
+      return ""
+    }
+  }
+
+  const buildPrebillPrintUrl = (orderId: string, autoprint = true) => {
+    const params = new URLSearchParams()
+    const slug = getCurrentRestaurantSlug()
+    if (autoprint) {
+      params.set("autoprint", "1")
+    }
+    if (slug) {
+      params.set("restaurantSlug", slug)
+    }
+    const queryString = params.toString()
+    return queryString
+      ? `/print/prebill/${orderId}?${queryString}`
+      : `/print/prebill/${orderId}`
+  }
+
+  const openPrebillWindow = (orderId: string, autoprint = true) => {
+    window.open(buildPrebillPrintUrl(orderId, autoprint), "_blank", "noopener")
+  }
+
+  const resetPrebillDialog = () => {
+    setPrebillDialogOpen(false)
+    setPrebillStep("ASK_PRINT")
+    setPrebillOrder(null)
+    setMarkingPrebill(false)
+  }
+
+  const startPrebillPrinting = () => {
+    if (!prebillOrder) return
+    openPrebillWindow(prebillOrder.id, true)
+    setPrebillStep("CONFIRM_PRINTED")
+  }
+
+  const retryPrebillPrinting = () => {
+    if (!prebillOrder) return
+    openPrebillWindow(prebillOrder.id, true)
+  }
+
+  const markPrebillPrinted = async () => {
+    if (!prebillOrder || markingPrebill) {
+      return
+    }
+
+    try {
+      setMarkingPrebill(true)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/orders/${prebillOrder.id}/prebill/mark-printed`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error(t("errors.markPrebillPrinted"), errorData?.error)
+        return
+      }
+
+      await fetchData(branchId)
+      resetPrebillDialog()
+    } catch (error) {
+      console.error(t("errors.markPrebillPrinted"), error)
+    } finally {
+      setMarkingPrebill(false)
+    }
+  }
+
+  const formatPrebillPrintedAt = (value: string | null | undefined) => {
+    if (!value) return "-"
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleString()
+  }
+
+  const handleReprint = (orderId: string) => {
+    openPrebillWindow(orderId, true)
+  }
+
   const activeOrders = orders.filter(order =>
     order.status !== "DELIVERED" && order.status !== "CANCELLED"
   )
@@ -272,9 +405,17 @@ export default function CajeroDashboard() {
       })
 
       if (response.ok) {
+        const payload = await response.json().catch(() => ({}))
         setWaiterCalls(prev => prev.filter(call => call.id !== callId))
         if (newStatus === "COMPLETED") {
-          fetchData(branchId)
+          const refreshedOrders = await fetchData(branchId)
+          const mesaId = String(payload?.call?.mesa_id ?? "")
+          const targetOrder = mesaId ? getLatestOrderForMesa(mesaId, refreshedOrders) : null
+          if (targetOrder) {
+            setPrebillOrder(targetOrder)
+            setPrebillStep("ASK_PRINT")
+            setPrebillDialogOpen(true)
+          }
         }
       } else {
         const errorData = await response.json()
@@ -286,8 +427,8 @@ export default function CajeroDashboard() {
   }
 
   const refreshData = () => {
-    fetchData(branchId)
-    fetchWaiterCalls(branchId)
+    void fetchData(branchId)
+    void fetchWaiterCalls(branchId)
   }
 
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
@@ -466,6 +607,16 @@ export default function CajeroDashboard() {
                             <p className="text-sm text-gray-700">
                               {t("orders.total", { total: order.total_amount.toFixed(2) })}
                             </p>
+                            {order.prebill_printed_at ? (
+                              <div className="mt-2 space-y-1">
+                                <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">
+                                  {PREBILL_TEXT.printedBadge}
+                                </Badge>
+                                <p className="text-[11px] text-emerald-700">
+                                  {`${PREBILL_TEXT.printedAt}: ${formatPrebillPrintedAt(order.prebill_printed_at)}`}
+                                </p>
+                              </div>
+                            ) : null}
                           </div>
                           <Badge className={`${getStatusColor(order.status)} border`}>
                             {getStatusText(order.status)}
@@ -474,23 +625,105 @@ export default function CajeroDashboard() {
                         <div className="mt-2 border-t border-gray-100 pt-2">
                           {Array.isArray(order.items) && order.items.length > 0 ? (
                             <div className="space-y-1">
-                              {order.items.map((item: any, idx: number) => (
-                                <div key={idx} className="flex justify-between text-xs text-gray-600">
-                                  <span className="truncate pr-2">
-                                    {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
-                                  </span>
-                                  <span>${(item.price * item.quantity).toFixed(2)}</span>
-                                </div>
-                              ))}
+                              {order.items.map((item: any, idx: number) => {
+                                const selectedOptions = getItemSelectedOptions(item)
+                                return (
+                                  <div key={item?.lineId || item?.id || idx} className="space-y-1 text-xs text-gray-600">
+                                    <div className="flex justify-between">
+                                      <span className="truncate pr-2">
+                                        {t("orders.itemLine", { name: item.name, quantity: item.quantity })}
+                                      </span>
+                                      <span>${(item.price * item.quantity).toFixed(2)}</span>
+                                    </div>
+                                    {selectedOptions.length > 0 && (
+                                      <div className="pl-2 space-y-1">
+                                        {selectedOptions.map((option) => (
+                                          <p key={`${option.groupId}-${option.id}`} className="text-[11px] text-gray-500">
+                                            • {formatSelectedOptionLabel(option)}
+                                            {option.priceAddition > 0
+                                              ? ` (+$${option.priceAddition.toFixed(2)})`
+                                              : ""}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           ) : (
                             <p className="text-xs text-gray-500">{t("orders.noItems")}</p>
                           )}
                         </div>
+                        {order.prebill_printed_at ? (
+                          <div className="mt-2 border-t border-gray-100 pt-2 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReprint(order.id)}
+                            >
+                              {PREBILL_TEXT.reprint}
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     ))
                   )}
                 </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={prebillDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              resetPrebillDialog()
+            }
+          }}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {prebillStep === "ASK_PRINT"
+                  ? PREBILL_TEXT.completedTitle
+                  : PREBILL_TEXT.confirmTitle}
+              </DialogTitle>
+              <DialogDescription>
+                {prebillStep === "ASK_PRINT"
+                  ? PREBILL_TEXT.askPrint
+                  : PREBILL_TEXT.confirmPrinted}
+              </DialogDescription>
+            </DialogHeader>
+            {prebillOrder ? (
+              <p className="text-xs text-muted-foreground">
+                {`Pedido #${prebillOrder.id}`}
+              </p>
+            ) : null}
+            {prebillStep === "ASK_PRINT" ? (
+              <div className="space-y-2 pt-2">
+                <Button onClick={startPrebillPrinting} className="w-full">
+                  {PREBILL_TEXT.print}
+                </Button>
+                <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
+                  {PREBILL_TEXT.skip}
+                </Button>
+                <Button type="button" variant="ghost" disabled className="w-full">
+                  {PREBILL_TEXT.fiscalPlaceholder}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-2">
+                <Button onClick={markPrebillPrinted} className="w-full" disabled={markingPrebill}>
+                  {markingPrebill ? PREBILL_TEXT.marking : PREBILL_TEXT.confirmPrintedAction}
+                </Button>
+                <Button type="button" variant="outline" onClick={retryPrebillPrinting} className="w-full">
+                  {PREBILL_TEXT.retry}
+                </Button>
+                <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
+                  {PREBILL_TEXT.close}
+                </Button>
               </div>
             )}
           </DialogContent>

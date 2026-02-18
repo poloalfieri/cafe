@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
-import { getClientAuthHeaderAsync } from "@/lib/fetcher"
+import { api } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import {
   Plus,
@@ -102,27 +102,18 @@ export default function ProductOptionsManagement({
   const fetchGroups = useCallback(async () => {
     setLoading(true)
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(
-        `${backendUrl}/product-options/groups?productId=${product.id}`,
-        { headers: { ...authHeader } }
-      )
-      if (!response.ok) throw new Error("Error loading options")
-      const data = await response.json()
-      setGroups(data.data || [])
-      // Auto-expand all groups
-      const allIds = new Set((data.data || []).map((g: OptionGroup) => g.id))
+      const response = await api.get(`${backendUrl}/product-options/groups?productId=${product.id}`)
+      const list = (response as any).data || []
+      setGroups(list)
+      const allIds = new Set(list.map((g: OptionGroup) => g.id))
       setExpandedGroups(allIds)
     } catch {
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadError"),
-        variant: "destructive",
-      })
+      // Silently handle - empty options is not an error
+      setGroups([])
     } finally {
       setLoading(false)
     }
-  }, [product.id, backendUrl, t])
+  }, [product.id, backendUrl])
 
   useEffect(() => {
     fetchGroups()
@@ -149,40 +140,20 @@ export default function ProductOptionsManagement({
   const handleGroupSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const authHeader = await getClientAuthHeaderAsync()
       if (editingGroup) {
-        const response = await fetch(
-          `${backendUrl}/product-options/groups/${editingGroup.id}`,
-          {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", ...authHeader },
-            body: JSON.stringify({
-              name: groupForm.name,
-              isRequired: groupForm.isRequired,
-              maxSelections: groupForm.maxSelections,
-            }),
-          }
-        )
-        if (!response.ok) {
-          const err = await response.json()
-          throw new Error(err.error || "Error")
-        }
+        await api.patch(`${backendUrl}/product-options/groups/${editingGroup.id}`, {
+          name: groupForm.name,
+          isRequired: groupForm.isRequired,
+          maxSelections: groupForm.maxSelections,
+        })
         toast({ title: t("toast.successTitle"), description: t("toast.groupUpdated") })
       } else {
-        const response = await fetch(`${backendUrl}/product-options/groups`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            productId: product.id,
-            name: groupForm.name,
-            isRequired: groupForm.isRequired,
-            maxSelections: groupForm.maxSelections,
-          }),
+        await api.post(`${backendUrl}/product-options/groups`, {
+          productId: product.id,
+          name: groupForm.name,
+          isRequired: groupForm.isRequired,
+          maxSelections: groupForm.maxSelections,
         })
-        if (!response.ok) {
-          const err = await response.json()
-          throw new Error(err.error || "Error")
-        }
         toast({ title: t("toast.successTitle"), description: t("toast.groupCreated") })
       }
       setShowGroupDialog(false)
@@ -190,7 +161,7 @@ export default function ProductOptionsManagement({
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
-        description: error.message || t("toast.groupSaveError"),
+        description: error?.data?.error || error.message || t("toast.groupSaveError"),
         variant: "destructive",
       })
     }
@@ -199,12 +170,7 @@ export default function ProductOptionsManagement({
   const handleDeleteGroup = async (groupId: string) => {
     if (!confirm(t("confirmDeleteGroup"))) return
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(
-        `${backendUrl}/product-options/groups/${groupId}`,
-        { method: "DELETE", headers: { ...authHeader } }
-      )
-      if (!response.ok) throw new Error("Error")
+      await api.delete(`${backendUrl}/product-options/groups/${groupId}`)
       toast({ title: t("toast.successTitle"), description: t("toast.groupDeleted") })
       fetchGroups()
     } catch {
@@ -234,27 +200,18 @@ export default function ProductOptionsManagement({
     e.preventDefault()
     if (!targetGroupId || !itemForm.ingredientId) return
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/product-options/items`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader },
-        body: JSON.stringify({
-          groupId: targetGroupId,
-          ingredientId: itemForm.ingredientId,
-          priceAddition: parseFloat(itemForm.priceAddition) || 0,
-        }),
+      await api.post(`${backendUrl}/product-options/items`, {
+        groupId: targetGroupId,
+        ingredientId: itemForm.ingredientId,
+        priceAddition: parseFloat(itemForm.priceAddition) || 0,
       })
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || "Error")
-      }
       toast({ title: t("toast.successTitle"), description: t("toast.itemAdded") })
       setShowItemDialog(false)
       fetchGroups()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
-        description: error.message || t("toast.itemAddError"),
+        description: error?.data?.error || error.message || t("toast.itemAddError"),
         variant: "destructive",
       })
     }
@@ -262,16 +219,7 @@ export default function ProductOptionsManagement({
 
   const handleUpdateItemPrice = async (itemId: string, priceAddition: number) => {
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(
-        `${backendUrl}/product-options/items/${itemId}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ priceAddition }),
-        }
-      )
-      if (!response.ok) throw new Error("Error")
+      await api.patch(`${backendUrl}/product-options/items/${itemId}`, { priceAddition })
       toast({ title: t("toast.successTitle"), description: t("toast.priceUpdated") })
       fetchGroups()
     } catch {
@@ -286,12 +234,7 @@ export default function ProductOptionsManagement({
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm(t("confirmDeleteItem"))) return
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(
-        `${backendUrl}/product-options/items/${itemId}`,
-        { method: "DELETE", headers: { ...authHeader } }
-      )
-      if (!response.ok) throw new Error("Error")
+      await api.delete(`${backendUrl}/product-options/items/${itemId}`)
       toast({ title: t("toast.successTitle"), description: t("toast.itemDeleted") })
       fetchGroups()
     } catch {

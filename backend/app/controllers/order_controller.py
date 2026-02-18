@@ -9,6 +9,22 @@ logger = setup_logger(__name__)
 orders_bp = Blueprint("orders", __name__, url_prefix="/orders")
 
 
+def _resolve_authorized_restaurant():
+    restaurant_id = getattr(g, "restaurant_id", None)
+    if not restaurant_id:
+        return None, (jsonify({"error": "restaurant_id no resuelto"}), 400)
+
+    user_role = getattr(g, "user_role", None)
+    user_org_id = getattr(g, "user_org_id", None)
+    if user_role != "desarrollador":
+        if not user_org_id:
+            return None, (jsonify({"error": "Usuario sin restaurante asignado"}), 403)
+        if str(user_org_id) != str(restaurant_id):
+            return None, (jsonify({"error": "No autorizado para este restaurante"}), 403)
+
+    return restaurant_id, None
+
+
 @orders_bp.route("", methods=["GET"])
 @require_auth
 @require_roles("desarrollador", "admin", "caja", "cocina")
@@ -16,8 +32,14 @@ def list_orders():
     """Listar pedidos (filtrable por branch y status)."""
     try:
         branch_id = request.args.get("branch_id") or getattr(g, "user_branch_id", None)
+        restaurant_id = getattr(g, "restaurant_id", None)
+        if not restaurant_id:
+            return jsonify({"error": "restaurant_id no resuelto"}), 400
         status = request.args.get("status")
-        orders = order_service.get_all_orders(branch_id=branch_id)
+        orders = order_service.get_all_orders(
+            branch_id=branch_id,
+            restaurant_id=restaurant_id,
+        )
         if status:
             status_normalized = status.strip().upper()
             orders = [order for order in orders if (order.get("status") or "").upper() == status_normalized]
@@ -35,7 +57,14 @@ def list_orders():
 def get_order(order_id):
     """Obtener un pedido por ID."""
     try:
-        order = order_service.get_order_by_id(order_id)
+        restaurant_id = getattr(g, "restaurant_id", None)
+        if not restaurant_id:
+            return jsonify({"error": "restaurant_id no resuelto"}), 400
+        order = order_service.get_order_by_id(
+            order_id,
+            restaurant_id=restaurant_id,
+            branch_id=getattr(g, "user_branch_id", None),
+        )
         if not order:
             return jsonify({"error": "Pedido no encontrado"}), 404
         return jsonify(order), 200
@@ -92,3 +121,55 @@ def update_order_status(order_id):
     except Exception as e:
         logger.error(f"Error actualizando estado del pedido {order_id}: {str(e)}")
         return jsonify({"error": "Error al actualizar pedido"}), 500
+
+
+@orders_bp.route("/<order_id>/prebill", methods=["GET"])
+@require_auth
+@require_roles("desarrollador", "admin", "caja")
+def get_order_prebill(order_id):
+    """Obtener datos de orden para imprimir precuenta."""
+    try:
+        restaurant_id, auth_error = _resolve_authorized_restaurant()
+        if auth_error:
+            return auth_error
+        branch_id = getattr(g, "user_branch_id", None)
+        order = order_service.get_order_prebill(
+            order_id,
+            restaurant_id=restaurant_id,
+            branch_id=branch_id,
+        )
+        if not order:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        return jsonify(order), 200
+    except Exception as e:
+        logger.error(f"Error obteniendo precuenta del pedido {order_id}: {str(e)}")
+        return jsonify({"error": "Error al obtener precuenta"}), 500
+
+
+@orders_bp.route("/<order_id>/prebill/mark-printed", methods=["POST"])
+@require_auth
+@require_roles("desarrollador", "admin", "caja")
+def mark_order_prebill_printed(order_id):
+    """Marcar precuenta como impresa (idempotente)."""
+    try:
+        restaurant_id, auth_error = _resolve_authorized_restaurant()
+        if auth_error:
+            return auth_error
+        branch_id = getattr(g, "user_branch_id", None)
+        result = order_service.mark_prebill_printed(
+            order_id,
+            restaurant_id=restaurant_id,
+            branch_id=branch_id,
+        )
+        if not result:
+            return jsonify({"error": "Pedido no encontrado"}), 404
+        return jsonify(
+            {
+                "ok": True,
+                "updated": result.get("updated", False),
+                "prebill_printed_at": result.get("prebill_printed_at"),
+            }
+        ), 200
+    except Exception as e:
+        logger.error(f"Error marcando precuenta impresa del pedido {order_id}: {str(e)}")
+        return jsonify({"error": "Error al marcar precuenta impresa"}), 500

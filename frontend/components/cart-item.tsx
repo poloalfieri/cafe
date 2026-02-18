@@ -12,15 +12,15 @@ export default function CartItem({ item }: CartItemProps) {
   const { updateQuantity, removeItem } = useCart()
 
   const handleIncrease = () => {
-    updateQuantity(item.id, item.quantity + 1)
+    updateQuantity(item.lineId, item.quantity + 1)
   }
 
   const handleDecrease = () => {
-    updateQuantity(item.id, item.quantity - 1)
+    updateQuantity(item.lineId, item.quantity - 1)
   }
 
   const handleRemove = () => {
-    removeItem(item.id)
+    removeItem(item.lineId)
   }
 
   return (

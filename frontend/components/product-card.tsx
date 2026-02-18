@@ -9,20 +9,16 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem, updateQuantity, getItemQuantity } = useCart()
-  const quantity = getItemQuantity(product.id)
+  const { addItem, removeOneByProductId, getProductQuantity } = useCart()
+  const quantity = getProductQuantity(product.id)
 
   const handleIncrease = () => {
-    if (quantity === 0) {
-      addItem(product)
-    } else {
-      updateQuantity(product.id, quantity + 1)
-    }
+    addItem(product)
   }
 
   const handleDecrease = () => {
     if (quantity > 0) {
-      updateQuantity(product.id, quantity - 1)
+      removeOneByProductId(product.id)
     }
   }
 

@@ -107,7 +107,7 @@ export default function InstructionsModal({ isOpen, onClose }: InstructionsModal
                 {t("step4Body")}
               </p>
               <div className="inline-flex items-center justify-center bg-rose-500 hover:bg-rose-600 text-white px-6 py-3 rounded-full text-sm font-semibold shadow-lg">
-                <span>Pay</span>
+                <span>{t("step4Cta")}</span>
               </div>
             </div>
           </div>

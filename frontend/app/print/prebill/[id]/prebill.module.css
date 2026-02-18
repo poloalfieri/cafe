@@ -1,0 +1,116 @@
+.page {
+  min-height: 100vh;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: #f3f4f6;
+}
+
+.state {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+.ticket {
+  width: 80mm;
+  background: #ffffff;
+  color: #111827;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  padding: 2mm;
+  border: 1px solid #e5e7eb;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2mm;
+}
+
+.title {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.subtitle {
+  text-transform: uppercase;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.separator {
+  border-top: 1px dashed #6b7280;
+  margin: 3mm 0;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 2mm;
+}
+
+.rowLeft {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.rowRight {
+  width: 22mm;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 4mm;
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
+@media print {
+  .page {
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .ticket {
+    border: none;
+    margin: 0;
+  }
+
+  .actions {
+    display: none;
+  }
+}
+
+@page {
+  size: 80mm auto;
+  margin: 6mm;
+}

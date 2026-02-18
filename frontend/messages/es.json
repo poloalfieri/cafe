@@ -17,7 +17,37 @@
       "bestSellers": "Más Vendidos",
       "all": "Todos",
       "filters": "Filtros",
-      "defaultDescription": "Delicioso platillo preparado con ingredientes frescos"
+      "calledTitle": "¡Mozo llamado!",
+      "calledBody": "Ya avisamos al mozo. En breve se acercará a tu mesa.",
+      "callErrorTitle": "No se pudo llamar al mozo",
+      "callErrorBody": "Intentá nuevamente en unos segundos.",
+      "defaultDescription": "Delicioso platillo preparado con ingredientes frescos",
+      "options": {
+        "loading": "Cargando...",
+        "title": "Personaliza {product}",
+        "subtitle": "Elige los opcionales antes de agregar al carrito",
+        "required": "Obligatorio",
+        "optional": "Opcional",
+        "selectOne": "Elegir 1",
+        "selectUpTo": "Elegir hasta {count}",
+        "selectedCount": "{count}/{max} seleccionadas",
+        "outOfStock": "Sin stock",
+        "noStock": "No disponible por stock",
+        "extraPrice": "Suma +${price}",
+        "noExtraPrice": "Sin costo extra",
+        "basePrice": "Precio base",
+        "optionsTotal": "Opcionales",
+        "finalPrice": "Precio final",
+        "cancel": "Cancelar",
+        "confirm": "Agregar al carrito",
+        "errorTitle": "No se pudo cargar",
+        "loadError": "No se pudieron obtener los opcionales para este producto",
+        "requiredNoStock": "El grupo obligatorio \"{group}\" no tiene opciones con stock",
+        "requiredMissing": "Selecciona al menos una opción en \"{group}\"",
+        "requiredGroupNoStock": "Este grupo obligatorio no tiene opciones disponibles",
+        "maxReachedTitle": "Límite alcanzado",
+        "maxReachedBody": "En \"{group}\" puedes elegir hasta {count} opciones"
+      }
     },
     "cart": {
       "title": "Carrito",
@@ -977,10 +1007,32 @@
         "fetchData": "Error fetching data:",
         "fetchBranch": "Error fetching branch:",
         "updateCallStatus": "Error actualizando estado de llamada:",
-        "updateMesaStatus": "Error updating mesa status:"
+        "updateMesaStatus": "Error updating mesa status:",
+        "markPrebillPrinted": "Error marcando precuenta impresa:"
       },
       "logs": {
         "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"
+      },
+      "prebill": {
+        "printedBadge": "Precuenta impresa",
+        "printedAt": "Precuenta impresa: {date}",
+        "dialog": {
+          "completedTitle": "Pedido completado",
+          "askPrint": "¿Querés imprimir la precuenta?",
+          "confirmTitle": "Confirmar impresión",
+          "confirmPrinted": "¿Salió el ticket?",
+          "orderRef": "Pedido #{id}"
+        },
+        "actions": {
+          "print": "Imprimir precuenta",
+          "skip": "No imprimir",
+          "fiscalPlaceholder": "Imprimir comprobante fiscal (próximamente)",
+          "confirmPrinted": "Sí, salió",
+          "marking": "Marcando...",
+          "retry": "No / Reintentar",
+          "close": "Cerrar",
+          "reprint": "Reimprimir"
+        }
       }
     },
     "waiterCall": {

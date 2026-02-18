@@ -17,7 +17,37 @@
       "bestSellers": "Best Sellers",
       "all": "All",
       "filters": "Filters",
-      "defaultDescription": "Delicious dish made with fresh ingredients"
+      "calledTitle": "Waiter called!",
+      "calledBody": "We already notified the waiter. They will come to your table shortly.",
+      "callErrorTitle": "Could not call the waiter",
+      "callErrorBody": "Please try again in a few seconds.",
+      "defaultDescription": "Delicious dish made with fresh ingredients",
+      "options": {
+        "loading": "Loading...",
+        "title": "Customize {product}",
+        "subtitle": "Choose options before adding to cart",
+        "required": "Required",
+        "optional": "Optional",
+        "selectOne": "Choose 1",
+        "selectUpTo": "Choose up to {count}",
+        "selectedCount": "{count}/{max} selected",
+        "outOfStock": "Out of stock",
+        "noStock": "Unavailable due to stock",
+        "extraPrice": "Adds +${price}",
+        "noExtraPrice": "No extra cost",
+        "basePrice": "Base price",
+        "optionsTotal": "Options",
+        "finalPrice": "Final price",
+        "cancel": "Cancel",
+        "confirm": "Add to cart",
+        "errorTitle": "Could not load",
+        "loadError": "Could not fetch options for this product",
+        "requiredNoStock": "Required group \"{group}\" has no in-stock choices",
+        "requiredMissing": "Select at least one option in \"{group}\"",
+        "requiredGroupNoStock": "This required group has no available choices",
+        "maxReachedTitle": "Limit reached",
+        "maxReachedBody": "In \"{group}\" you can choose up to {count} options"
+      }
     },
     "cart": {
       "title": "Cart",
@@ -979,10 +1009,32 @@
         "fetchData": "Error fetching data:",
         "fetchBranch": "Error fetching branch:",
         "updateCallStatus": "Error actualizando estado de llamada:",
-        "updateMesaStatus": "Error updating mesa status:"
+        "updateMesaStatus": "Error updating mesa status:",
+        "markPrebillPrinted": "Error marcando precuenta impresa:"
       },
       "logs": {
         "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"
+      },
+      "prebill": {
+        "printedBadge": "Precuenta impresa",
+        "printedAt": "Precuenta impresa: {date}",
+        "dialog": {
+          "completedTitle": "Pedido completado",
+          "askPrint": "¿Querés imprimir la precuenta?",
+          "confirmTitle": "Confirmar impresión",
+          "confirmPrinted": "¿Salió el ticket?",
+          "orderRef": "Pedido #{id}"
+        },
+        "actions": {
+          "print": "Imprimir precuenta",
+          "skip": "No imprimir",
+          "fiscalPlaceholder": "Imprimir comprobante fiscal (próximamente)",
+          "confirmPrinted": "Sí, salió",
+          "marking": "Marcando...",
+          "retry": "No / Reintentar",
+          "close": "Cerrar",
+          "reprint": "Reimprimir"
+        }
       }
     },
     "waiterCall": {

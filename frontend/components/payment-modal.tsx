@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/hooks/use-toast'
+import { formatSelectedOptionLabel, type SelectedProductOption } from '@/lib/product-options'
 import { 
   Wallet, 
   CreditCard, 
@@ -30,9 +31,12 @@ interface PaymentModalProps {
   totalAmount: number
   items: Array<{
     id?: string
+    lineId?: string
     name: string
     price: number
     quantity: number
+    basePrice?: number
+    selectedOptions?: SelectedProductOption[]
   }>
 }
 
@@ -109,9 +113,12 @@ export default function PaymentModal({
             token: mesaToken,
             items: items.map(item => ({
               id: item.id,
+              lineId: item.lineId,
               name: item.name,
               price: item.price,
               quantity: item.quantity,
+              basePrice: item.basePrice ?? item.price,
+              selectedOptions: item.selectedOptions || [],
             })),
             total_amount: totalAmount,
           }),
@@ -175,9 +182,13 @@ export default function PaymentModal({
           mesa_id: mesaId,
           branch_id: branchId,
           items: items.map(item => ({
+            id: item.id,
+            lineId: item.lineId,
             name: item.name,
             price: item.price,
             quantity: item.quantity,
+            basePrice: item.basePrice ?? item.price,
+            selectedOptions: item.selectedOptions || [],
           })),
           token: mesaToken,
         }),
@@ -328,13 +339,25 @@ export default function PaymentModal({
             </h3>
             <div className="space-y-2">
               {items.slice(0, 3).map((item, index) => (
-                <div key={index} className="flex justify-between items-center text-xs">
-                  <span className="text-gray-700 font-medium truncate flex-1 mr-2">
-                    {item.name} × {item.quantity}
-                  </span>
-                  <span className="text-gray-900 font-semibold">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </span>
+                <div key={index} className="text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700 font-medium truncate flex-1 mr-2">
+                      {item.name} × {item.quantity}
+                    </span>
+                    <span className="text-gray-900 font-semibold">
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+                  {Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0 && (
+                    <div className="mt-1 space-y-1">
+                      {item.selectedOptions.map((option) => (
+                        <p key={`${item.name}-${option.groupId}-${option.id}`} className="text-[11px] text-gray-500 pl-1">
+                          • {formatSelectedOptionLabel(option)}
+                          {option.priceAddition > 0 ? ` (+$${option.priceAddition.toFixed(2)})` : ""}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               {items.length > 3 && (

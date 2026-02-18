@@ -2,12 +2,16 @@
 
 import { Clock, CheckCircle, AlertCircle, ChefHat, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { formatSelectedOptionLabel, getItemSelectedOptions } from "@/lib/product-options"
 
 interface OrderItem {
-  id: string
+  id?: string
+  lineId?: string
   name: string
   quantity: number
   price: number
+  selectedOptions?: unknown[]
+  selected_options?: unknown[]
 }
 
 interface Order {
@@ -161,19 +165,35 @@ export default function OrderCard({ order, onStatusUpdate, onAcceptOrder, onReje
       {/* Items */}
       <div className="p-4">
         <div className="space-y-2 mb-4">
-          {order.items.map((item) => (
-            <div key={item.id} className="flex justify-between items-center">
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                {item.quantity > 1 && (
-                  <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                    x{item.quantity}
-                  </span>
+          {order.items.map((item, index) => {
+            const selectedOptions = getItemSelectedOptions(item)
+
+            return (
+              <div key={item.lineId || item.id || `${item.name}-${index}`} className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                    {item.quantity > 1 && (
+                      <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                        x{item.quantity}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+                {selectedOptions.length > 0 && (
+                  <div className="pl-1 space-y-1">
+                    {selectedOptions.map((option) => (
+                      <p key={`${option.groupId}-${option.id}`} className="text-xs text-gray-500">
+                        • {formatSelectedOptionLabel(option)}
+                        {option.priceAddition > 0 ? ` (+$${option.priceAddition.toFixed(2)})` : ""}
+                      </p>
+                    ))}
+                  </div>
                 )}
               </div>
-              <span className="text-sm font-medium text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className="border-t border-gray-200 pt-3 mb-4">
