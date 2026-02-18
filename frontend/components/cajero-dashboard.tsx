@@ -2,25 +2,42 @@
 
 import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { useRouter } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut } from "lucide-react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import WaiterCallCard from "./waiter-call-card"
-import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
+import { api, getClientAuthHeader, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
-import { formatSelectedOptionLabel, getItemSelectedOptions } from "@/lib/product-options"
+import {
+  buildCartLineId,
+  calculateSelectedOptionsTotal,
+  formatSelectedOptionLabel,
+  getItemSelectedOptions,
+  type ProductOptionGroup,
+  type ProductOptionItem,
+  type SelectedProductOption,
+} from "@/lib/product-options"
+import { toast } from "@/hooks/use-toast"
 
 interface Mesa {
   id: string
   mesa_id: string
+  branch_id?: string
   is_active: boolean
   created_at: string
   updated_at: string
+}
+
+interface MenuItem {
+  id: string
+  name: string
+  price: number
+  available?: boolean
 }
 
 interface Order {
@@ -33,13 +50,25 @@ interface Order {
   prebill_printed_at?: string | null
 }
 
+type PaymentMethod = "CARD" | "CASH" | "QR"
+
 interface WaiterCall {
   id: string
   mesa_id: string
   created_at: string
   status: "PENDING" | "COMPLETED" | "CANCELLED"
   message?: string
-  payment_method: "CARD" | "CASH" | "QR"
+  payment_method: PaymentMethod
+}
+
+interface DraftOrderItem {
+  id: string
+  lineId: string
+  name: string
+  price: number
+  basePrice: number
+  selectedOptions: SelectedProductOption[]
+  quantity: number
 }
 
 type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
@@ -65,11 +94,14 @@ const PREBILL_TEXT = {
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [mesas, setMesas] = useState<Mesa[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
+  const [activeTab, setActiveTab] = useState<"pagos" | "mesas">("mesas")
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
@@ -79,9 +111,24 @@ export default function CajeroDashboard() {
   const [prebillStep, setPrebillStep] = useState<PrebillDialogStep>("ASK_PRINT")
   const [prebillOrder, setPrebillOrder] = useState<Order | null>(null)
   const [markingPrebill, setMarkingPrebill] = useState(false)
+  const [createOrderMesa, setCreateOrderMesa] = useState<Mesa | null>(null)
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [menuLoading, setMenuLoading] = useState(false)
+  const [selectedMenuItemId, setSelectedMenuItemId] = useState("")
+  const [draftOrderItems, setDraftOrderItems] = useState<DraftOrderItem[]>([])
+  const [createOrderPaymentMethod, setCreateOrderPaymentMethod] = useState<PaymentMethod>("CASH")
+  const [creatingOrder, setCreatingOrder] = useState(false)
+  const [createOrderError, setCreateOrderError] = useState<string | null>(null)
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
+  const [optionsProduct, setOptionsProduct] = useState<MenuItem | null>(null)
+  const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([])
+  const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({})
+  const [loadingItemOptions, setLoadingItemOptions] = useState(false)
+  const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const normalizePrice = (value: number): number => Math.round(value * 100) / 100
 
   const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
     try {
@@ -143,9 +190,14 @@ export default function CajeroDashboard() {
           await fetchData(null)
           fetchWaiterCalls(null)
         }
+      } else {
+        await fetchData(null)
+        fetchWaiterCalls(null)
       }
     } catch (error) {
       console.error(t("errors.fetchBranch"), error)
+      await fetchData(null)
+      fetchWaiterCalls(null)
     }
   }
 
@@ -210,6 +262,386 @@ export default function CajeroDashboard() {
       return []
     } finally {
       setLoading(false)
+    }
+  }
+
+  const resolveMesaBranchId = (mesa: Mesa | null): string | null => {
+    if (!mesa) return null
+    return branchId || mesa.branch_id || null
+  }
+
+  const fetchProductOptionGroups = useCallback(async (productId: string): Promise<ProductOptionGroup[]> => {
+    const authHeader = await getClientAuthHeaderAsync()
+    const response = await fetch(
+      `${backendUrl}/product-options/groups?productId=${encodeURIComponent(productId)}`,
+      {
+        headers: {
+          ...authHeader,
+        },
+      }
+    )
+    if (!response.ok) {
+      throw new Error(t("orders.loadOptionsError"))
+    }
+    const payload = await response.json()
+    return Array.isArray(payload?.data) ? payload.data : []
+  }, [backendUrl, t])
+
+  const fetchMenuForCreateOrder = useCallback(async (targetBranchId: string | null) => {
+    setMenuLoading(true)
+    setMenuItems([])
+    setSelectedMenuItemId("")
+    setCreateOrderError(null)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const params = new URLSearchParams({ available: "true" })
+      if (targetBranchId) {
+        params.set("branch_id", targetBranchId)
+      }
+      const response = await fetch(`${backendUrl}/menu?${params.toString()}`, {
+        headers: {
+          ...authHeader,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(t("orders.loadMenuError"))
+      }
+
+      const payload = await response.json()
+      const normalized: MenuItem[] = Array.isArray(payload)
+        ? payload
+            .filter((item: any) => item && item.available !== false)
+            .map((item: any) => ({
+              id: String(item.id),
+              name: String(item.name || ""),
+              price: Number(item.price || 0),
+              available: item.available,
+            }))
+        : []
+
+      setMenuItems(normalized)
+      if (normalized.length > 0) {
+        setSelectedMenuItemId(normalized[0].id)
+      }
+    } catch (error) {
+      console.error(t("errors.fetchMenu"), error)
+      setCreateOrderError(t("orders.loadMenuError"))
+    } finally {
+      setMenuLoading(false)
+    }
+  }, [backendUrl, t])
+
+  const resetOptionsDialogState = () => {
+    setOptionsDialogOpen(false)
+    setOptionsProduct(null)
+    setOptionGroups([])
+    setSelectedOptionIds({})
+    setOptionsDialogError(null)
+    setLoadingItemOptions(false)
+  }
+
+  const closeOptionsDialog = () => {
+    resetOptionsDialogState()
+  }
+
+  const closeCreateOrderDialog = () => {
+    setCreateOrderMesa(null)
+    setDraftOrderItems([])
+    setCreateOrderPaymentMethod("CASH")
+    setSelectedMenuItemId("")
+    setCreateOrderError(null)
+    setMenuItems([])
+    setMenuLoading(false)
+    setCreatingOrder(false)
+    resetOptionsDialogState()
+  }
+
+  const openCreateOrderDialog = (mesa: Mesa) => {
+    setCreateOrderMesa(mesa)
+    setDraftOrderItems([])
+    setCreateOrderPaymentMethod("CASH")
+    setCreateOrderError(null)
+    void fetchMenuForCreateOrder(resolveMesaBranchId(mesa))
+  }
+
+  const addOrIncrementDraftItem = (
+    product: MenuItem,
+    selectedOptions: SelectedProductOption[] = []
+  ) => {
+    const basePrice = normalizePrice(Number(product.price) || 0)
+    const optionsTotal = calculateSelectedOptionsTotal(selectedOptions)
+    const finalPrice = normalizePrice(basePrice + optionsTotal)
+    const lineId = buildCartLineId(String(product.id), selectedOptions)
+
+    setDraftOrderItems((prev) => {
+      const existing = prev.find((item) => item.lineId === lineId)
+      if (existing) {
+        return prev.map((item) =>
+          item.lineId === lineId
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      }
+      return [
+        ...prev,
+        {
+          id: String(product.id),
+          lineId,
+          name: product.name,
+          price: finalPrice,
+          basePrice,
+          selectedOptions,
+          quantity: 1,
+        },
+      ]
+    })
+    setCreateOrderError(null)
+  }
+
+  const handleAddDraftItem = async () => {
+    if (!selectedMenuItemId || loadingItemOptions) return
+    const selectedItem = menuItems.find((item) => item.id === selectedMenuItemId)
+    if (!selectedItem) return
+
+    try {
+      setLoadingItemOptions(true)
+      setOptionsDialogError(null)
+      const groups = await fetchProductOptionGroups(selectedItem.id)
+      if (groups.length === 0) {
+        addOrIncrementDraftItem(selectedItem, [])
+        return
+      }
+      setOptionsProduct(selectedItem)
+      setOptionGroups(groups)
+      setSelectedOptionIds({})
+      setOptionsDialogOpen(true)
+    } catch (error) {
+      console.error(t("errors.fetchOptions"), error)
+      setCreateOrderError(t("orders.loadOptionsError"))
+    } finally {
+      setLoadingItemOptions(false)
+    }
+  }
+
+  const getSelectedIdsForGroup = (groupId: string): string[] => {
+    return selectedOptionIds[groupId] || []
+  }
+
+  const isOptionSelected = (groupId: string, itemId: string): boolean => {
+    return getSelectedIdsForGroup(groupId).includes(itemId)
+  }
+
+  const toggleOptionSelection = (group: ProductOptionGroup, item: ProductOptionItem): void => {
+    if ((item.currentStock || 0) <= 0) return
+
+    setOptionsDialogError(null)
+    setSelectedOptionIds((previous) => {
+      const currentGroupSelection = previous[group.id] || []
+      const alreadySelected = currentGroupSelection.includes(item.id)
+
+      if (group.maxSelections <= 1) {
+        return {
+          ...previous,
+          [group.id]: alreadySelected ? [] : [item.id],
+        }
+      }
+
+      if (alreadySelected) {
+        return {
+          ...previous,
+          [group.id]: currentGroupSelection.filter((id) => id !== item.id),
+        }
+      }
+
+      if (currentGroupSelection.length >= group.maxSelections) {
+        setOptionsDialogError(
+          t("orders.optionsMaxReached", {
+            group: group.name,
+            count: group.maxSelections,
+          })
+        )
+        return previous
+      }
+
+      return {
+        ...previous,
+        [group.id]: [...currentGroupSelection, item.id],
+      }
+    })
+  }
+
+  const getDialogSelectedOptions = (): SelectedProductOption[] => {
+    const selectedOptions: SelectedProductOption[] = []
+    optionGroups.forEach((group) => {
+      const selectedIds = getSelectedIdsForGroup(group.id)
+      selectedIds.forEach((selectedId) => {
+        const selectedItem = group.items.find((item) => item.id === selectedId)
+        if (!selectedItem || (selectedItem.currentStock || 0) <= 0) return
+        selectedOptions.push({
+          id: selectedItem.id,
+          groupId: group.id,
+          groupName: group.name,
+          ingredientId: selectedItem.ingredientId,
+          ingredientName: selectedItem.ingredientName,
+          priceAddition: normalizePrice(selectedItem.priceAddition || 0),
+        })
+      })
+    })
+    return selectedOptions
+  }
+
+  const requiredGroupWithoutStock = optionGroups.find((group) => {
+    if (!group.isRequired) return false
+    return !group.items.some((item) => (item.currentStock || 0) > 0)
+  })
+
+  const missingRequiredSelection = optionGroups.find((group) => {
+    if (!group.isRequired) return false
+    return getSelectedIdsForGroup(group.id).length === 0
+  })
+
+  const selectedDialogOptions = getDialogSelectedOptions()
+  const optionsBasePrice = normalizePrice(Number(optionsProduct?.price || 0))
+  const optionsTotalPrice = calculateSelectedOptionsTotal(selectedDialogOptions)
+  const optionsFinalPrice = normalizePrice(optionsBasePrice + optionsTotalPrice)
+
+  const handleConfirmOptions = (): void => {
+    if (!optionsProduct) return
+
+    if (requiredGroupWithoutStock) {
+      setOptionsDialogError(
+        t("orders.optionsRequiredNoStock", {
+          group: requiredGroupWithoutStock.name,
+        })
+      )
+      return
+    }
+
+    if (missingRequiredSelection) {
+      setOptionsDialogError(
+        t("orders.optionsRequiredMissing", {
+          group: missingRequiredSelection.name,
+        })
+      )
+      return
+    }
+
+    addOrIncrementDraftItem(optionsProduct, selectedDialogOptions)
+    closeOptionsDialog()
+    setCreateOrderError(null)
+  }
+
+  const updateDraftItemQuantity = (lineId: string, nextQuantity: number) => {
+    if (nextQuantity <= 0) {
+      setDraftOrderItems((prev) => prev.filter((item) => item.lineId !== lineId))
+      return
+    }
+    setDraftOrderItems((prev) =>
+      prev.map((item) =>
+        item.lineId === lineId ? { ...item, quantity: nextQuantity } : item
+      )
+    )
+  }
+
+  const removeDraftItem = (lineId: string) => {
+    setDraftOrderItems((prev) => prev.filter((item) => item.lineId !== lineId))
+    setCreateOrderError(null)
+  }
+
+  const handleCreateOrderForMesa = async () => {
+    if (!createOrderMesa || creatingOrder) return
+
+    if (draftOrderItems.length === 0) {
+      setCreateOrderError(t("orders.atLeastOneItem"))
+      return
+    }
+
+    const targetBranchId = resolveMesaBranchId(createOrderMesa)
+    if (!targetBranchId) {
+      setCreateOrderError(t("orders.branchRequired"))
+      return
+    }
+
+    try {
+      setCreatingOrder(true)
+      setCreateOrderError(null)
+      const asyncAuthHeader = await getClientAuthHeaderAsync()
+      const fallbackAuthHeader = getClientAuthHeader()
+      const authHeader =
+        asyncAuthHeader.Authorization || fallbackAuthHeader.Authorization
+          ? { ...fallbackAuthHeader, ...asyncAuthHeader }
+          : {}
+
+      if (!authHeader.Authorization) {
+        setCreateOrderError(t("orders.authRequired"))
+        setCreatingOrder(false)
+        return
+      }
+      const authToken = authHeader.Authorization.replace(/^Bearer\s+/i, "").trim()
+
+      const response = await fetch(`${backendUrl}/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          mesa_id: createOrderMesa.mesa_id,
+          branch_id: targetBranchId,
+          token: authToken,
+          items: draftOrderItems.map((item) => ({
+            id: item.id,
+            lineId: item.lineId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            basePrice: item.basePrice,
+            selectedOptions: item.selectedOptions || [],
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => ({}))
+        setCreateOrderError(errorPayload?.error || t("orders.createError"))
+        return
+      }
+
+      const callResponse = await fetch(`${backendUrl}/waiter/calls`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          mesa_id: createOrderMesa.mesa_id,
+          branch_id: targetBranchId,
+          payment_method: createOrderPaymentMethod,
+          message: "Solicitud de pago (caja)",
+        }),
+      })
+
+      if (!callResponse.ok) {
+        const callErrorPayload = await callResponse.json().catch(() => ({}))
+        setCreateOrderError(callErrorPayload?.error || t("orders.createQueueError"))
+        return
+      }
+
+      await fetchData(branchId)
+      await fetchWaiterCalls(branchId)
+      const createdMesaId = createOrderMesa.mesa_id
+      closeCreateOrderDialog()
+      setActiveTab("pagos")
+      toast({
+        title: t("orders.createSuccessTitle"),
+        description: t("orders.createSuccessBody", { mesaId: createdMesaId }),
+      })
+    } catch (error) {
+      console.error(t("errors.createOrder"), error)
+      setCreateOrderError(t("orders.createError"))
+    } finally {
+      setCreatingOrder(false)
     }
   }
 
@@ -379,17 +811,13 @@ export default function CajeroDashboard() {
     openPrebillWindow(orderId, true)
   }
 
-  const activeOrders = orders.filter(order =>
-    order.status !== "DELIVERED" && order.status !== "CANCELLED"
+  const createOrderTotal = draftOrderItems.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
   )
 
   const getMesaOrders = (mesaId: string) => {
     return orders.filter(order => order.mesa_id === mesaId)
-  }
-
-  const getMesaTotal = (mesaId: string) => {
-    const mesaOrders = getMesaOrders(mesaId)
-    return mesaOrders.reduce((total, order) => total + order.total_amount, 0)
   }
 
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
@@ -466,7 +894,9 @@ export default function CajeroDashboard() {
       await supabase.auth.signOut()
     } finally {
       sessionStorage.removeItem("supabase_session")
-      router.replace("/login?next=/cajero")
+      const qs = searchParams.toString()
+      const next = qs ? `${pathname}?${qs}` : pathname
+      router.replace(`/login?next=${encodeURIComponent(next)}`)
       setLoggingOut(false)
     }
   }
@@ -676,6 +1106,266 @@ export default function CajeroDashboard() {
           </DialogContent>
         </Dialog>
         <Dialog
+          open={!!createOrderMesa}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeCreateOrderDialog()
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>
+                {createOrderMesa
+                  ? t("orders.createDialogTitle", { mesaId: createOrderMesa.mesa_id })
+                  : t("orders.createDialogFallbackTitle")}
+              </DialogTitle>
+              <DialogDescription>{t("orders.createDialogDescription")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {menuLoading ? (
+                <p className="text-sm text-gray-500">{t("orders.loadingMenu")}</p>
+              ) : menuItems.length === 0 ? (
+                <p className="text-sm text-gray-500">{t("orders.noMenuItems")}</p>
+              ) : (
+                <div className="flex gap-2">
+                  <select
+                    className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                    value={selectedMenuItemId}
+                    onChange={(event) => setSelectedMenuItemId(event.target.value)}
+                  >
+                    {menuItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {`${item.name} - $${item.price.toFixed(2)}`}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    onClick={() => void handleAddDraftItem()}
+                    disabled={loadingItemOptions}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    {loadingItemOptions ? t("orders.addingItem") : t("orders.addItem")}
+                  </Button>
+                </div>
+              )}
+
+              {createOrderError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {createOrderError}
+                </div>
+              ) : null}
+
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-sm font-medium text-gray-900 mb-2">{t("orders.itemsTitle")}</p>
+                {draftOrderItems.length === 0 ? (
+                  <p className="text-sm text-gray-500">{t("orders.emptyDraft")}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {draftOrderItems.map((item) => (
+                      <div
+                        key={item.lineId}
+                        className="flex items-center justify-between gap-2 rounded-md border border-gray-100 p-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {t("orders.itemUnitPrice", { price: item.price.toFixed(2) })}
+                          </p>
+                          {item.selectedOptions.length > 0 && (
+                            <div className="mt-1 space-y-1">
+                              {item.selectedOptions.map((option) => (
+                                <p
+                                  key={`${item.lineId}-${option.groupId}-${option.id}`}
+                                  className="text-[11px] text-gray-500"
+                                >
+                                  • {formatSelectedOptionLabel(option)}
+                                  {option.priceAddition > 0
+                                    ? ` (+$${option.priceAddition.toFixed(2)})`
+                                    : ""}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateDraftItemQuantity(item.lineId, item.quantity - 1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="min-w-[28px] text-center text-sm">{item.quantity}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => updateDraftItemQuantity(item.lineId, item.quantity + 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => removeDraftItem(item.lineId)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-gray-200 p-3">
+                <p className="text-sm font-medium text-gray-900 mb-2">{t("orders.paymentMethodLabel")}</p>
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={createOrderPaymentMethod}
+                  onChange={(event) =>
+                    setCreateOrderPaymentMethod(event.target.value as PaymentMethod)
+                  }
+                >
+                  <option value="CASH">{t("orders.paymentMethods.cash")}</option>
+                  <option value="CARD">{t("orders.paymentMethods.card")}</option>
+                  <option value="QR">{t("orders.paymentMethods.qr")}</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-gray-200 pt-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  {t("orders.total", { total: createOrderTotal.toFixed(2) })}
+                </p>
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={closeCreateOrderDialog}>
+                    {t("orders.cancel")}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleCreateOrderForMesa}
+                    disabled={creatingOrder || menuLoading}
+                  >
+                    {creatingOrder ? t("orders.creating") : t("orders.createAction")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={optionsDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeOptionsDialog()
+            }
+          }}
+        >
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                {t("orders.optionsDialogTitle", { product: optionsProduct?.name || "" })}
+              </DialogTitle>
+              <DialogDescription>{t("orders.optionsDialogDescription")}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="max-h-[50vh] overflow-y-auto pr-1 space-y-4">
+                {optionGroups.length === 0 ? (
+                  <p className="text-sm text-gray-500">{t("orders.noOptionGroups")}</p>
+                ) : (
+                  optionGroups.map((group) => (
+                    <div key={group.id} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-900">{group.name}</p>
+                        <span className="text-xs text-gray-500">
+                          {group.isRequired
+                            ? t("orders.optionsRequiredBadge")
+                            : t("orders.optionsOptionalBadge")}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {t("orders.optionsMaxSelections", { count: group.maxSelections })}
+                      </p>
+                      <div className="space-y-2">
+                        {group.items.map((item) => {
+                          const outOfStock = (item.currentStock || 0) <= 0
+                          const selected = isOptionSelected(group.id, item.id)
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => toggleOptionSelection(group, item)}
+                              disabled={outOfStock}
+                              className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
+                                selected
+                                  ? "border-primary bg-primary/5"
+                                  : "border-gray-200 bg-white hover:bg-gray-50"
+                              } ${outOfStock ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm text-gray-900">{item.ingredientName}</span>
+                                <span className="text-xs text-gray-600">
+                                  {item.priceAddition > 0
+                                    ? t("orders.optionsPriceAddition", {
+                                        price: Number(item.priceAddition).toFixed(2),
+                                      })
+                                    : t("orders.optionsNoExtra")}
+                                </span>
+                              </div>
+                              {outOfStock ? (
+                                <p className="text-[11px] text-red-600 mt-1">{t("orders.optionsOutOfStock")}</p>
+                              ) : null}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {optionsDialogError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {optionsDialogError}
+                </div>
+              ) : null}
+
+              <div className="rounded-lg border border-gray-200 p-3 text-sm text-gray-700 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span>{t("orders.optionsBasePrice")}</span>
+                  <span>${optionsBasePrice.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>{t("orders.optionsExtrasTotal")}</span>
+                  <span>${optionsTotalPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold text-gray-900 border-t border-gray-200 pt-1">
+                  <span>{t("orders.optionsFinalPrice")}</span>
+                  <span>${optionsFinalPrice.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={closeOptionsDialog}>
+                  {t("orders.optionsCancel")}
+                </Button>
+                <Button type="button" onClick={handleConfirmOptions}>
+                  {t("orders.optionsConfirm")}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog
           open={prebillDialogOpen}
           onOpenChange={(open) => {
             if (!open) {
@@ -728,7 +1418,11 @@ export default function CajeroDashboard() {
             )}
           </DialogContent>
         </Dialog>
-        <Tabs defaultValue="pagos" className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as "pagos" | "mesas")}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-2 mb-6 bg-card border border-border">
             <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
@@ -777,79 +1471,93 @@ export default function CajeroDashboard() {
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
                 <p className="text-gray-600">{t("tables.loading")}</p>
               </div>
+            ) : mesas.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{t("tables.emptyTitle")}</h3>
+                <p className="text-gray-600">{t("tables.emptySubtitle")}</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {mesas.map((mesa) => {
-                  const status = getMesaStatus(mesa.mesa_id)
-                  const mesaOrders = getMesaOrders(mesa.mesa_id)
-                  const mesaTotal = getMesaTotal(mesa.mesa_id)
-                  
-                  return (
-                    <Card key={mesa.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">{t("tables.tableLabel", { id: mesa.mesa_id })}</CardTitle>
-                          <Badge className={`${getStatusColor(status)} border`}>
-                            {getStatusText(status)}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {mesaOrders.length > 0 ? (
-                            <div className="space-y-2">
-                              <p className="text-sm text-gray-600">
-                                {t("tables.ordersCount", { count: mesaOrders.length })}
-                              </p>
-                              <p className="text-sm font-semibold text-gray-900">
-                                {t("tables.total", { total: mesaTotal.toFixed(2) })}
-                              </p>
-                              <div className="text-xs text-gray-500">
-                                {t("tables.lastUpdate", { value: new Date(mesa.updated_at).toLocaleTimeString() })}
+              <div className="space-y-4">
+                <p className="text-sm text-gray-500">{t("tables.createHint")}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {mesas.map((mesa) => {
+                    const status = getMesaStatus(mesa.mesa_id)
+                    const mesaOrders = getMesaOrders(mesa.mesa_id)
+                    
+                    return (
+                      <Card key={mesa.id} className="hover:shadow-md transition-shadow">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg">{t("tables.tableLabel", { id: mesa.mesa_id })}</CardTitle>
+                            <Badge className={`${getStatusColor(status)} border`}>
+                              {getStatusText(status)}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {mesaOrders.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-sm text-gray-600">
+                                  {t("tables.ordersCount", { count: mesaOrders.length })}
+                                </p>
+                                <div className="text-xs text-gray-500">
+                                  {t("tables.lastUpdate", { value: new Date(mesa.updated_at).toLocaleTimeString() })}
+                                </div>
                               </div>
+                            ) : (
+                              <p className="text-sm text-gray-500">{t("tables.noOrders")}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedMesa(mesa)}
+                              >
+                                {t("tables.viewOrders")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => openCreateOrderDialog(mesa)}
+                                disabled={!mesa.is_active}
+                              >
+                                {t("tables.createOrder")}
+                              </Button>
                             </div>
-                          ) : (
-                            <p className="text-sm text-gray-500">{t("tables.noOrders")}</p>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedMesa(mesa)}
-                          >
-                            {t("tables.viewOrders")}
-                          </Button>
-                          
-                          {/* Controles de estado de mesa */}
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">{t("tables.statusLabel")}</span>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant={mesa.is_active ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => handleMesaStatusChange(mesa.mesa_id, true)}
-                                  className={mesa.is_active ? "bg-green-600 hover:bg-green-700" : ""}
-                                >
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  {t("tables.active")}
-                                </Button>
-                                <Button
-                                  variant={!mesa.is_active ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => handleMesaStatusChange(mesa.mesa_id, false)}
-                                  className={!mesa.is_active ? "bg-red-600 hover:bg-red-700" : ""}
-                                >
-                                  <Minus className="w-3 h-3 mr-1" />
-                                  {t("tables.inactive")}
-                                </Button>
+                            
+                            {/* Controles de estado de mesa */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-gray-600">{t("tables.statusLabel")}</span>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant={mesa.is_active ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleMesaStatusChange(mesa.mesa_id, true)}
+                                    className={mesa.is_active ? "bg-green-600 hover:bg-green-700" : ""}
+                                  >
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    {t("tables.active")}
+                                  </Button>
+                                  <Button
+                                    variant={!mesa.is_active ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleMesaStatusChange(mesa.mesa_id, false)}
+                                    className={!mesa.is_active ? "bg-red-600 hover:bg-red-700" : ""}
+                                  >
+                                    <Minus className="w-3 h-3 mr-1" />
+                                    {t("tables.inactive")}
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
               </div>
             )}
           </TabsContent>

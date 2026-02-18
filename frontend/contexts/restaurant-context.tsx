@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, ReactNode } from "react"
+import { createContext, useContext, ReactNode, useEffect } from "react"
 
 interface RestaurantContextType {
   restaurantSlug: string
@@ -15,6 +15,14 @@ export function RestaurantProvider({
   children: ReactNode
   restaurantSlug: string
 }) {
+  useEffect(() => {
+    try {
+      localStorage.setItem("active_restaurant_slug", restaurantSlug)
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [restaurantSlug])
+
   return (
     <RestaurantContext.Provider value={{ restaurantSlug }}>
       {children}

@@ -40,14 +40,14 @@ interface ApiProduct {
 }
 
 export default function MenuView() {
-  const { addItem, removeOneByProductId, getProductQuantity } = useCart()
+  const { state, addItem, removeOneByProductId, getProductQuantity } = useCart()
   const [products, setProducts] = useState<ApiProduct[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("Todos")
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string>("")
   const [showCallWaiterModal, setShowCallWaiterModal] = useState<boolean>(false)
-  const [showInstructionsModal, setShowInstructionsModal] = useState<boolean>(true)
+  const [showInstructionsModal, setShowInstructionsModal] = useState<boolean>(() => state.items.length === 0)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [showFiltersModal, setShowFiltersModal] = useState<boolean>(false)
   const [showOptionsDialog, setShowOptionsDialog] = useState<boolean>(false)
@@ -830,7 +830,7 @@ export default function MenuView() {
         onConfirm={handleConfirmCallWaiter}
         onCancel={() => setShowCallWaiterModal(false)}
       />
-      
+
       <InstructionsModal
         isOpen={showInstructionsModal}
         onClose={() => setShowInstructionsModal(false)}

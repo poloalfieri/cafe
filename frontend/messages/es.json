@@ -943,7 +943,9 @@
         "subtitle": "Gestión de mesas y pagos"
       },
       "actions": {
-        "refresh": "Actualizar"
+        "refresh": "Actualizar",
+        "logout": "Salir",
+        "loggingOut": "Saliendo..."
       },
       "stats": {
         "totalTables": "Total Mesas",
@@ -965,7 +967,20 @@
         "loading": "Cargando solicitudes...",
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
-        "autoRefresh": "Se actualiza automaticamente cada 5 segundos"
+        "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
+        "pendingOrdersTitle": "Pedidos pendientes de cobro ({count})",
+        "waiterCallsTitle": "Solicitudes de mesas ({count})",
+        "methodLabel": "Método de pago",
+        "methods": {
+          "cash": "Efectivo",
+          "card": "Tarjeta",
+          "qr": "QR"
+        },
+        "completeAction": "Completar pago",
+        "completingAction": "Completando...",
+        "completeError": "No se pudo completar el pago del pedido.",
+        "completeSuccessTitle": "Pago completado",
+        "completeSuccessBody": "Pago registrado para la mesa {mesaId}."
       },
       "tables": {
         "loading": "Cargando mesas...",
@@ -974,7 +989,11 @@
         "total": "Total: ${total}",
         "lastUpdate": "Último: {value}",
         "noOrders": "Sin pedidos",
+        "createHint": "Seleccioná una mesa y presioná \"Crear pedido\" para cargar el pedido manualmente.",
+        "emptyTitle": "No hay mesas disponibles",
+        "emptySubtitle": "No se encontraron mesas para esta sucursal.",
         "viewOrders": "Ver pedidos",
+        "createOrder": "Crear pedido",
         "statusLabel": "Estado:",
         "active": "Activa",
         "inactive": "Inactiva"
@@ -988,7 +1007,51 @@
         "total": "Total: ${total}",
         "itemsTitle": "Items:",
         "itemLine": "{name} x{quantity}",
-        "noItems": "Sin items detallados"
+        "noItems": "Sin items detallados",
+        "createDialogTitle": "Nuevo pedido para mesa {mesaId}",
+        "createDialogFallbackTitle": "Nuevo pedido",
+        "createDialogDescription": "Selecciona productos y cantidades para generar el pedido.",
+        "loadingMenu": "Cargando productos...",
+        "noMenuItems": "No hay productos disponibles en el menú.",
+        "addItem": "Agregar",
+        "addingItem": "Cargando...",
+        "emptyDraft": "Todavía no agregaste productos.",
+        "itemUnitPrice": "Precio unitario: ${price}",
+        "paymentMethodLabel": "Método de pago",
+        "paymentMethods": {
+          "cash": "Efectivo",
+          "card": "Tarjeta",
+          "qr": "QR"
+        },
+        "cancel": "Cancelar",
+        "createAction": "Crear pedido",
+        "creating": "Creando...",
+        "atLeastOneItem": "Agrega al menos un item para crear el pedido.",
+        "authRequired": "Sesión de cajero expirada. Vuelve a iniciar sesión.",
+        "branchRequired": "No se pudo determinar la sucursal de la mesa.",
+        "loadMenuError": "No se pudo cargar el menú.",
+        "loadOptionsError": "No se pudieron cargar los opcionales del producto.",
+        "createSuccessTitle": "Pedido creado",
+        "createSuccessBody": "Se creó un pedido para la mesa {mesaId}.",
+        "createError": "No se pudo crear el pedido.",
+        "createQueueError": "El pedido se creó, pero no se pudo enviarlo a la cola de pagos.",
+        "optionsDialogTitle": "Opcionales para {product}",
+        "optionsDialogDescription": "Selecciona los opcionales antes de agregar el producto.",
+        "noOptionGroups": "Este producto no tiene grupos de opciones disponibles.",
+        "optionsRequiredBadge": "Obligatorio",
+        "optionsOptionalBadge": "Opcional",
+        "optionsMaxSelections": "Máximo: {count}",
+        "optionsPriceAddition": "+${price}",
+        "optionsNoExtra": "Sin costo extra",
+        "optionsOutOfStock": "Sin stock",
+        "optionsBasePrice": "Precio base",
+        "optionsExtrasTotal": "Total opcionales",
+        "optionsFinalPrice": "Precio final",
+        "optionsCancel": "Cancelar",
+        "optionsConfirm": "Agregar producto",
+        "optionsRequiredNoStock": "El grupo obligatorio \"{group}\" no tiene opciones con stock.",
+        "optionsRequiredMissing": "Selecciona al menos una opción en \"{group}\".",
+        "optionsMaxReached": "En \"{group}\" puedes seleccionar hasta {count} opciones."
       },
       "status": {
         "available": "Disponible",
@@ -1012,7 +1075,11 @@
         "fetchBranch": "Error fetching branch:",
         "updateCallStatus": "Error actualizando estado de llamada:",
         "updateMesaStatus": "Error updating mesa status:",
-        "markPrebillPrinted": "Error marcando precuenta impresa:"
+        "markPrebillPrinted": "Error marcando precuenta impresa:",
+        "fetchMenu": "Error cargando menú para crear pedido:",
+        "fetchOptions": "Error cargando opcionales del producto:",
+        "createOrder": "Error creando pedido desde caja:",
+        "completePayment": "Error completando pago desde caja:"
       },
       "logs": {
         "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"

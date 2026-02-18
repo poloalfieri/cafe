@@ -9,8 +9,13 @@ interface RestaurantLayoutProps {
   }>
 }
 
+const RESERVED_SLUGS = new Set(["api", "print", "login", "payment", "super-admin", "test-session"])
+
 async function validateRestaurantSlug(slug: string): Promise<boolean> {
   if (!slug || slug.length < 2 || slug.length > 50) {
+    return false
+  }
+  if (RESERVED_SLUGS.has(slug)) {
     return false
   }
   

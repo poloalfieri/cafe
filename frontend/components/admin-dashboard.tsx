@@ -35,7 +35,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { LogOut } from "lucide-react"
 
 interface DashboardMetrics {
@@ -63,6 +63,8 @@ function formatCompact(value: number): string {
 export default function AdminDashboard() {
   const t = useTranslations("admin.dashboard")
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     dailySales: 0,
@@ -80,8 +82,10 @@ export default function AdminDashboard() {
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
+  const [branchesReady, setBranchesReady] = useState(false)
 
   const backendUrl = getTenantApiBase()
+  const isMetricsScopeReady = branchesReady && (branches.length === 0 || Boolean(selectedBranchId))
 
   useEffect(() => {
     fetchBranches()
@@ -99,8 +103,11 @@ export default function AdminDashboard() {
   }, [])
 
   useEffect(() => {
-    fetchDashboardData(selectedBranchId)
-  }, [selectedBranchId])
+    if (!isMetricsScopeReady) {
+      return
+    }
+    void fetchDashboardData(selectedBranchId || undefined)
+  }, [isMetricsScopeReady, selectedBranchId])
 
   const fetchBranches = async () => {
     try {
@@ -111,6 +118,7 @@ export default function AdminDashboard() {
         },
       })
       if (!response.ok) {
+        setBranches([])
         return
       }
       const data = await response.json()
@@ -121,6 +129,8 @@ export default function AdminDashboard() {
       }
     } catch (_) {
       // ignore
+    } finally {
+      setBranchesReady(true)
     }
   }
 
@@ -175,13 +185,18 @@ export default function AdminDashboard() {
       await supabase.auth.signOut()
     } finally {
       sessionStorage.removeItem("supabase_session")
-      router.replace("/login?next=/admin")
+      const qs = searchParams.toString()
+      const next = qs ? `${pathname}?${qs}` : pathname
+      router.replace(`/login?next=${encodeURIComponent(next)}`)
       setLoggingOut(false)
     }
-  }, [router])
+  }, [pathname, router, searchParams])
 
   const refreshData = () => {
-    fetchDashboardData(selectedBranchId)
+    if (!isMetricsScopeReady) {
+      return
+    }
+    void fetchDashboardData(selectedBranchId || undefined)
   }
 
   return (
@@ -220,7 +235,7 @@ export default function AdminDashboard() {
               )}
               <Button
                 onClick={refreshData}
-                disabled={loading}
+                disabled={loading || !isMetricsScopeReady}
                 className="bg-primary hover:bg-primary-hover text-white px-3 sm:px-4 py-2 flex items-center gap-2"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -358,7 +373,13 @@ export default function AdminDashboard() {
           </div>
 
           <TabsContent value="dashboard">
-            <MetricsDashboard branchId={selectedBranchId || undefined} />
+            {isMetricsScopeReady ? (
+              <MetricsDashboard branchId={selectedBranchId || undefined} />
+            ) : (
+              <div className="flex items-center justify-center min-h-[280px]">
+                <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="products">

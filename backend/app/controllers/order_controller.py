@@ -1,6 +1,13 @@
 from flask import Blueprint, jsonify, request, g
 
-from ..middleware.auth import require_auth, require_roles
+from ..middleware.auth import (
+    AuthenticationError,
+    get_token_from_request,
+    optional_auth,
+    require_auth,
+    require_roles,
+    verify_token,
+)
 from ..services.order_service import order_service
 from ..utils.logger import setup_logger
 
@@ -74,8 +81,9 @@ def get_order(order_id):
 
 
 @orders_bp.route("", methods=["POST"])
+@optional_auth
 def create_order():
-    """Crear pedido (público, validado por token de mesa)."""
+    """Crear pedido (público por token o interno por rol caja/admin/desarrollador)."""
     try:
         payload = request.get_json() or {}
         mesa_id = payload.get("mesa_id")
@@ -87,10 +95,89 @@ def create_order():
             return jsonify({"error": "mesa_id requerido"}), 400
         if not items:
             return jsonify({"error": "items requeridos"}), 400
-        if not token:
-            return jsonify({"error": "token requerido"}), 401
 
-        order = order_service.create_order(mesa_id=mesa_id, items=items, token=token, branch_id=branch_id)
+        # optional_auth ignora errores por diseño; para el flujo de caja
+        # reintentamos validar Authorization si todavía no hay rol cargado.
+        # Importante: en flujo público puede venir Authorization con token de mesa;
+        # si no es un JWT de staff, no bloqueamos acá y dejamos continuar.
+        bearer_user = None
+        if not getattr(g, "user_role", None):
+            bearer_token = get_token_from_request()
+            if bearer_token:
+                try:
+                    user = verify_token(bearer_token)
+                    g.current_user = user
+                    g.user_id = user.get("id")
+                    g.user_role = user.get("role")
+                    g.user_org_id = user.get("org_id")
+                    g.user_branch_id = user.get("branch_id")
+                    bearer_user = user
+                except AuthenticationError:
+                    bearer_user = None
+
+        user_role = getattr(g, "user_role", None)
+        is_staff_user = user_role in {"desarrollador", "admin", "caja"}
+
+        # Fallback: si no llegó Authorization pero token del body es JWT válido
+        # de staff, usar flujo interno de caja/admin.
+        if not is_staff_user and token:
+            try:
+                body_user = verify_token(token)
+                body_role = body_user.get("role")
+                if body_role in {"desarrollador", "admin", "caja"}:
+                    g.current_user = body_user
+                    g.user_id = body_user.get("id")
+                    g.user_role = body_role
+                    g.user_org_id = body_user.get("org_id")
+                    g.user_branch_id = body_user.get("branch_id")
+                    user_role = body_role
+                    is_staff_user = True
+            except AuthenticationError:
+                pass
+
+        if bearer_user and not is_staff_user:
+            return jsonify({"error": "Rol no autorizado para crear pedidos"}), 403
+
+        if is_staff_user:
+            restaurant_id = getattr(g, "restaurant_id", None)
+            if not restaurant_id:
+                return jsonify({"error": "restaurant_id no resuelto"}), 400
+            user_org_id = getattr(g, "user_org_id", None)
+            if user_role != "desarrollador":
+                if not user_org_id:
+                    return jsonify({"error": "Usuario sin restaurante asignado"}), 403
+                if str(user_org_id) != str(restaurant_id):
+                    return jsonify({"error": "No autorizado para este restaurante"}), 403
+
+            resolved_branch_id = branch_id or getattr(g, "user_branch_id", None)
+
+            if user_role == "caja":
+                user_branch_id = getattr(g, "user_branch_id", None)
+                if not user_branch_id:
+                    return jsonify({"error": "Usuario caja sin sucursal asignada"}), 403
+                if branch_id and str(branch_id) != str(user_branch_id):
+                    return jsonify({"error": "No autorizado para crear pedidos en otra sucursal"}), 403
+                resolved_branch_id = user_branch_id
+
+            if not resolved_branch_id:
+                return jsonify({"error": "branch_id requerido"}), 400
+
+            order = order_service.create_order_by_staff(
+                mesa_id=mesa_id,
+                items=items,
+                branch_id=resolved_branch_id,
+                restaurant_id=restaurant_id,
+            )
+        else:
+            if not token:
+                return jsonify({"error": "token requerido"}), 401
+            order = order_service.create_order(
+                mesa_id=mesa_id,
+                items=items,
+                token=token,
+                branch_id=branch_id,
+            )
+
         return jsonify(order), 201
     except PermissionError as e:
         return jsonify({"error": str(e)}), 401
@@ -109,10 +196,15 @@ def update_order_status(order_id):
     try:
         payload = request.get_json() or {}
         status_key = payload.get("status")
+        payment_method = payload.get("payment_method")
         if not status_key:
             return jsonify({"error": "status requerido"}), 400
 
-        order = order_service.update_order_status_by_key(order_id, status_key)
+        order = order_service.update_order_status_by_key(
+            order_id,
+            status_key,
+            payment_method=payment_method,
+        )
         if not order:
             return jsonify({"error": "Pedido no encontrado"}), 404
         return jsonify(order), 200

@@ -1,7 +1,7 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import {
   LineChart,
@@ -57,60 +57,76 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { session } = useAuth()
+  const inFlightKeyRef = useRef<string | null>(null)
+  const completedKeyRef = useRef<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
-  useEffect(() => {
-    if (session?.accessToken) {
-      fetchMetricsData()
-    }
-  }, [session, branchId])
-
-  const fetchMetricsData = async () => {
+  const fetchMetricsData = useCallback(async (force = false) => {
     if (!session?.accessToken) {
       setError(t("errors.noSession"))
       setLoading(false)
       return
     }
-    
+ 
+    const tzOffset = -new Date().getTimezoneOffset()
+    const requestKey = `${session.accessToken}|${branchId || "all"}|${tzOffset}`
+    if (!force && completedKeyRef.current === requestKey) {
+      return
+    }
+    if (inFlightKeyRef.current === requestKey) {
+      return
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    inFlightKeyRef.current = requestKey
+
     setLoading(true)
     setError(null)
-    
+
     try {
       const endpoints = [
         "sales-monthly",
-        "orders-status", 
+        "orders-status",
         "daily-revenue",
-        "payment-methods"
+        "payment-methods",
       ]
-      
-      const tzOffset = -new Date().getTimezoneOffset()
+
       const params = new URLSearchParams()
       if (branchId) params.set("branch_id", branchId)
       params.set("tzOffset", String(tzOffset))
       const query = params.toString() ? `?${params.toString()}` : ""
+
       const results = await Promise.all(
-        endpoints.map(endpoint => 
+        endpoints.map((endpoint) =>
           fetch(`${getApiBaseUrl()}/metrics/${endpoint}${query}`, {
             headers: {
-              'Authorization': `Bearer ${session.accessToken}`,
-              'Content-Type': 'application/json'
-            }
+              Authorization: `Bearer ${session.accessToken}`,
+              "Content-Type": "application/json",
+            },
+            signal: controller.signal,
           })
-            .then(res => {
+            .then((res) => {
               if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`)
               }
               return res.json()
             })
-            .catch(err => {
-              // Error ya manejado por setError
+            .catch((err) => {
+              if (err?.name === "AbortError") {
+                throw err
+              }
               return { labels: [], values: [] }
-            })
-        )
+            }),
+        ),
       )
-      
+
       // Validar que todos los resultados tengan la estructura correcta
-      const validatedResults = results.map(result => {
-        if (!result || typeof result !== 'object') {
+      const validatedResults = results.map((result) => {
+        if (!result || typeof result !== "object") {
           return { labels: [], values: [] }
         }
         if (!Array.isArray(result.labels) || !Array.isArray(result.values)) {
@@ -118,20 +134,42 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         }
         return result
       })
-      
+
       setData({
         salesMonthly: validatedResults[0],
         ordersStatus: validatedResults[1],
         dailyRevenue: validatedResults[2],
-        paymentMethods: validatedResults[3]
+        paymentMethods: validatedResults[3],
       })
-    } catch (err) {
-      // Error ya manejado por setError
-      setError(t("errors.loadMetrics"))
+      completedKeyRef.current = requestKey
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        setError(t("errors.loadMetrics"))
+      }
     } finally {
-      setLoading(false)
+      if (inFlightKeyRef.current === requestKey) {
+        inFlightKeyRef.current = null
+      }
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+      }
+      if (!controller.signal.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [branchId, session?.accessToken, t])
+
+  useEffect(() => {
+    void fetchMetricsData()
+  }, [fetchMetricsData])
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -161,7 +199,9 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         <div className="text-center">
           <p className="text-destructive mb-4">{error}</p>
           <button 
-            onClick={fetchMetricsData}
+            onClick={() => {
+              void fetchMetricsData(true)
+            }}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             {t("actions.retry")}
@@ -199,7 +239,9 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
         <button
-          onClick={fetchMetricsData}
+          onClick={() => {
+            void fetchMetricsData(true)
+          }}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto"
         >
           <Loader2 className="h-4 w-4" />
