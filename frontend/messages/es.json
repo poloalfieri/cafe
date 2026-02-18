@@ -685,6 +685,10 @@
         "inactive": "Inactiva",
         "idLabel": "ID: {id}",
         "lastUpdate": "Última actualización: {value}",
+        "qrCopy": "Copiar URL QR",
+        "qrCopied": "URL copiada",
+        "qrMissingData": "Falta branch_id para generar la URL QR de esta mesa.",
+        "qrCopyError": "No se pudo copiar la URL QR.",
         "emptyTitle": "No hay mesas registradas",
         "emptySubtitle": "Agrega mesas en la base de datos para que aparezcan aquí"
       },
