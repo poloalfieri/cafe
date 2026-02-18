@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
+from ..utils.units import to_display_unit
 
 
 def _recipe_row_to_camel(row: Dict, ingredient: Optional[Dict] = None) -> Dict:
@@ -11,7 +12,7 @@ def _recipe_row_to_camel(row: Dict, ingredient: Optional[Dict] = None) -> Dict:
     }
     if ingredient:
         result["name"] = ingredient.get("name", "")
-        result["unit"] = ingredient.get("unit", "")
+        result["unit"] = to_display_unit(ingredient.get("unit"))
         result["unitCost"] = ingredient.get("unit_cost")
     return result
 
@@ -52,7 +53,7 @@ class RecipesService:
                 "ingredientId": str(row["ingredient_id"]),
                 "quantity": row["quantity"],
                 "name": ingredient_data.get("name", ""),
-                "unit": ingredient_data.get("unit", ""),
+                "unit": to_display_unit(ingredient_data.get("unit")),
                 "unitCost": ingredient_data.get("unit_cost"),
             })
         return result

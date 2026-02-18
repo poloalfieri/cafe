@@ -1,7 +1,7 @@
 """
 Servicio de Pedidos - Lógica de negocio para órdenes (Supabase)
 """
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
 from datetime import datetime, timezone
 import uuid
 
@@ -17,7 +17,11 @@ logger = setup_logger(__name__)
 class OrderService:
     """Servicio para manejar operaciones de pedidos"""
 
-    def get_all_orders(self, branch_id: Optional[str] = None) -> List[Dict]:
+    def get_all_orders(
+        self,
+        branch_id: Optional[str] = None,
+        restaurant_id: Optional[str] = None,
+    ) -> List[Dict]:
         """
         Obtener todos los pedidos
 
@@ -29,6 +33,8 @@ class OrderService:
         """
         try:
             query = supabase.table("orders").select("*")
+            if restaurant_id:
+                query = query.eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
             response = execute_with_retry(query.execute)
@@ -45,7 +51,12 @@ class OrderService:
             logger.error(f"Error al obtener pedidos: {str(e)}")
             raise Exception(f"Error al consultar pedidos: {str(e)}")
 
-    def get_order_by_id(self, order_id: str) -> Optional[Dict]:
+    def get_order_by_id(
+        self,
+        order_id: str,
+        restaurant_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Optional[Dict]:
         """
         Obtener un pedido específico
 
@@ -56,7 +67,11 @@ class OrderService:
             Pedido serializado o None si no existe
         """
         try:
-            order = self._get_order_raw(order_id)
+            order = self._get_order_raw(
+                order_id,
+                restaurant_id=restaurant_id,
+                branch_id=branch_id,
+            )
             if not order:
                 return None
             return self._serialize_order(order)
@@ -64,6 +79,104 @@ class OrderService:
         except Exception as e:
             logger.error(f"Error al obtener pedido {order_id}: {str(e)}")
             raise Exception(f"Error al consultar pedido: {str(e)}")
+
+    def get_order_prebill(
+        self,
+        order_id: str,
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+    ) -> Optional[Dict]:
+        """
+        Obtener datos de una orden para impresión de precuenta.
+
+        Valida alcance multi-tenant por restaurant_id y, si aplica, branch_id.
+        """
+        try:
+            order = self._get_order_raw(
+                order_id,
+                restaurant_id=restaurant_id,
+                branch_id=branch_id,
+            )
+            if not order:
+                return None
+
+            restaurant_name, branch_name = self._get_restaurant_and_branch_names(
+                restaurant_id=restaurant_id,
+                branch_id=order.get("branch_id"),
+            )
+            payload = self._serialize_order(order)
+            payload["restaurant_name"] = restaurant_name
+            payload["branch_name"] = branch_name
+            return payload
+        except Exception as e:
+            logger.error(f"Error al obtener precuenta de {order_id}: {str(e)}")
+            raise Exception(f"Error al consultar pedido para precuenta: {str(e)}")
+
+    def mark_prebill_printed(
+        self,
+        order_id: str,
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+    ) -> Optional[Dict]:
+        """
+        Marca prebill_printed_at de forma idempotente.
+
+        Solo actualiza cuando prebill_printed_at es NULL.
+        """
+        try:
+            order = self._get_order_raw(
+                order_id,
+                restaurant_id=restaurant_id,
+                branch_id=branch_id,
+            )
+            if not order:
+                return None
+
+            already_printed_at = order.get("prebill_printed_at")
+            if already_printed_at:
+                return {
+                    "updated": False,
+                    "prebill_printed_at": already_printed_at,
+                }
+
+            now_iso = self._now_iso()
+
+            def _run_update():
+                query = (
+                    supabase.table("orders")
+                    .update({"prebill_printed_at": now_iso})
+                    .eq("id", order_id)
+                    .eq("restaurant_id", restaurant_id)
+                    .is_("prebill_printed_at", "null")
+                )
+                if branch_id:
+                    query = query.eq("branch_id", branch_id)
+                return query.execute()
+
+            response = execute_with_retry(_run_update)
+            updated_order = (response.data or [None])[0]
+            if updated_order:
+                return {
+                    "updated": True,
+                    "prebill_printed_at": updated_order.get("prebill_printed_at") or now_iso,
+                }
+
+            # Carrera o doble confirmación: devolver estado actual sin fallar.
+            latest = self._get_order_raw(
+                order_id,
+                restaurant_id=restaurant_id,
+                branch_id=branch_id,
+            )
+            if not latest:
+                return None
+
+            return {
+                "updated": False,
+                "prebill_printed_at": latest.get("prebill_printed_at"),
+            }
+        except Exception as e:
+            logger.error(f"Error al marcar precuenta impresa de {order_id}: {str(e)}")
+            raise Exception(f"Error al marcar precuenta impresa: {str(e)}")
 
     def get_orders_by_mesa(self, mesa_id: str) -> List[Dict]:
         """
@@ -472,15 +585,20 @@ class OrderService:
         logger.info(f"Token renovado para mesa {mesa_id}")
         return new_token
 
-    def _get_order_raw(self, order_id: str) -> Optional[Dict]:
+    def _get_order_raw(
+        self,
+        order_id: str,
+        restaurant_id: Optional[str] = None,
+        branch_id: Optional[str] = None,
+    ) -> Optional[Dict]:
         try:
             def _run():
-                return (
-                    supabase.table("orders")
-                    .select("*")
-                    .eq("id", order_id)
-                    .execute()
-                )
+                query = supabase.table("orders").select("*").eq("id", order_id)
+                if restaurant_id:
+                    query = query.eq("restaurant_id", restaurant_id)
+                if branch_id:
+                    query = query.eq("branch_id", branch_id)
+                return query.execute()
             response = execute_with_retry(_run)
             data = response.data or []
             return data[0] if data else None
@@ -544,8 +662,57 @@ class OrderService:
             "total": float(total_amount) if total_amount is not None else 0,
             "total_amount": float(total_amount) if total_amount is not None else 0,
             "created_at": created_at,
+            "creation_date": order.get("creation_date") or created_at,
             "payment_status": payment_status,
+            "restaurant_id": order.get("restaurant_id"),
+            "branch_id": order.get("branch_id"),
+            "prebill_printed_at": order.get("prebill_printed_at"),
         }
+
+    def _get_restaurant_and_branch_names(
+        self,
+        restaurant_id: str,
+        branch_id: Optional[str],
+    ) -> Tuple[Optional[str], Optional[str]]:
+        restaurant_name = None
+        branch_name = None
+
+        try:
+            def _run_restaurant():
+                return (
+                    supabase.table("restaurants")
+                    .select("name")
+                    .eq("id", restaurant_id)
+                    .limit(1)
+                    .execute()
+                )
+
+            restaurant_resp = execute_with_retry(_run_restaurant)
+            restaurant_row = (restaurant_resp.data or [None])[0]
+            if restaurant_row:
+                restaurant_name = restaurant_row.get("name")
+        except Exception:
+            restaurant_name = None
+
+        if branch_id:
+            try:
+                def _run_branch():
+                    return (
+                        supabase.table("branches")
+                        .select("name")
+                        .eq("id", branch_id)
+                        .limit(1)
+                        .execute()
+                    )
+
+                branch_resp = execute_with_retry(_run_branch)
+                branch_row = (branch_resp.data or [None])[0]
+                if branch_row:
+                    branch_name = branch_row.get("name")
+            except Exception:
+                branch_name = None
+
+        return restaurant_name, branch_name
 
     @staticmethod
     def _now_iso() -> str:

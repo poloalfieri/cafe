@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
+from ..utils.units import to_display_unit
 
 
 def _group_to_camel(row: Dict, items: Optional[List[Dict]] = None) -> Dict:
@@ -26,7 +27,7 @@ def _item_to_camel(row: Dict) -> Dict:
         "ingredientId": str(row["ingredient_id"]),
         "priceAddition": float(row.get("price_addition", 0)),
         "ingredientName": ingredient.get("name", ""),
-        "ingredientUnit": ingredient.get("unit", ""),
+        "ingredientUnit": to_display_unit(ingredient.get("unit")),
         "currentStock": float(ingredient.get("current_stock", 0)),
         "createdAt": row.get("created_at", ""),
         "updatedAt": row.get("updated_at", ""),
