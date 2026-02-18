@@ -52,6 +52,7 @@ class WaiterService:
         mesa_id: Optional[str] = None,
         branch_id: Optional[str] = None,
         token: Optional[str] = None,
+        skip_token_validation: bool = False,
     ) -> Tuple[Dict, bool]:
         """
         Crear una nueva llamada al mozo.
@@ -80,10 +81,11 @@ class WaiterService:
                 raise ValueError("mesa_id requerido")
             if not branch_id:
                 raise ValueError("branch_id requerido")
-            if not token:
-                raise PermissionError("Token de mesa requerido")
-            if not validate_token(mesa_id, branch_id, token):
-                raise PermissionError("Token de mesa invalido o expirado")
+            if not skip_token_validation:
+                if not token:
+                    raise PermissionError("Token de mesa requerido")
+                if not validate_token(mesa_id, branch_id, token):
+                    raise PermissionError("Token de mesa invalido o expirado")
             motivo = data.get('motivo')
             payment_method = data.get('payment_method')
 

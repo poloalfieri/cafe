@@ -6,8 +6,18 @@ from functools import wraps
 from flask import request, jsonify, g
 from ..db.supabase_client import supabase
 import logging
+import base64
+import json
+import time
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+_auth_cache: Dict[str, Dict] = {}
+_AUTH_CACHE_TTL_SECONDS = 300
+_AUTH_CACHE_SKEW_SECONDS = 30
+_AUTH_VERIFY_RETRIES = 3
+_AUTH_VERIFY_RETRY_DELAY_SECONDS = 0.35
 
 class AuthenticationError(Exception):
     """Error de autenticación"""
@@ -38,28 +48,109 @@ def verify_token(token):
     Returns:
         dict: Usuario con id, email, role, org_id, branch_id
     """
-    try:
-        # Verificar token con Supabase
-        response = supabase.auth.get_user(token)
-        
-        if not response or not response.user:
+    cached_user = _get_cached_user(token)
+    if cached_user:
+        return cached_user
+
+    last_error: Optional[Exception] = None
+    for attempt in range(_AUTH_VERIFY_RETRIES):
+        try:
+            # Verificar token con Supabase
+            response = supabase.auth.get_user(token)
+
+            if not response or not response.user:
+                raise AuthenticationError("Token inválido")
+
+            user = response.user
+
+            # Extraer metadata (role puede venir en app_metadata o user_metadata)
+            app_metadata = user.app_metadata or {}
+            user_metadata = user.user_metadata or {}
+            role = app_metadata.get('role') or user_metadata.get('role')
+
+            verified_user = {
+                'id': user.id,
+                'email': user.email,
+                'role': role,
+                'org_id': app_metadata.get('org_id'),
+                'branch_id': app_metadata.get('branch_id')
+            }
+            _cache_verified_user(token, verified_user)
+            return verified_user
+        except AuthenticationError:
+            raise
+        except Exception as e:
+            last_error = e
+            transient = _is_transient_auth_error(e)
+            if transient and attempt < _AUTH_VERIFY_RETRIES - 1:
+                time.sleep(_AUTH_VERIFY_RETRY_DELAY_SECONDS * (attempt + 1))
+                continue
+            logger.error(f"Error verificando token: {str(e)}")
             raise AuthenticationError("Token inválido")
-        
-        user = response.user
-        
-        # Extraer metadata
-        app_metadata = user.app_metadata or {}
-        
-        return {
-            'id': user.id,
-            'email': user.email,
-            'role': app_metadata.get('role'),
-            'org_id': app_metadata.get('org_id'),
-            'branch_id': app_metadata.get('branch_id')
-        }
-    except Exception as e:
-        logger.error(f"Error verificando token: {str(e)}")
-        raise AuthenticationError("Token inválido")
+
+    if last_error:
+        logger.error(f"Error verificando token: {str(last_error)}")
+    raise AuthenticationError("Token inválido")
+
+
+def _decode_token_exp(token: str) -> Optional[int]:
+    try:
+        parts = token.split('.')
+        if len(parts) < 2:
+            return None
+        payload = parts[1]
+        padding = '=' * (-len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        data = json.loads(decoded.decode('utf-8'))
+        exp = data.get('exp')
+        if isinstance(exp, int):
+            return exp
+        if isinstance(exp, float):
+            return int(exp)
+        return None
+    except Exception:
+        return None
+
+
+def _get_cached_user(token: str) -> Optional[Dict]:
+    cached = _auth_cache.get(token)
+    if not cached:
+        return None
+
+    expires_at = cached.get('expires_at', 0)
+    now = int(time.time())
+    if expires_at <= now + _AUTH_CACHE_SKEW_SECONDS:
+        _auth_cache.pop(token, None)
+        return None
+
+    user = cached.get('user')
+    return user if isinstance(user, dict) else None
+
+
+def _cache_verified_user(token: str, user: Dict) -> None:
+    now = int(time.time())
+    token_exp = _decode_token_exp(token)
+    cache_exp = now + _AUTH_CACHE_TTL_SECONDS
+    if token_exp is not None:
+        cache_exp = min(cache_exp, int(token_exp))
+    _auth_cache[token] = {
+        'user': user,
+        'expires_at': cache_exp
+    }
+
+
+def _is_transient_auth_error(error: Exception) -> bool:
+    message = str(error).lower()
+    transient_patterns = [
+        "temporary failure in name resolution",
+        "name or service not known",
+        "failed to resolve",
+        "timed out",
+        "timeout",
+        "connection reset",
+        "network is unreachable",
+    ]
+    return any(pattern in message for pattern in transient_patterns)
 
 def require_auth(f):
     """

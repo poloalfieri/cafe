@@ -16,6 +16,7 @@ logger = setup_logger(__name__)
 
 class OrderService:
     """Servicio para manejar operaciones de pedidos"""
+    VALID_PAYMENT_METHODS = {"CARD", "CASH", "QR"}
 
     def get_all_orders(
         self,
@@ -316,22 +317,24 @@ class OrderService:
             logger.error(f"No se pudo marcar PAID el último pedido de mesa {mesa_id}: {str(e)}")
             return None
 
-    def create_order(self, mesa_id: str, items: List[Dict], token: str = None, branch_id: Optional[str] = None) -> Dict:
+    def create_order(
+        self,
+        mesa_id: str,
+        items: List[Dict],
+        token: str = None,
+        branch_id: Optional[str] = None,
+    ) -> Dict:
         """
-        Crear un nuevo pedido
+        Crear un nuevo pedido (flujo público con token de mesa)
 
         Args:
             mesa_id: ID de la mesa
             items: Lista de items del pedido
-            token: Token de autenticación de la mesa (opcional)
+            token: Token de autenticación de la mesa
+            branch_id: Sucursal de la mesa
 
         Returns:
             Pedido creado
-
-        Raises:
-            ValueError: Si los datos son inválidos
-            PermissionError: Si el token es inválido
-            Exception: Si hay error al crear
         """
         if not token:
             raise PermissionError("Token requerido")
@@ -340,53 +343,40 @@ class OrderService:
         if not validate_token(mesa_id, branch_id, token):
             raise PermissionError("Token inválido o expirado")
 
-        if not items or len(items) == 0:
-            raise ValueError("El pedido debe tener al menos un item")
+        return self._create_order_for_mesa(
+            mesa_id=mesa_id,
+            items=items,
+            branch_id=branch_id,
+        )
 
-        total_amount = self._calculate_total(items)
-        order_token = str(uuid.uuid4())
-        now_iso = self._now_iso()
+    def create_order_by_staff(
+        self,
+        mesa_id: str,
+        items: List[Dict],
+        branch_id: str,
+        restaurant_id: str,
+    ) -> Dict:
+        """
+        Crear un pedido desde backoffice (caja/admin), sin token de mesa.
+        """
+        if not restaurant_id:
+            raise ValueError("restaurant_id requerido")
+        if not branch_id:
+            raise ValueError("branch_id requerido")
 
-        try:
-            mesa_resp = (
-                supabase.table("mesas")
-                .select("restaurant_id, branch_id")
-                .eq("mesa_id", mesa_id)
-                .eq("branch_id", branch_id)
-                .limit(1)
-                .execute()
-            )
-            mesa = (mesa_resp.data or [None])[0]
-            if not mesa:
-                raise ValueError("Mesa no encontrada")
-            insert_data = {
-                "mesa_id": mesa_id,
-                "status": OrderStatus.PAYMENT_PENDING.value,
-                "token": order_token,
-                "items": items,
-                "total_amount": total_amount,
-                "creation_date": now_iso,
-                "restaurant_id": mesa.get("restaurant_id"),
-                "branch_id": mesa.get("branch_id"),
-            }
+        return self._create_order_for_mesa(
+            mesa_id=mesa_id,
+            items=items,
+            branch_id=branch_id,
+            restaurant_id=restaurant_id,
+        )
 
-            response = supabase.table("orders").insert(insert_data).execute()
-
-            if not response.data:
-                raise Exception("No se pudo crear el pedido")
-
-            new_order = response.data[0]
-            logger.info(
-                f"Pedido creado: ID {new_order.get('id')}, Mesa {mesa_id}, Total ${total_amount}"
-            )
-
-            return self._serialize_order(new_order)
-
-        except Exception as e:
-            logger.error(f"Error al crear pedido: {str(e)}")
-            raise Exception(f"Error al crear pedido: {str(e)}")
-
-    def update_order_status(self, order_id: str, new_status: Union[OrderStatus, str]) -> Optional[Dict]:
+    def update_order_status(
+        self,
+        order_id: str,
+        new_status: Union[OrderStatus, str],
+        payment_method: Optional[str] = None,
+    ) -> Optional[Dict]:
         """
         Actualizar el estado de un pedido
 
@@ -412,9 +402,11 @@ class OrderService:
                     f"Transición inválida de {current_status} a {status_value}"
                 )
 
-            update_data = {
-                "status": status_value,
-            }
+            update_data = {"status": status_value}
+
+            normalized_payment_method = self._normalize_payment_method(payment_method)
+            if normalized_payment_method:
+                update_data["payment_method"] = normalized_payment_method
 
             if status_value == OrderStatus.PAID.value:
                 try:
@@ -454,9 +446,14 @@ class OrderService:
             )
             raise Exception(f"Error al actualizar pedido: {str(e)}")
 
-    def update_order_status_by_key(self, order_id: str, status_key: str) -> Optional[Dict]:
+    def update_order_status_by_key(
+        self,
+        order_id: str,
+        status_key: str,
+        payment_method: Optional[str] = None,
+    ) -> Optional[Dict]:
         status = self._resolve_status_key(status_key)
-        return self.update_order_status(order_id, status)
+        return self.update_order_status(order_id, status, payment_method=payment_method)
 
     def add_items_to_order(self, order_id: str, new_items: List[Dict]) -> Optional[Dict]:
         """
@@ -614,6 +611,64 @@ class OrderService:
             total += price * quantity
         return round(total, 2)
 
+    def _create_order_for_mesa(
+        self,
+        mesa_id: str,
+        items: List[Dict],
+        branch_id: str,
+        restaurant_id: Optional[str] = None,
+    ) -> Dict:
+        if not branch_id:
+            raise ValueError("branch_id requerido")
+        if not items or len(items) == 0:
+            raise ValueError("El pedido debe tener al menos un item")
+
+        total_amount = self._calculate_total(items)
+        order_token = str(uuid.uuid4())
+        now_iso = self._now_iso()
+
+        try:
+            mesa_query = (
+                supabase.table("mesas")
+                .select("restaurant_id, branch_id")
+                .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
+                .limit(1)
+            )
+            if restaurant_id:
+                mesa_query = mesa_query.eq("restaurant_id", restaurant_id)
+
+            mesa_resp = mesa_query.execute()
+            mesa = (mesa_resp.data or [None])[0]
+            if not mesa:
+                raise ValueError("Mesa no encontrada")
+
+            insert_data = {
+                "mesa_id": mesa_id,
+                "status": OrderStatus.PAYMENT_PENDING.value,
+                "token": order_token,
+                "items": items,
+                "total_amount": total_amount,
+                "creation_date": now_iso,
+                "restaurant_id": mesa.get("restaurant_id"),
+                "branch_id": mesa.get("branch_id"),
+            }
+
+            response = supabase.table("orders").insert(insert_data).execute()
+            if not response.data:
+                raise Exception("No se pudo crear el pedido")
+
+            new_order = response.data[0]
+            logger.info(
+                f"Pedido creado: ID {new_order.get('id')}, Mesa {mesa_id}, Total ${total_amount}"
+            )
+            return self._serialize_order(new_order)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error al crear pedido: {str(e)}")
+            raise Exception(f"Error al crear pedido: {str(e)}")
+
     def _is_valid_status_transition(self, current: Optional[str], new: str) -> bool:
         if not current or current == new:
             return True
@@ -664,6 +719,7 @@ class OrderService:
             "created_at": created_at,
             "creation_date": order.get("creation_date") or created_at,
             "payment_status": payment_status,
+            "payment_method": order.get("payment_method"),
             "restaurant_id": order.get("restaurant_id"),
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
@@ -736,6 +792,18 @@ class OrderService:
             return OrderStatus[status_key.upper()]
         except KeyError:
             raise ValueError("Estado inválido")
+
+    def _normalize_payment_method(self, payment_method: Optional[str]) -> Optional[str]:
+        if payment_method is None:
+            return None
+        value = str(payment_method).strip().upper()
+        if not value:
+            return None
+        if value not in self.VALID_PAYMENT_METHODS:
+            raise ValueError(
+                f"payment_method debe ser uno de: {', '.join(sorted(self.VALID_PAYMENT_METHODS))}"
+            )
+        return value
 
 
 order_service = OrderService()

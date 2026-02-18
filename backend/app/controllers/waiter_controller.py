@@ -3,33 +3,93 @@ Controller para manejar llamadas y notificaciones al mozo
 Delegado completamente a waiter_service para logica de negocio
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..services.waiter_service import waiter_service
 from ..services.order_service import order_service
 from ..utils.logger import setup_logger
-from ..middleware.auth import require_auth, require_roles
+from ..middleware.auth import (
+    AuthenticationError,
+    get_token_from_request,
+    optional_auth,
+    require_auth,
+    require_roles,
+    verify_token,
+)
 
 logger = setup_logger(__name__)
 
 waiter_bp = Blueprint('waiter', __name__, url_prefix='/waiter')
 
 @waiter_bp.route('/calls', methods=['POST'])
+@optional_auth
 def create_waiter_call():
     """Crear una nueva llamada al mozo (endpoint principal de creacion)"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         mesa_id = data.get('mesa_id') if data else None
         branch_id = data.get('branch_id') if data else None
         token = data.get('token') if data else None
-        call, already_pending = waiter_service.create_waiter_call(
-            data,
-            mesa_id=mesa_id,
-            branch_id=branch_id,
-            token=token,
-        )
+
+        # optional_auth ignora errores por diseño; para el flujo de caja
+        # reintentamos validar Authorization si todavía no hay rol cargado.
+        if not getattr(g, "user_role", None):
+            bearer_token = get_token_from_request()
+            if bearer_token:
+                try:
+                    user = verify_token(bearer_token)
+                    g.current_user = user
+                    g.user_id = user.get("id")
+                    g.user_role = user.get("role")
+                    g.user_org_id = user.get("org_id")
+                    g.user_branch_id = user.get("branch_id")
+                except AuthenticationError:
+                    pass
+
+        user_role = getattr(g, "user_role", None)
+        is_staff_user = user_role in {"desarrollador", "admin", "caja"}
+
+        if is_staff_user:
+            restaurant_id = getattr(g, "restaurant_id", None)
+            if not restaurant_id:
+                return jsonify({"error": "restaurant_id no resuelto"}), 400
+
+            user_org_id = getattr(g, "user_org_id", None)
+            if user_role != "desarrollador":
+                if not user_org_id:
+                    return jsonify({"error": "Usuario sin restaurante asignado"}), 403
+                if str(user_org_id) != str(restaurant_id):
+                    return jsonify({"error": "No autorizado para este restaurante"}), 403
+
+            resolved_branch_id = branch_id or getattr(g, "user_branch_id", None)
+            if user_role == "caja":
+                user_branch_id = getattr(g, "user_branch_id", None)
+                if not user_branch_id:
+                    return jsonify({"error": "Usuario caja sin sucursal asignada"}), 403
+                if branch_id and str(branch_id) != str(user_branch_id):
+                    return jsonify({"error": "No autorizado para registrar pagos en otra sucursal"}), 403
+                resolved_branch_id = user_branch_id
+
+            if not resolved_branch_id:
+                return jsonify({"error": "branch_id requerido"}), 400
+
+            call, already_pending = waiter_service.create_waiter_call(
+                data,
+                mesa_id=mesa_id,
+                branch_id=resolved_branch_id,
+                token=None,
+                skip_token_validation=True,
+            )
+        else:
+            call, already_pending = waiter_service.create_waiter_call(
+                data,
+                mesa_id=mesa_id,
+                branch_id=branch_id,
+                token=token,
+            )
+
         try:
             payment_method = data.get("payment_method")
-            call_branch_id = data.get("branch_id")
+            call_branch_id = call.get("branch_id") if isinstance(call, dict) else data.get("branch_id")
             if payment_method:
                 order_service.set_payment_method_for_latest_order(
                     mesa_id,
