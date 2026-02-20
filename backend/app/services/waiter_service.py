@@ -10,6 +10,7 @@ import uuid
 from ..utils.logger import setup_logger
 from ..services.order_service import order_service
 from ..utils.token_manager import validate_token
+from ..socketio import socketio
 
 logger = setup_logger(__name__)
 
@@ -139,6 +140,11 @@ class WaiterService:
                 f"payment_method: {payment_method}"
             )
 
+            try:
+                socketio.emit("waiter_calls:updated", {"branch_id": branch_id})
+            except Exception:
+                pass
+
             return dict(new_call), False
 
         except ValueError:
@@ -159,7 +165,7 @@ class WaiterService:
                 pass
         return updated
 
-    def get_all_calls(self, status: Optional[str] = None) -> List[Dict]:
+    def get_all_calls(self, status: Optional[str] = None, branch_id: Optional[str] = None) -> List[Dict]:
         """
         Obtener todas las llamadas al mozo, opcionalmente filtradas por estado
 
@@ -184,6 +190,8 @@ class WaiterService:
 
             if status:
                 calls = [call for call in calls if call.get('status') == status]
+            if branch_id:
+                calls = [call for call in calls if call.get('branch_id') == branch_id]
 
             calls.sort(key=lambda call: call.get('created_at', ''), reverse=True)
 
@@ -257,6 +265,10 @@ class WaiterService:
             f"{current_status} -> {new_status}"
         )
 
+        try:
+            socketio.emit("waiter_calls:updated", {"branch_id": updated_call.get("branch_id")})
+        except Exception:
+            pass
         return updated_call
 
     def delete_call(self, call_id: str) -> Optional[Dict]:

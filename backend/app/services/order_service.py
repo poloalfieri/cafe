@@ -10,6 +10,7 @@ from ..db.models import OrderStatus
 from ..utils.token_manager import validate_token, renew_token, invalidate_token
 from ..utils.logger import setup_logger
 from ..utils.retry import execute_with_retry
+from ..socketio import socketio
 
 logger = setup_logger(__name__)
 
@@ -312,6 +313,10 @@ class OrderService:
                     invalidate_token(updated.get("mesa_id"), updated.get("branch_id"))
                 except Exception:
                     pass
+            try:
+                socketio.emit("orders:updated", {"branch_id": updated.get("branch_id"), "mesa_id": updated.get("mesa_id")})
+            except Exception:
+                pass
             return self._serialize_order(updated) if updated else None
         except Exception as e:
             logger.error(f"No se pudo marcar PAID el último pedido de mesa {mesa_id}: {str(e)}")
@@ -435,6 +440,11 @@ class OrderService:
             logger.info(
                 f"Pedido {order_id}: Estado actualizado de {current_status} a {status_value}"
             )
+
+            try:
+                socketio.emit("orders:updated", {"branch_id": updated_order.get("branch_id"), "mesa_id": updated_order.get("mesa_id")})
+            except Exception:
+                pass
 
             return self._serialize_order(updated_order)
 
@@ -662,6 +672,10 @@ class OrderService:
             logger.info(
                 f"Pedido creado: ID {new_order.get('id')}, Mesa {mesa_id}, Total ${total_amount}"
             )
+            try:
+                socketio.emit("orders:updated", {"branch_id": new_order.get("branch_id"), "mesa_id": mesa_id})
+            except Exception:
+                pass
             return self._serialize_order(new_order)
         except ValueError:
             raise

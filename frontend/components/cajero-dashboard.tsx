@@ -1,7 +1,7 @@
 "use client"
 
 import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -13,6 +13,7 @@ import WaiterCallCard from "./waiter-call-card"
 import { api, getClientAuthHeader, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
+import { io } from "socket.io-client"
 import {
   buildCartLineId,
   calculateSelectedOptionsTotal,
@@ -73,7 +74,6 @@ interface DraftOrderItem {
 
 type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
 
-const POLLING_INTERVAL_MS = 5000
 const PREBILL_TEXT = {
   printedBadge: "Precuenta impresa",
   printedAt: "Precuenta impresa",
@@ -125,7 +125,6 @@ export default function CajeroDashboard() {
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({})
   const [loadingItemOptions, setLoadingItemOptions] = useState(false)
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const backendUrl = getTenantApiBase()
   const normalizePrice = (value: number): number => Math.round(value * 100) / 100
@@ -166,53 +165,6 @@ export default function CajeroDashboard() {
       } catch (_) {}
     })()
   }, [])
-
-  const fetchBranch = async () => {
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches/me`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const name = data?.branch?.name
-        const id = data?.branch?.id
-        if (name) {
-          setBranchName(name)
-        }
-        if (id) {
-          setBranchId(id)
-          await fetchData(id)
-          fetchWaiterCalls(id)
-        } else {
-          await fetchData(null)
-          fetchWaiterCalls(null)
-        }
-      } else {
-        await fetchData(null)
-        fetchWaiterCalls(null)
-      }
-    } catch (error) {
-      console.error(t("errors.fetchBranch"), error)
-      await fetchData(null)
-      fetchWaiterCalls(null)
-    }
-  }
-
-  // Polling for waiter calls every 5 seconds
-  useEffect(() => {
-    pollingRef.current = setInterval(() => {
-      fetchWaiterCalls(branchId)
-    }, POLLING_INTERVAL_MS)
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-      }
-    }
-  }, [fetchWaiterCalls, branchId])
 
   const fetchData = async (currentBranchId?: string | null): Promise<Order[]> => {
     setLoading(true)
@@ -264,6 +216,63 @@ export default function CajeroDashboard() {
       setLoading(false)
     }
   }
+
+  const fetchBranch = async () => {
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches/me`, {
+        headers: {
+          ...authHeader,
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const name = data?.branch?.name
+        const id = data?.branch?.id
+        if (name) {
+          setBranchName(name)
+        }
+        if (id) {
+          setBranchId(id)
+          await fetchData(id)
+          fetchWaiterCalls(id)
+        } else {
+          await fetchData(null)
+          fetchWaiterCalls(null)
+        }
+      } else {
+        await fetchData(null)
+        fetchWaiterCalls(null)
+      }
+    } catch (error) {
+      console.error(t("errors.fetchBranch"), error)
+      await fetchData(null)
+      fetchWaiterCalls(null)
+    }
+  }
+
+  useEffect(() => {
+    const socket = io(backendUrl, {
+      transports: ["websocket"],
+      withCredentials: true,
+    })
+
+    socket.on("waiter_calls:updated", (payload: any) => {
+      if (!payload?.branch_id || payload.branch_id === branchId) {
+        fetchWaiterCalls(branchId)
+      }
+    })
+
+    socket.on("orders:updated", (payload: any) => {
+      if (!payload?.branch_id || payload.branch_id === branchId) {
+        fetchData(branchId)
+      }
+    })
+
+    return () => {
+      socket.disconnect()
+    }
+  }, [backendUrl, branchId, fetchWaiterCalls, fetchData])
 
   const resolveMesaBranchId = (mesa: Mesa | null): string | null => {
     if (!mesa) return null

@@ -2,6 +2,7 @@ from flask import Flask, jsonify, Blueprint
 from flask_cors import CORS
 from .config import Config
 from .utils.logger import setup_logger
+from .socketio import socketio
 
 def create_app():
     app = Flask(__name__)
@@ -16,6 +17,8 @@ def create_app():
         supports_credentials=Config.CORS_SUPPORTS_CREDENTIALS,
         max_age=3600  # Cache preflight requests por 1 hora
     )
+
+    socketio.init_app(app)
     
     setup_logger(__name__)
     app.logger.info(f"CORS configurado - Origins permitidos: {Config.CORS_ORIGINS}")

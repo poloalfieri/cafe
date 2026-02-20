@@ -123,7 +123,8 @@ def get_waiter_calls():
     """Obtener todas las llamadas al mozo"""
     try:
         status = request.args.get('status')
-        calls = waiter_service.get_all_calls(status)
+        branch_id = request.args.get('branch_id')
+        calls = waiter_service.get_all_calls(status=status, branch_id=branch_id)
 
         return jsonify({
             'success': True,
