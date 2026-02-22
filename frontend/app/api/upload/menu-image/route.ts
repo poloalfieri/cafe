@@ -2,6 +2,7 @@ import 'server-only'
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { randomUUID } from 'node:crypto'
+import { requireStaffAuth } from '@/lib/api-auth'
 
 export const runtime = 'nodejs'
 
@@ -22,6 +23,11 @@ function isUploadFileLike(value: unknown): value is UploadFileLike {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireStaffAuth(req, ['desarrollador', 'admin'])
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status })
+    }
+
     const form = await req.formData()
     const file = form.get('file')
     if (!isUploadFileLike(file)) {
