@@ -66,6 +66,23 @@ export function getTenantApiBase(): string {
   return `/api/${getRestaurantSlug()}`
 }
 
+export function getBackendBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_BACKEND_URL
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "")
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:5001`
+    }
+    return `${protocol}//${hostname}`
+  }
+
+  return ""
+}
+
 async function handleResponse(response: Response) {
   if (!response.ok) {
     let errorData

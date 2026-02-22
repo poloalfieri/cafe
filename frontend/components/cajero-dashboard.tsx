@@ -1,6 +1,6 @@
 "use client"
 
-import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
+import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2 } from "lucide-react"
@@ -127,6 +127,7 @@ export default function CajeroDashboard() {
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const socketBaseUrl = getBackendBaseUrl()
   const normalizePrice = (value: number): number => Math.round(value * 100) / 100
 
   const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
@@ -252,27 +253,37 @@ export default function CajeroDashboard() {
   }
 
   useEffect(() => {
-    const socket = io(backendUrl, {
+    const socket = io(socketBaseUrl || undefined, {
       transports: ["websocket"],
       withCredentials: true,
     })
 
+    if (process.env.NODE_ENV !== "production") {
+      socket.onAny((event, payload) => {
+        if ((window as any).__socketDebug) {
+          console.log("[socket]", event, payload)
+        }
+      })
+    }
+
     socket.on("waiter_calls:updated", (payload: any) => {
-      if (!payload?.branch_id || payload.branch_id === branchId) {
-        fetchWaiterCalls(branchId)
+      if (payload?.branch_id && branchId && payload.branch_id !== branchId) {
+        return
       }
+      fetchWaiterCalls(branchId)
     })
 
     socket.on("orders:updated", (payload: any) => {
-      if (!payload?.branch_id || payload.branch_id === branchId) {
-        fetchData(branchId)
+      if (payload?.branch_id && branchId && payload.branch_id !== branchId) {
+        return
       }
+      fetchData(branchId)
     })
 
     return () => {
       socket.disconnect()
     }
-  }, [backendUrl, branchId, fetchWaiterCalls, fetchData])
+  }, [socketBaseUrl, branchId, fetchWaiterCalls, fetchData])
 
   const resolveMesaBranchId = (mesa: Mesa | null): string | null => {
     if (!mesa) return null

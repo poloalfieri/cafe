@@ -32,52 +32,26 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# Verificar que existe la base de datos
-if [ ! -f "cafe.db" ]; then
-    echo -e "${YELLOW}⚠️  Base de datos no encontrada. Creando...${NC}"
-    python3 create_tables.py
-fi
+echo "🐳 Ejecutando backend con Docker Compose"
+echo ""
 
-# Verificar dependencias instaladas
-echo "📦 Verificando dependencias..."
-python3 -c "import flask" 2>/dev/null
+# Verificar Docker
+command -v docker >/dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Flask no está instalado${NC}"
-    echo "Instalando dependencias..."
-    pip3 install -r requirements.txt
-    echo ""
-fi
-
-# Verificar configuración CORS
-echo "🔒 Verificando configuración de seguridad..."
-python3 -c "
-from app.config import Config
-print(f'✅ CORS Origins: {Config.CORS_ORIGINS}')
-print(f'✅ Frontend URL: {Config.FRONTEND_URL}')
-print(f'✅ Backend URL: {Config.BASE_URL}')
-" 2>/dev/null
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Error cargando configuración${NC}"
+    echo -e "${RED}❌ Docker no está instalado${NC}"
     exit 1
 fi
 
-echo ""
-echo -e "${GREEN}✅ Todo listo para iniciar el servidor${NC}"
-echo ""
-echo "Servidor iniciando en:"
-echo "  📍 http://localhost:5001"
-echo ""
-echo "Endpoints disponibles:"
-echo "  🏥 Health Check:  http://localhost:5001/health"
-echo "  📋 Pedidos:       http://localhost:5001/order"
-echo "  💳 Pagos:         http://localhost:5001/payment"
-echo "  🍽️  Menú:         http://localhost:5001/menu"
-echo "  📊 Métricas:      http://localhost:5001/metrics"
-echo ""
-echo "Presiona Ctrl+C para detener el servidor"
-echo "========================================"
-echo ""
+# Verificar Docker Compose
+docker compose version >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Docker Compose no está disponible${NC}"
+    exit 1
+fi
 
-# Iniciar el servidor
-python3 run.py
+# Build y up (solo reconstruye si hay cambios)
+echo "🔧 Construyendo imagen (si es necesario)..."
+docker compose build
+
+echo "🚀 Levantando servicios..."
+docker compose up

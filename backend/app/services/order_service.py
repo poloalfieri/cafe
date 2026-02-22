@@ -672,6 +672,9 @@ class OrderService:
             logger.info(
                 f"Pedido creado: ID {new_order.get('id')}, Mesa {mesa_id}, Total ${total_amount}"
             )
+            logger.info(
+                f"[socket] emit orders:updated branch_id={new_order.get('branch_id')} mesa_id={mesa_id}"
+            )
             try:
                 socketio.emit("orders:updated", {"branch_id": new_order.get("branch_id"), "mesa_id": mesa_id})
             except Exception:

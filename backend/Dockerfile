@@ -16,5 +16,5 @@ ENV PORT=5001
 
 EXPOSE ${PORT}
 
-# Gunicorn para producción (mismo comando que el Procfile)
-CMD gunicorn -w 2 -k gthread --threads 8 --timeout 120 --access-logfile - --error-logfile - -b 0.0.0.0:${PORT} "app.main:create_app()"
+# Gunicorn con eventlet para WebSockets (Socket.IO)
+CMD gunicorn -w 1 -k eventlet --timeout 120 --access-logfile - --error-logfile - -b 0.0.0.0:${PORT} "wsgi:app"
