@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
                 
                 const appRole = storedUser.app_metadata?.role
-                const userRole = storedUser.user_metadata?.role
+                const userRole = storedUser.app_metadata?.role
                 const role = appRole || userRole
                 
                 const recoveredUser = {

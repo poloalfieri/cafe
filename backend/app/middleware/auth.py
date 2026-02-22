@@ -63,10 +63,9 @@ def verify_token(token):
 
             user = response.user
 
-            # Extraer metadata (role puede venir en app_metadata o user_metadata)
+            # Extraer metadata (role SOLO desde app_metadata)
             app_metadata = user.app_metadata or {}
-            user_metadata = user.user_metadata or {}
-            role = app_metadata.get('role') or user_metadata.get('role')
+            role = app_metadata.get('role')
 
             verified_user = {
                 'id': user.id,

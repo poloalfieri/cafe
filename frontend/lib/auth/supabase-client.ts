@@ -54,7 +54,7 @@ export class SupabaseAuthClient implements AuthClient {
         return null
       }
       const appRole = mapUserRole((u.app_metadata as any)?.role)
-      const userRole = mapUserRole((u.user_metadata as any)?.role)
+      const userRole = mapUserRole((u.app_metadata as any)?.role)
       const role = appRole ?? userRole
       return {
         id: u.id,
@@ -88,7 +88,7 @@ export class SupabaseAuthClient implements AuthClient {
         const u = supabaseSession.user
         if (u) {
           const appRole = mapUserRole((u.app_metadata as any)?.role)
-          const userRole = mapUserRole((u.user_metadata as any)?.role)
+          const userRole = mapUserRole((u.app_metadata as any)?.role)
           const role = appRole ?? userRole
           
           user = {

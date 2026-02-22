@@ -20,14 +20,11 @@ export function getBearer(req: Request): string | null {
 }
 
 /**
- * Extract the role from a Supabase user, checking app_metadata first
- * and falling back to user_metadata (same logic as auth-context).
+ * Extract the role from a Supabase user, using app_metadata only.
  */
 export function getUserRole(user: User): StaffRole | undefined {
   return (
-    ((user.app_metadata as Record<string, unknown>)?.role as StaffRole) ??
-    ((user.user_metadata as Record<string, unknown>)?.role as StaffRole) ??
-    undefined
+    ((user.app_metadata as Record<string, unknown>)?.role as StaffRole) ?? undefined
   )
 }
 
