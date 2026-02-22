@@ -4,6 +4,10 @@ import { getServerSupabase } from '@/lib/supabase-server'
 
 export async function POST(req: Request) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
     const { email, password } = await req.json()
     if (typeof email !== 'string' || typeof password !== 'string') {
       return NextResponse.json({ error: 'Parámetros inválidos' }, { status: 400 })

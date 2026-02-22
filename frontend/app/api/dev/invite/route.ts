@@ -9,6 +9,10 @@ function parseAllowlist(): Set<string> {
 
 export async function POST(req: Request) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
     const { email, password } = await req.json()
     if (typeof email !== 'string' || !email.includes('@')) {
       return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
