@@ -175,9 +175,6 @@ export default function PaymentModal({
       const { apiFetchTenant } = await import('@/lib/apiClient')
       await apiFetchTenant('/orders', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${mesaToken}`,
-        },
         body: JSON.stringify({
           mesa_id: mesaId,
           branch_id: branchId,
@@ -196,9 +193,6 @@ export default function PaymentModal({
 
       const data = await apiFetchTenant('/waiter/calls', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${mesaToken}`,
-        },
         body: JSON.stringify({
           mesa_id: mesaId,
           branch_id: branchId,

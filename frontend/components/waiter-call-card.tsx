@@ -10,7 +10,7 @@ interface WaiterCall {
   created_at: string
   status: "PENDING" | "COMPLETED" | "CANCELLED"
   message?: string
-  payment_method: "CARD" | "CASH" | "QR"
+  payment_method: "CARD" | "CASH" | "QR" | "ASSISTANCE"
 }
 
 interface WaiterCallCardProps {
@@ -48,6 +48,8 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         return <Banknote className="w-4 h-4" />
       case "QR":
         return <QrCode className="w-4 h-4" />
+      case "ASSISTANCE":
+        return <Bell className="w-4 h-4" />
     }
   }
 
@@ -59,6 +61,8 @@ export default function WaiterCallCard({ call, onStatusUpdate }: WaiterCallCardP
         return t("payment.cash")
       case "QR":
         return t("payment.qr")
+      case "ASSISTANCE":
+        return t("payment.assistance")
     }
   }
 

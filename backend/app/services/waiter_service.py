@@ -19,7 +19,7 @@ class WaiterService:
     """Servicio para gestionar llamadas y notificaciones al mozo"""
 
     # Constantes de validacion
-    VALID_PAYMENT_METHODS = ['CARD', 'CASH', 'QR']
+    VALID_PAYMENT_METHODS = ['CARD', 'CASH', 'QR', 'ASSISTANCE']
     VALID_STATUSES = ['PENDING', 'COMPLETED', 'CANCELLED']
     VALID_MOTIVOS = ['pago_efectivo', 'pago_tarjeta', 'pago_qr']
 
@@ -99,7 +99,7 @@ class WaiterService:
                 payment_method = self.MOTIVO_TO_PAYMENT_METHOD[motivo]
 
             if not payment_method:
-                raise ValueError("payment_method es requerido")
+                payment_method = "ASSISTANCE"
 
             # Validar metodo de pago
             if payment_method not in self.VALID_PAYMENT_METHODS:

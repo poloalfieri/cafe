@@ -344,12 +344,12 @@ export default function MenuView() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.token}`,
         },
         body: JSON.stringify({
           mesa_id: session.mesa_id,
           branch_id: session.branch_id,
           token: session.token,
+          payment_method: "ASSISTANCE",
           message: data.message || ""
         }),
       })

@@ -1548,6 +1548,13 @@ export default function CajeroDashboard() {
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500">{t("payments.autoRefresh")}</p>
+                {waiterCalls.map((call) => (
+                  <WaiterCallCard
+                    key={call.id}
+                    call={call}
+                    onStatusUpdate={updateCallStatus}
+                  />
+                ))}
                 {pendingOrders.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-800">
@@ -1653,13 +1660,6 @@ export default function CajeroDashboard() {
                     </div>
                   </div>
                 )}
-                {waiterCalls.map((call) => (
-                  <WaiterCallCard
-                    key={call.id}
-                    call={call}
-                    onStatusUpdate={updateCallStatus}
-                  />
-                ))}
               </div>
             )}
           </TabsContent>
