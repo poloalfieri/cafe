@@ -3,7 +3,7 @@
 import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2 } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -93,6 +93,7 @@ const PREBILL_TEXT = {
 
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
+  const tWaiter = useTranslations("cajero.waiterCall")
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -125,10 +126,53 @@ export default function CajeroDashboard() {
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({})
   const [loadingItemOptions, setLoadingItemOptions] = useState(false)
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
 
   const backendUrl = getTenantApiBase()
   const socketBaseUrl = getBackendBaseUrl()
   const normalizePrice = (value: number): number => Math.round(value * 100) / 100
+  const pendingOrders = orders.filter((order) => (order.status || "").toUpperCase() !== "PAID")
+
+  const getPaymentMethodIcon = (method?: string | null) => {
+    const normalized = (method || "").toUpperCase()
+    switch (normalized) {
+      case "CARD":
+        return <CreditCard className="w-4 h-4" />
+      case "CASH":
+        return <Banknote className="w-4 h-4" />
+      case "QR":
+        return <QrCode className="w-4 h-4" />
+      default:
+        return <Bell className="w-4 h-4" />
+    }
+  }
+
+  const getPaymentMethodText = (method?: string | null) => {
+    const normalized = (method || "").toUpperCase()
+    switch (normalized) {
+      case "CARD":
+        return tWaiter("payment.card")
+      case "CASH":
+        return tWaiter("payment.cash")
+      case "QR":
+        return tWaiter("payment.qr")
+      case "MERCADOPAGO":
+        return "Mercado Pago"
+      default:
+        return t("payments.unknownPaymentMethod")
+    }
+  }
+
+  const getOrderItems = (order: Order) => {
+    if (!Array.isArray(order.items)) return []
+    return order.items
+      .map((item: any) => {
+        const name = item?.name || item?.title || ""
+        const qty = item?.quantity ?? item?.qty ?? 1
+        return name ? { name, qty } : null
+      })
+      .filter(Boolean) as Array<{ name: string; qty: number }>
+  }
 
   const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
     try {
@@ -874,6 +918,36 @@ export default function CajeroDashboard() {
     }
   }
 
+  const completePendingOrder = async (order: Order) => {
+    if (!order?.id || completingOrderId) return
+    try {
+      setCompletingOrderId(order.id)
+      const authHeader = await getClientAuthHeaderAsync()
+      const body: Record<string, any> = { status: "PAID" }
+      if (order.payment_method) {
+        body.payment_method = order.payment_method
+      }
+      const response = await fetch(`${backendUrl}/orders/${order.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error(t("payments.completeError"), errorData?.error)
+        return
+      }
+      await fetchData(branchId)
+    } catch (error) {
+      console.error(t("payments.completeError"), error)
+    } finally {
+      setCompletingOrderId(null)
+    }
+  }
+
   const refreshData = () => {
     void fetchData(branchId)
     void fetchWaiterCalls(branchId)
@@ -1464,7 +1538,7 @@ export default function CajeroDashboard() {
                 <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
                 <p className="text-gray-600">{t("payments.loading")}</p>
               </div>
-            ) : waiterCalls.length === 0 ? (
+            ) : waiterCalls.length === 0 && pendingOrders.length === 0 ? (
               <div className="text-center py-12">
                 <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">{t("payments.emptyTitle")}</h3>
@@ -1474,6 +1548,111 @@ export default function CajeroDashboard() {
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500">{t("payments.autoRefresh")}</p>
+                {pendingOrders.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      {t("payments.pendingOrdersTitle", { count: pendingOrders.length })}
+                    </h4>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {pendingOrders.map((order) => (
+                        <div
+                          key={order.id}
+                          className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
+                        >
+                          <div className="p-4 border-b border-gray-200">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
+                                  <span className="text-white font-bold text-lg">
+                                    {String(order.mesa_id).replace("Mesa ", "")}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                    <Bell className="w-4 h-4 text-orange-500" />
+                                    {t("payments.tableLabel")} {order.mesa_id}
+                                  </h3>
+                                  <p className="text-xs text-gray-600">
+                                    #{String(order.id || "").slice(0, 8)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
+                                <Clock className="w-3 h-3" />
+                                <span className="text-xs font-medium">
+                                  {new Date(order.created_at || order.creation_date || Date.now()).toLocaleTimeString("es-ES", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-600">
+                              <span>
+                                {tWaiter("callTime", {
+                                  time: new Date(order.created_at || order.creation_date || Date.now()).toLocaleTimeString("es-ES", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }),
+                                })}
+                              </span>
+                              <Badge variant="outline">{order.status}</Badge>
+                            </div>
+                          </div>
+
+                          <div className="p-4 space-y-4">
+                            <div className="p-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-2 text-gray-900">
+                                {getPaymentMethodIcon(order.payment_method)}
+                                <p className="text-sm font-medium">
+                                  {t("payments.paymentMethodLabel")}: {getPaymentMethodText(order.payment_method)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium text-gray-700">
+                                {t("payments.itemsLabel")}
+                              </p>
+                              <div className="space-y-1 text-sm text-gray-700">
+                                {getOrderItems(order).length === 0 ? (
+                                  <p className="text-gray-500">{t("payments.noItems")}</p>
+                                ) : (
+                                  getOrderItems(order).map((item, idx) => (
+                                    <div key={`${order.id}-${idx}`} className="flex items-center justify-between">
+                                      <span>{item.name}</span>
+                                      <span className="text-gray-500">x{item.qty}</span>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-500">{t("payments.totalLabel")}</span>
+                              <span className="font-semibold">
+                                ${normalizePrice(Number(order.total_amount || 0)).toFixed(2)}
+                              </span>
+                            </div>
+
+                            <div className="pt-2">
+                              <Button
+                                onClick={() => completePendingOrder(order)}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                disabled={completingOrderId === order.id}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {completingOrderId === order.id
+                                  ? t("payments.completingAction")
+                                  : t("payments.completeAction")}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {waiterCalls.map((call) => (
                   <WaiterCallCard
                     key={call.id}

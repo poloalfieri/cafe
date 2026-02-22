@@ -120,11 +120,9 @@
       "instantPay": "Pago instantáneo",
       "secure": "100% seguro",
       "allCards": "Acepta todas las tarjetas",
-      "installments": "Pago en cuotas"
-      ,
+      "installments": "Pago en cuotas",
       "waiterNotifyError": "Error al notificar al mozo"
-    }
-    ,
+    },
     "instructions": {
       "title": "¿Cómo usar la app?",
       "welcome": "¡Bienvenido!",
@@ -144,8 +142,7 @@
       "helpBody": "Si tienes alguna duda o problema, presiona el botón azul \"Mozo\" que está en la parte superior de la pantalla, y un miembro de nuestro equipo se acercará a tu mesa.",
       "close": "¡Entendido, empezar!"
     }
-  }
-  ,
+  },
   "admin": {
     "page": {
       "loading": "Cargando..."
@@ -930,8 +927,7 @@
         "methodLabel": "Método: {label}"
       }
     }
-  }
-  ,
+  },
   "cajero": {
     "page": {
       "loading": "Cargando..."
@@ -968,7 +964,7 @@
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
         "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
-        "pendingOrdersTitle": "Pedidos pendientes de cobro ({count})",
+        "pendingOrdersTitle": "Pedidos pendientes ({count})",
         "waiterCallsTitle": "Solicitudes de mesas ({count})",
         "methodLabel": "Método de pago",
         "methods": {
@@ -980,7 +976,15 @@
         "completingAction": "Completando...",
         "completeError": "No se pudo completar el pago del pedido.",
         "completeSuccessTitle": "Pago completado",
-        "completeSuccessBody": "Pago registrado para la mesa {mesaId}."
+        "completeSuccessBody": "Pago registrado para la mesa {mesaId}.",
+        "orderLabel": "Pedido #{id}",
+        "tableLabel": "Mesa",
+        "totalLabel": "Total",
+        "createdAtLabel": "Hora",
+        "paymentMethodLabel": "Método de pago",
+        "unknownPaymentMethod": "Sin método",
+        "itemsLabel": "Productos",
+        "noItems": "Sin productos"
       },
       "tables": {
         "loading": "Cargando mesas...",

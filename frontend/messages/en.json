@@ -120,11 +120,9 @@
       "instantPay": "Instant payment",
       "secure": "100% secure",
       "allCards": "All cards accepted",
-      "installments": "Installments"
-      ,
+      "installments": "Installments",
       "waiterNotifyError": "Error notifying the waiter"
-    }
-    ,
+    },
     "instructions": {
       "title": "How to use the app?",
       "welcome": "Welcome!",
@@ -144,8 +142,7 @@
       "helpBody": "If you have any questions or issues, press the blue \"Waiter\" button at the top of the screen, and a team member will come to your table.",
       "close": "Got it, start!"
     }
-  }
-  ,
+  },
   "admin": {
     "page": {
       "loading": "Cargando..."
@@ -930,8 +927,7 @@
         "methodLabel": "Método: {label}"
       }
     }
-  }
-  ,
+  },
   "cajero": {
     "page": {
       "loading": "Cargando..."
@@ -968,7 +964,7 @@
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
         "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
-        "pendingOrdersTitle": "Pending payment orders ({count})",
+        "pendingOrdersTitle": "Pedidos pendientes ({count})",
         "waiterCallsTitle": "Table requests ({count})",
         "methodLabel": "Payment method",
         "methods": {
@@ -980,7 +976,15 @@
         "completingAction": "Completing...",
         "completeError": "Could not complete payment for this order.",
         "completeSuccessTitle": "Payment completed",
-        "completeSuccessBody": "Payment registered for table {mesaId}."
+        "completeSuccessBody": "Payment registered for table {mesaId}.",
+        "orderLabel": "Pedido #{id}",
+        "tableLabel": "Mesa",
+        "totalLabel": "Total",
+        "createdAtLabel": "Hora",
+        "paymentMethodLabel": "Payment method",
+        "unknownPaymentMethod": "Unknown",
+        "itemsLabel": "Items",
+        "noItems": "No items"
       },
       "tables": {
         "loading": "Cargando mesas...",
