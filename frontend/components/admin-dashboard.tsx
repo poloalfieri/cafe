@@ -254,15 +254,11 @@ export default function AdminDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
             {([
               { key: "daily", icon: DollarSign, value: metrics.dailySales, isCurrency: true, label: t("metrics.dailySales") },
               { key: "weekly", icon: TrendingUp, value: metrics.weeklySales, isCurrency: true, label: t("metrics.weeklySales") },
               { key: "monthly", icon: BarChart3, value: metrics.monthlySales, isCurrency: true, label: t("metrics.monthlySales") },
-              { key: "orders", icon: ShoppingCart, value: metrics.totalOrders, isCurrency: false, label: t("metrics.totalOrders") },
-              { key: "avg", icon: Users, value: metrics.averageOrderValue, isCurrency: true, label: t("metrics.averageTicket") },
-              { key: "ingredients", icon: Archive, value: metrics.totalIngredients, isCurrency: false, label: t("metrics.ingredients") },
-              { key: "lowStock", icon: Package, value: metrics.lowStockItems, isCurrency: false, label: t("metrics.lowStock") },
             ] as const).map((metric) => {
               const Icon = metric.icon
               const fullValue = metric.isCurrency ? `$${metric.value.toFixed(2)}` : metric.value.toString()
@@ -293,8 +289,8 @@ export default function AdminDashboard() {
                         <Icon className="w-5 h-5 text-text" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-text">{fullValue}</p>
-                        <p className="text-xs text-muted-foreground">{metric.label}</p>
+                        <p className="text-2xl font-bold text-text truncate">{fullValue}</p>
+                        <p className="text-xs text-muted-foreground truncate">{metric.label}</p>
                       </div>
                     </div>
                   </div>
@@ -374,7 +370,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="dashboard">
             {isMetricsScopeReady ? (
-              <MetricsDashboard branchId={selectedBranchId || undefined} />
+              <MetricsDashboard
+                branchId={selectedBranchId || undefined}
+                summary={metrics}
+              />
             ) : (
               <div className="flex items-center justify-center min-h-[280px]">
                 <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />

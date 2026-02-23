@@ -34,6 +34,13 @@ interface MetricsData {
   paymentMethods: { labels: string[]; values: number[] }
 }
 
+interface SummaryData {
+  totalOrders: number
+  averageOrderValue: number
+  totalIngredients: number
+  lowStockItems: number
+}
+
 function getApiBaseUrl() {
   return getTenantApiBase()
 }
@@ -49,9 +56,10 @@ const COLORS = {
 
 interface MetricsDashboardProps {
   branchId?: string
+  summary?: SummaryData
 }
 
-export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
+export default function MetricsDashboard({ branchId, summary }: MetricsDashboardProps) {
   const t = useTranslations("admin.metrics")
   const [data, setData] = useState<MetricsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -248,6 +256,62 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
           {t("actions.refresh")}
         </button>
       </div>
+
+      {summary && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">{t("summary.title")}</h3>
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+            <Card className="border border-border">
+              <CardHeader className="py-3">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {t("summary.totalOrders")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xl font-semibold text-gray-900 truncate">
+                  {formatNumber(summary.totalOrders || 0)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border border-border">
+              <CardHeader className="py-3">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {t("summary.averageTicket")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xl font-semibold text-gray-900 truncate">
+                  {formatCurrency(summary.averageOrderValue || 0)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border border-border">
+              <CardHeader className="py-3">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {t("summary.totalIngredients")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xl font-semibold text-gray-900 truncate">
+                  {formatNumber(summary.totalIngredients || 0)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border border-border">
+              <CardHeader className="py-3">
+                <CardTitle className="text-xs text-muted-foreground">
+                  {t("summary.lowStock")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <p className="text-xl font-semibold text-gray-900 truncate">
+                  {formatNumber(summary.lowStockItems || 0)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
         {/* Ventas Mensuales - LineChart */}
