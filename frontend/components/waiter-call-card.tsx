@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { Clock, Bell, CheckCircle, XCircle, CreditCard, Banknote, QrCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTranslations } from "next-intl"

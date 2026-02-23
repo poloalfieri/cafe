@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { getRestaurantSlug } from "@/lib/apiClient"
 import { useState } from "react"
 import { ArrowLeft, Minus, Plus, Trash2, Bell } from "lucide-react"
