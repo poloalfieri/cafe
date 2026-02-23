@@ -4,6 +4,8 @@ Script de prueba para el flujo de pagos implementado
 Verifica que todos los endpoints funcionen correctamente
 """
 
+import os
+import pytest
 import requests
 import json
 import time
@@ -12,24 +14,50 @@ import time
 BACKEND_URL = "http://localhost:5001"
 FRONTEND_URL = "http://localhost:3000"
 
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled by default"
+)
+
+def _integration_headers():
+    slug = os.getenv("TEST_RESTAURANT_SLUG")
+    internal_key = os.getenv("INTERNAL_PROXY_KEY") or os.getenv("TEST_INTERNAL_KEY")
+    if not slug or not internal_key:
+        pytest.skip("Missing TEST_RESTAURANT_SLUG or INTERNAL_PROXY_KEY/TEST_INTERNAL_KEY")
+    return {
+        "Content-Type": "application/json",
+        "X-Restaurant-Slug": slug,
+        "X-Internal-Key": internal_key,
+    }
+
+def _require_mesa_branch():
+    mesa_id = os.getenv("TEST_MESA_ID")
+    branch_id = os.getenv("TEST_BRANCH_ID")
+    if not mesa_id or not branch_id:
+        pytest.skip("Missing TEST_MESA_ID or TEST_BRANCH_ID for payment flow tests")
+    return mesa_id, branch_id
+
 def test_waiter_notification():
     """Prueba el endpoint de notificación al mozo"""
     print("🔔 Probando notificación al mozo...")
     
     # Probar diferentes motivos
+    mesa_id, branch_id = _require_mesa_branch()
     motivos = ["pago_efectivo", "pago_tarjeta", "pago_qr"]
     
     for motivo in motivos:
         try:
             response = requests.post(
-                f"{BACKEND_URL}/waiter/notificar-mozo",
-                headers={"Content-Type": "application/json"},
+                f"{BACKEND_URL}/waiter/calls",
+                headers=_integration_headers(),
                 json={
-                    "mesa_id": "Mesa 1",
+                    "mesa_id": mesa_id,
+                    "branch_id": branch_id,
                     "motivo": motivo,
                     "usuario_id": "cliente_test",
                     "message": f"Prueba de {motivo}"
-                }
+                },
+                timeout=10
             )
             
             if response.status_code == 201:
@@ -50,14 +78,20 @@ def test_payment_init():
     print("💳 Probando inicialización de pago...")
     
     try:
+        mesa_id, branch_id = _require_mesa_branch()
         response = requests.post(
             f"{BACKEND_URL}/payment/init",
-            headers={"Content-Type": "application/json"},
+            headers=_integration_headers(),
             json={
                 "monto": 1500.00,
-                "mesa_id": "Mesa 1",
-                "descripcion": "Pedido de prueba - Café x2, Torta x1"
-            }
+                "mesa_id": mesa_id,
+                "branch_id": branch_id,
+                "descripcion": "Pedido de prueba - Café x2, Torta x1",
+                "items": [
+                    {"id": 1, "quantity": 1}
+                ],
+            },
+            timeout=10
         )
         
         if response.status_code == 200:

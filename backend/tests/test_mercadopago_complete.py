@@ -3,6 +3,8 @@
 Script de prueba para la implementación completa de Mercado Pago Checkout Pro
 """
 
+import os
+import pytest
 import requests
 import json
 import time
@@ -11,6 +13,30 @@ from datetime import datetime
 # Configuración
 BACKEND_URL = "http://localhost:5001"
 FRONTEND_URL = "http://localhost:3000"
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled by default"
+)
+
+def _integration_headers():
+    slug = os.getenv("TEST_RESTAURANT_SLUG")
+    internal_key = os.getenv("INTERNAL_PROXY_KEY") or os.getenv("TEST_INTERNAL_KEY")
+    if not slug or not internal_key:
+        pytest.skip("Missing TEST_RESTAURANT_SLUG or INTERNAL_PROXY_KEY/TEST_INTERNAL_KEY")
+    return {
+        "Content-Type": "application/json",
+        "X-Restaurant-Slug": slug,
+        "X-Internal-Key": internal_key,
+    }
+
+
+@pytest.fixture
+def order_id():
+    pref_id, order_id = test_create_preference()
+    if not order_id:
+        pytest.skip("Could not create MercadoPago order in integration test")
+    return order_id
 
 def test_create_preference():
     """Probar la creación de una preferencia de pago"""
@@ -37,7 +63,7 @@ def test_create_preference():
     try:
         response = requests.post(
             f"{BACKEND_URL}/payment/create-preference",
-            headers={"Content-Type": "application/json"},
+            headers=_integration_headers(),
             json=test_data,
             timeout=10
         )
@@ -68,6 +94,7 @@ def test_order_status(order_id):
     try:
         response = requests.get(
             f"{BACKEND_URL}/payment/order-status/{order_id}",
+            headers=_integration_headers(),
             timeout=10
         )
         

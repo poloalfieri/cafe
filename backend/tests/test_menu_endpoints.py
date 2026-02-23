@@ -3,16 +3,65 @@
 Script para probar los endpoints del menú
 """
 
+import os
+import pytest
 import requests
 import json
 
 BASE_URL = "http://localhost:5001"
 
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled by default"
+)
+
+def _integration_headers(include_auth: bool = False):
+    slug = os.getenv("TEST_RESTAURANT_SLUG")
+    internal_key = os.getenv("INTERNAL_PROXY_KEY") or os.getenv("TEST_INTERNAL_KEY")
+    if not slug or not internal_key:
+        pytest.skip("Missing TEST_RESTAURANT_SLUG or INTERNAL_PROXY_KEY/TEST_INTERNAL_KEY")
+    headers = {
+        "Content-Type": "application/json",
+        "X-Restaurant-Slug": slug,
+        "X-Internal-Key": internal_key,
+    }
+    if include_auth:
+        token = os.getenv("TEST_ADMIN_BEARER")
+        if not token:
+            pytest.skip("Missing TEST_ADMIN_BEARER for admin-protected endpoints")
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
+@pytest.fixture
+def item_id():
+    """Create a menu item for integration tests and return its id."""
+    test_product = {
+        "name": "Test Product",
+        "category": "Test Category",
+        "price": 9.99,
+        "description": "Producto de prueba",
+        "available": True
+    }
+    response = requests.post(
+        f"{BASE_URL}/menu",
+        json=test_product,
+        headers=_integration_headers(include_auth=True),
+        timeout=10,
+    )
+    if response.status_code != 201:
+        pytest.skip(f"Could not create menu item: {response.status_code} {response.text}")
+    return response.json().get("id")
+
 def test_get_menu():
     """Probar GET /menu"""
     print("🔍 Probando GET /menu...")
     try:
-        response = requests.get(f"{BASE_URL}/menu/")
+        response = requests.get(
+            f"{BASE_URL}/menu",
+            headers=_integration_headers(),
+            timeout=10,
+        )
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
@@ -37,9 +86,10 @@ def test_create_menu_item():
     
     try:
         response = requests.post(
-            f"{BASE_URL}/menu/",
+            f"{BASE_URL}/menu",
             json=test_product,
-            headers={"Content-Type": "application/json"}
+            headers=_integration_headers(include_auth=True),
+            timeout=10,
         )
         print(f"Status: {response.status_code}")
         if response.status_code == 201:
@@ -64,10 +114,11 @@ def test_update_menu_item(item_id):
     }
     
     try:
-        response = requests.put(
+        response = requests.patch(
             f"{BASE_URL}/menu/{item_id}",
             json=update_data,
-            headers={"Content-Type": "application/json"}
+            headers=_integration_headers(include_auth=True),
+            timeout=10,
         )
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
@@ -80,12 +131,15 @@ def test_update_menu_item(item_id):
 
 def test_toggle_availability(item_id):
     """Probar PATCH /menu/<id>/toggle"""
-    if not item_id:
-        return
+    pytest.skip("Endpoint /menu/<id>/toggle no existe en el backend actual")
     
     print(f"\n🔄 Probando PATCH /menu/{item_id}/toggle...")
     try:
-        response = requests.patch(f"{BASE_URL}/menu/{item_id}/toggle")
+        response = requests.patch(
+            f"{BASE_URL}/menu/{item_id}/toggle",
+            headers=_integration_headers(include_auth=True),
+            timeout=10,
+        )
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             data = response.json()
@@ -102,7 +156,11 @@ def test_delete_menu_item(item_id):
     
     print(f"\n🗑️ Probando DELETE /menu/{item_id}...")
     try:
-        response = requests.delete(f"{BASE_URL}/menu/{item_id}")
+        response = requests.delete(
+            f"{BASE_URL}/menu/{item_id}",
+            headers=_integration_headers(include_auth=True),
+            timeout=10,
+        )
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             data = response.json()

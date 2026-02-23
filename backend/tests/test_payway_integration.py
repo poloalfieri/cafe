@@ -4,29 +4,56 @@ Script de prueba para la integración con Payway
 Verifica que el servicio de Payway funcione correctamente
 """
 
+import os
+import pytest
 import requests
 import json
-import os
 from datetime import datetime
 
 # Configuración
 BACKEND_URL = "http://localhost:5001"
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_INTEGRATION_TESTS") != "1",
+    reason="Integration tests disabled by default"
+)
+
+def _integration_headers():
+    slug = os.getenv("TEST_RESTAURANT_SLUG")
+    internal_key = os.getenv("INTERNAL_PROXY_KEY") or os.getenv("TEST_INTERNAL_KEY")
+    if not slug or not internal_key:
+        pytest.skip("Missing TEST_RESTAURANT_SLUG or INTERNAL_PROXY_KEY/TEST_INTERNAL_KEY")
+    return {
+        "Content-Type": "application/json",
+        "X-Restaurant-Slug": slug,
+        "X-Internal-Key": internal_key,
+    }
+
+def _require_mesa_branch():
+    mesa_id = os.getenv("TEST_MESA_ID")
+    branch_id = os.getenv("TEST_BRANCH_ID")
+    if not mesa_id or not branch_id:
+        pytest.skip("Missing TEST_MESA_ID or TEST_BRANCH_ID for payway test")
+    return mesa_id, branch_id
 
 def test_payway_service():
     """Prueba el servicio de Payway"""
     print("🔧 Probando integración con Payway...")
     
     # Datos de prueba
+    mesa_id, branch_id = _require_mesa_branch()
     test_data = {
         "monto": 1500.00,
-        "mesa_id": "Mesa Test 1",
-        "descripcion": "Pedido de prueba - Café x2, Torta x1"
+        "mesa_id": mesa_id,
+        "branch_id": branch_id,
+        "descripcion": "Pedido de prueba - Café x2, Torta x1",
+        "items": [{"id": 1, "quantity": 1}],
     }
     
     try:
         response = requests.post(
             f"{BACKEND_URL}/payment/init",
-            headers={"Content-Type": "application/json"},
+            headers=_integration_headers(),
             json=test_data,
             timeout=30
         )
