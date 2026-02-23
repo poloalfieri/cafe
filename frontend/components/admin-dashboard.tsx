@@ -254,11 +254,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             {([
               { key: "daily", icon: DollarSign, value: metrics.dailySales, isCurrency: true, label: t("metrics.dailySales") },
               { key: "weekly", icon: TrendingUp, value: metrics.weeklySales, isCurrency: true, label: t("metrics.weeklySales") },
               { key: "monthly", icon: BarChart3, value: metrics.monthlySales, isCurrency: true, label: t("metrics.monthlySales") },
+              { key: "avg", icon: Users, value: metrics.averageOrderValue, isCurrency: true, label: t("metrics.averageTicket") },
             ] as const).map((metric) => {
               const Icon = metric.icon
               const fullValue = metric.isCurrency ? `$${metric.value.toFixed(2)}` : metric.value.toString()
@@ -370,10 +371,7 @@ export default function AdminDashboard() {
 
           <TabsContent value="dashboard">
             {isMetricsScopeReady ? (
-              <MetricsDashboard
-                branchId={selectedBranchId || undefined}
-                summary={metrics}
-              />
+              <MetricsDashboard branchId={selectedBranchId || undefined} />
             ) : (
               <div className="flex items-center justify-center min-h-[280px]">
                 <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground" />

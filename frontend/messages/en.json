@@ -911,13 +911,6 @@
       "header": {
         "title": "Dashboard de Métricas"
       },
-      "summary": {
-        "title": "Resumen operativo",
-        "totalOrders": "Pedidos del mes",
-        "averageTicket": "Ticket promedio",
-        "totalIngredients": "Ingredientes",
-        "lowStock": "Stock bajo"
-      },
       "charts": {
         "monthlySales": "Ventas Mensuales",
         "dailyRevenue": "Ingresos Diarios (Última Semana)",
