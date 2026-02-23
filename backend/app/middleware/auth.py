@@ -40,7 +40,11 @@ def get_token_from_request():
     if len(parts) != 2 or parts[0].lower() != 'bearer':
         return None
     
-    return parts[1]
+    token = parts[1]
+    # Si no parece un JWT (3 segmentos), ignorar
+    if token.count('.') < 2:
+        return None
+    return token
 
 def verify_token(token):
     """

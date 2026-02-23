@@ -211,7 +211,7 @@ export default function CajeroDashboard() {
     })()
   }, [])
 
-  const fetchData = async (currentBranchId?: string | null): Promise<Order[]> => {
+  const fetchData = useCallback(async (currentBranchId?: string | null): Promise<Order[]> => {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
@@ -260,7 +260,7 @@ export default function CajeroDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [backendUrl, t])
 
   const fetchBranch = async () => {
     try {
