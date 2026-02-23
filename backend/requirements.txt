@@ -5,6 +5,10 @@ psycopg2-binary
 supabase
 flask-cors
 requests
+cryptography
+zeep
+qrcode[pil]
+tzdata
 mercadopago
 gunicorn
 flask-socketio

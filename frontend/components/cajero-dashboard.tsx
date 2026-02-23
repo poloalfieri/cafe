@@ -44,9 +44,12 @@ interface MenuItem {
 interface Order {
   id: string
   mesa_id: string
+  branch_id?: string
   status: string
   total_amount: number
   created_at: string
+  creation_date?: string
+  payment_method?: string | null
   items: any[]
   prebill_printed_at?: string | null
 }
@@ -78,17 +81,40 @@ const PREBILL_TEXT = {
   printedBadge: "Precuenta impresa",
   printedAt: "Precuenta impresa",
   completedTitle: "Pedido completado",
-  askPrint: "Querés imprimir la precuenta?",
+  askPrint: "Elegí cómo continuar con el comprobante.",
   confirmTitle: "Confirmar impresión",
   confirmPrinted: "Salió el ticket?",
-  print: "Imprimir precuenta",
+  printAccount: "Imprimir cuenta (no fiscal)",
+  invoiceAction: "Factura (AFIP)",
+  afipNotReady: "AFIP no configurado para esta sucursal",
   skip: "No imprimir",
-  fiscalPlaceholder: "Imprimir comprobante fiscal (próximamente)",
   confirmPrintedAction: "Sí, salió",
   marking: "Marcando...",
   retry: "No / Reintentar",
   close: "Cerrar",
   reprint: "Reimprimir",
+}
+
+interface AfipBranchConfig {
+  id: string
+  effective_afip_pto_vta?: number | null
+}
+
+interface AfipConfigResponse {
+  enabled: boolean
+  ready: boolean
+  branches: AfipBranchConfig[]
+}
+
+interface InvoiceAuthorizeResponse {
+  invoice_id: string
+  cbte_nro: number
+  pto_vta: number
+  cbte_tipo: number
+  cbte_kind?: string
+  cae: string
+  cae_vto: string
+  qr_url: string
 }
 
 export default function CajeroDashboard() {
@@ -112,6 +138,11 @@ export default function CajeroDashboard() {
   const [prebillStep, setPrebillStep] = useState<PrebillDialogStep>("ASK_PRINT")
   const [prebillOrder, setPrebillOrder] = useState<Order | null>(null)
   const [markingPrebill, setMarkingPrebill] = useState(false)
+  const [afipReady, setAfipReady] = useState(false)
+  const [afipStatusMessage, setAfipStatusMessage] = useState(PREBILL_TEXT.afipNotReady)
+  const [loadingAfipStatus, setLoadingAfipStatus] = useState(false)
+  const [authorizingInvoice, setAuthorizingInvoice] = useState(false)
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [createOrderMesa, setCreateOrderMesa] = useState<Mesa | null>(null)
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [menuLoading, setMenuLoading] = useState(false)
@@ -281,18 +312,22 @@ export default function CajeroDashboard() {
           setBranchId(id)
           await fetchData(id)
           fetchWaiterCalls(id)
+          fetchAfipStatus(id)
         } else {
           await fetchData(null)
           fetchWaiterCalls(null)
+          fetchAfipStatus(null)
         }
       } else {
         await fetchData(null)
         fetchWaiterCalls(null)
+        fetchAfipStatus(null)
       }
     } catch (error) {
       console.error(t("errors.fetchBranch"), error)
       await fetchData(null)
       fetchWaiterCalls(null)
+      fetchAfipStatus(null)
     }
   }
 
@@ -811,21 +846,146 @@ export default function CajeroDashboard() {
       : `/print/prebill/${orderId}`
   }
 
+  const buildInvoicePrintUrl = (invoiceId: string, autoprint = true) => {
+    const params = new URLSearchParams()
+    const slug = getCurrentRestaurantSlug()
+    if (autoprint) {
+      params.set("autoprint", "1")
+    }
+    if (slug) {
+      params.set("restaurantSlug", slug)
+    }
+    const queryString = params.toString()
+    return queryString
+      ? `/print/invoice/${invoiceId}?${queryString}`
+      : `/print/invoice/${invoiceId}`
+  }
+
   const openPrebillWindow = (orderId: string, autoprint = true) => {
     window.open(buildPrebillPrintUrl(orderId, autoprint), "_blank", "noopener")
   }
+
+  const openInvoiceWindow = (invoiceId: string, autoprint = true) => {
+    window.open(buildInvoicePrintUrl(invoiceId, autoprint), "_blank", "noopener")
+  }
+
+  const fetchAfipStatus = useCallback(
+    async (targetBranchId?: string | null) => {
+      setLoadingAfipStatus(true)
+      setInvoiceError(null)
+      try {
+        const authHeader = await getClientAuthHeaderAsync()
+        const response = await fetch(`${backendUrl}/admin/afip/config`, {
+          headers: {
+            ...authHeader,
+          },
+          cache: "no-store",
+        })
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}))
+          setAfipReady(false)
+          setAfipStatusMessage(payload?.message || PREBILL_TEXT.afipNotReady)
+          return
+        }
+
+        const payload = (await response.json().catch(() => ({}))) as AfipConfigResponse
+        const branches = Array.isArray(payload?.branches) ? payload.branches : []
+        const branch = branches.find((entry) => String(entry.id) === String(targetBranchId || branchId || ""))
+        const branchReady = Boolean(branch?.effective_afip_pto_vta)
+        const ready = Boolean(payload?.enabled && branchReady)
+
+        setAfipReady(ready)
+        setAfipStatusMessage(
+          ready
+            ? "AFIP listo para facturar"
+            : payload?.enabled
+              ? PREBILL_TEXT.afipNotReady
+              : "AFIP deshabilitado",
+        )
+      } catch (statusError) {
+        console.error("Error obteniendo estado AFIP", statusError)
+        setAfipReady(false)
+        setAfipStatusMessage(PREBILL_TEXT.afipNotReady)
+      } finally {
+        setLoadingAfipStatus(false)
+      }
+    },
+    [backendUrl, branchId],
+  )
 
   const resetPrebillDialog = () => {
     setPrebillDialogOpen(false)
     setPrebillStep("ASK_PRINT")
     setPrebillOrder(null)
     setMarkingPrebill(false)
+    setInvoiceError(null)
+    setAuthorizingInvoice(false)
   }
 
   const startPrebillPrinting = () => {
     if (!prebillOrder) return
     openPrebillWindow(prebillOrder.id, true)
     setPrebillStep("CONFIRM_PRINTED")
+  }
+
+  const authorizeInvoiceAndPrint = async () => {
+    if (!prebillOrder || authorizingInvoice) return
+    if (!afipReady) {
+      setInvoiceError(PREBILL_TEXT.afipNotReady)
+      return
+    }
+
+    try {
+      setAuthorizingInvoice(true)
+      setInvoiceError(null)
+
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/invoices/authorize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          branch_id: branchId || prebillOrder.branch_id || null,
+          order_id: prebillOrder.id,
+          totals: {
+            total: prebillOrder.total_amount,
+          },
+          requested_cbte_kind: "auto",
+          customer: {
+            consumidor_final: true,
+          },
+          items: Array.isArray(prebillOrder.items) ? prebillOrder.items : [],
+        }),
+      })
+
+      const payload = (await response.json().catch(() => ({}))) as InvoiceAuthorizeResponse & {
+        message?: string
+        error?: string
+        details?: { afip_err?: string }
+      }
+      if (!response.ok) {
+        const detailError = payload?.details?.afip_err
+        throw new Error(payload?.message || detailError || payload?.error || "No se pudo autorizar factura AFIP")
+      }
+
+      if (!payload?.invoice_id) {
+        throw new Error("Respuesta AFIP inválida: invoice_id faltante")
+      }
+
+      openInvoiceWindow(payload.invoice_id, true)
+      await fetchData(branchId)
+      resetPrebillDialog()
+      toast({
+        title: "Factura autorizada",
+        description: `CAE ${payload.cae} - comprobante ${String(payload.pto_vta).padStart(4, "0")}-${String(payload.cbte_nro).padStart(8, "0")}`,
+      })
+    } catch (authError: any) {
+      setInvoiceError(authError?.message || "No se pudo autorizar factura AFIP")
+    } finally {
+      setAuthorizingInvoice(false)
+    }
   }
 
   const retryPrebillPrinting = () => {
@@ -906,7 +1066,9 @@ export default function CajeroDashboard() {
           if (targetOrder) {
             setPrebillOrder(targetOrder)
             setPrebillStep("ASK_PRINT")
+            setInvoiceError(null)
             setPrebillDialogOpen(true)
+            fetchAfipStatus(targetOrder.branch_id || branchId)
           }
         }
       } else {
@@ -1488,13 +1650,27 @@ export default function CajeroDashboard() {
             {prebillStep === "ASK_PRINT" ? (
               <div className="space-y-2 pt-2">
                 <Button onClick={startPrebillPrinting} className="w-full">
-                  {PREBILL_TEXT.print}
+                  {PREBILL_TEXT.printAccount}
                 </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={authorizeInvoiceAndPrint}
+                  className="w-full"
+                  disabled={!afipReady || authorizingInvoice || loadingAfipStatus}
+                >
+                  {authorizingInvoice ? "Autorizando..." : PREBILL_TEXT.invoiceAction}
+                </Button>
+                <p className={`text-xs ${afipReady ? "text-emerald-700" : "text-amber-700"}`}>
+                  {loadingAfipStatus ? "Verificando AFIP..." : afipStatusMessage}
+                </p>
+                {invoiceError ? (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                    {invoiceError}
+                  </div>
+                ) : null}
                 <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
                   {PREBILL_TEXT.skip}
-                </Button>
-                <Button type="button" variant="ghost" disabled className="w-full">
-                  {PREBILL_TEXT.fiscalPlaceholder}
                 </Button>
               </div>
             ) : (

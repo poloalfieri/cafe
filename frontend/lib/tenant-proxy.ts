@@ -23,7 +23,6 @@ export async function proxyToBackend(
     })
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
       'X-Restaurant-Slug': restaurantSlug,
     }
 
@@ -36,6 +35,13 @@ export async function proxyToBackend(
       headers['Authorization'] = authHeader
     }
 
+    const incomingContentType = request.headers.get('content-type')
+    if (incomingContentType) {
+      headers['Content-Type'] = incomingContentType
+    } else if (request.method !== 'GET' && request.method !== 'HEAD') {
+      headers['Content-Type'] = 'application/json'
+    }
+
     const fetchOptions: RequestInit = {
       method: request.method,
       headers,
@@ -44,8 +50,8 @@ export async function proxyToBackend(
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       try {
-        const body = await request.text()
-        if (body) {
+        const body = await request.arrayBuffer()
+        if (body.byteLength > 0) {
           fetchOptions.body = body
         }
       } catch {
