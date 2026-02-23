@@ -90,6 +90,7 @@ def create_order():
         branch_id = payload.get("branch_id")
         items = payload.get("items")
         token = payload.get("token")
+        payment_method = payload.get("payment_method")
 
         if not mesa_id:
             return jsonify({"error": "mesa_id requerido"}), 400
@@ -167,6 +168,7 @@ def create_order():
                 items=items,
                 branch_id=resolved_branch_id,
                 restaurant_id=restaurant_id,
+                payment_method=payment_method,
             )
         else:
             if not token:
@@ -176,6 +178,7 @@ def create_order():
                 items=items,
                 token=token,
                 branch_id=branch_id,
+                payment_method=payment_method,
             )
 
         return jsonify(order), 201

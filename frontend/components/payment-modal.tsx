@@ -190,34 +190,20 @@ export default function PaymentModal({
             selectedOptions: item.selectedOptions || [],
           })),
           token: mesaToken,
-        }),
-      })
-
-      const data = await apiFetchTenant('/waiter/calls', {
-        method: 'POST',
-        body: JSON.stringify({
-          mesa_id: mesaId,
-          branch_id: branchId,
-          token: mesaToken,
           payment_method: paymentMethod,
-          message: `Solicitud de pago - ${paymentMethod}`
         }),
       })
       
-      if (data.success) {
-        const message = t('successWaiter')
-        toast({
-          title: t('waiterCalledTitle'),
-          description: message
-        })
-        if (onWaiterCalled) {
-          onWaiterCalled(message)
-          handleClose()
-        } else {
-          setSuccessMessage(message)
-        }
+      const message = t('successWaiter')
+      toast({
+        title: t('waiterCalledTitle'),
+        description: message
+      })
+      if (onWaiterCalled) {
+        onWaiterCalled(message)
+        handleClose()
       } else {
-        throw new Error(data.error || t('waiterNotifyError'))
+        setSuccessMessage(message)
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t('unknownError'))

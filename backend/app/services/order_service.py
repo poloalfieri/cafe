@@ -328,6 +328,7 @@ class OrderService:
         items: List[Dict],
         token: str = None,
         branch_id: Optional[str] = None,
+        payment_method: Optional[str] = None,
     ) -> Dict:
         """
         Crear un nuevo pedido (flujo público con token de mesa)
@@ -352,6 +353,7 @@ class OrderService:
             mesa_id=mesa_id,
             items=items,
             branch_id=branch_id,
+            payment_method=payment_method,
         )
 
     def create_order_by_staff(
@@ -360,6 +362,7 @@ class OrderService:
         items: List[Dict],
         branch_id: str,
         restaurant_id: str,
+        payment_method: Optional[str] = None,
     ) -> Dict:
         """
         Crear un pedido desde backoffice (caja/admin), sin token de mesa.
@@ -374,6 +377,7 @@ class OrderService:
             items=items,
             branch_id=branch_id,
             restaurant_id=restaurant_id,
+            payment_method=payment_method,
         )
 
     def update_order_status(
@@ -627,6 +631,7 @@ class OrderService:
         items: List[Dict],
         branch_id: str,
         restaurant_id: Optional[str] = None,
+        payment_method: Optional[str] = None,
     ) -> Dict:
         if not branch_id:
             raise ValueError("branch_id requerido")
@@ -663,6 +668,9 @@ class OrderService:
                 "restaurant_id": mesa.get("restaurant_id"),
                 "branch_id": mesa.get("branch_id"),
             }
+            normalized_payment_method = self._normalize_payment_method(payment_method)
+            if normalized_payment_method:
+                insert_data["payment_method"] = normalized_payment_method
 
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:
