@@ -12,6 +12,7 @@ import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
 import { formatSelectedOptionLabel } from "@/lib/product-options"
+import { getMesaSession as resolveMesaSession } from "@/lib/mesa-session"
 
 export default function CartView() {
   const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
@@ -30,22 +31,7 @@ export default function CartView() {
   const token = searchParams.get("token")
   const branch_id = searchParams.get("branch_id")
 
-  const getMesaSession = (): { mesa_id: string | null; token: string | null; branch_id: string | null } => {
-    if (mesa_id && token && branch_id) return { mesa_id, token, branch_id }
-    if (typeof window === "undefined") return { mesa_id, token, branch_id }
-    try {
-      const stored = sessionStorage.getItem("mesa_session")
-      if (!stored) return { mesa_id, token, branch_id }
-      const parsed = JSON.parse(stored)
-      return {
-        mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
-        token: typeof parsed?.token === "string" ? parsed.token : token,
-        branch_id: typeof parsed?.branch_id === "string" ? parsed.branch_id : branch_id
-      }
-    } catch {
-      return { mesa_id, token, branch_id }
-    }
-  }
+  const getMesaSession = () => resolveMesaSession({ mesa_id, token, branch_id })
   const mesaSession = getMesaSession()
 
   const handlePaymentComplete = (orderId: string, status: string) => {

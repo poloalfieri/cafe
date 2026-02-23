@@ -11,6 +11,7 @@ import FloatingCartBar from "./floating-cart-bar"
 import CategoryFiltersModal from "./category-filters-modal"
 import { useTranslations } from "next-intl"
 import { toast } from "@/hooks/use-toast"
+import { getMesaSession } from "@/lib/mesa-session"
 import {
   Dialog,
   DialogContent,
@@ -60,29 +61,12 @@ export default function MenuView() {
     setSelectedCategory(t("all"))
   }, [t])
   
-  // Obtener parámetros de la URL
   const searchParams = useSearchParams()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
-
   const branch_id = searchParams.get("branch_id")
 
-  const getMesaSession = (): { mesa_id: string | null; token: string | null; branch_id: string | null } => {
-    if (mesa_id && token && branch_id) return { mesa_id, token, branch_id }
-    if (typeof window === "undefined") return { mesa_id, token, branch_id }
-    try {
-      const stored = sessionStorage.getItem("mesa_session")
-      if (!stored) return { mesa_id, token, branch_id }
-      const parsed = JSON.parse(stored)
-      return {
-        mesa_id: typeof parsed?.mesa_id === "string" ? parsed.mesa_id : mesa_id,
-        token: typeof parsed?.token === "string" ? parsed.token : token,
-        branch_id: typeof parsed?.branch_id === "string" ? parsed.branch_id : branch_id
-      }
-    } catch {
-      return { mesa_id, token, branch_id }
-    }
-  }
+  const mesaSession = () => getMesaSession({ mesa_id, token, branch_id })
 
   // Función helper para obtener categorías únicas sin usar Set
   const getUniqueCategories = (products: ApiProduct[]): string[] => {
@@ -98,7 +82,7 @@ export default function MenuView() {
       setLoading(true)
       setError("")
 
-      const session = getMesaSession()
+      const session = mesaSession()
       if (!session.mesa_id || !session.branch_id) {
         setError("No se pudo identificar la mesa")
         return
@@ -333,7 +317,7 @@ export default function MenuView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
-      const session = getMesaSession()
+      const session = mesaSession()
       if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return

@@ -3,9 +3,11 @@ Multi-tenant middleware for Flask
 Handles restaurant slug resolution and restaurant_id injection
 """
 from flask import request, g, jsonify
-from functools import lru_cache
 import os
 import logging
+import time
+
+from ..utils.retry import execute_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +50,25 @@ def get_restaurant_id_from_slug(slug):
     Get restaurant_id from slug
     Uses cache to avoid repeated database queries
     """
-    # Check cache first
-    if slug in _slug_cache:
-        cached_data = _slug_cache[slug]
-        # Simple TTL check would go here in production
+    now_ts = time.time()
+    cached_data = _slug_cache.get(slug)
+    if cached_data and (now_ts - cached_data.get('cached_at', 0)) <= _cache_ttl:
         return cached_data['restaurant_id']
-    
+
     # Query database (using Supabase in this case)
     try:
         from ..db.supabase_client import supabase
-        
-        response = supabase.table('restaurants').select('id').eq('slug', slug).single().execute()
+
+        def _run():
+            return (
+                supabase.table('restaurants')
+                .select('id')
+                .eq('slug', slug)
+                .single()
+                .execute()
+            )
+
+        response = execute_with_retry(_run, retries=2, delay=0.2)
         
         if not response.data:
             return None
@@ -68,12 +78,20 @@ def get_restaurant_id_from_slug(slug):
         # Cache the result
         _slug_cache[slug] = {
             'restaurant_id': restaurant_id,
-            'slug': slug
+            'slug': slug,
+            'cached_at': now_ts,
         }
         
         return restaurant_id
     except Exception as e:
         logger.error(f"Error fetching restaurant for slug '{slug}': {str(e)}")
+        # Si hay cache previa (aunque vencida), usarla para tolerar
+        # fallas transitorias de red/DNS y evitar caídas completas.
+        if cached_data and cached_data.get('restaurant_id'):
+            logger.warning(
+                f"Using stale slug cache for '{slug}' due to lookup error"
+            )
+            return cached_data['restaurant_id']
         return None
 
 def clear_slug_cache():

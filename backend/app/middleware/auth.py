@@ -5,6 +5,7 @@ Alternativa a Spring Security para Flask
 from functools import wraps
 from flask import request, jsonify, g
 from ..db.supabase_client import supabase
+from ..utils.retry import _is_transient_network_error
 import logging
 import base64
 import json
@@ -16,8 +17,8 @@ logger = logging.getLogger(__name__)
 _auth_cache: Dict[str, Dict] = {}
 _AUTH_CACHE_TTL_SECONDS = 300
 _AUTH_CACHE_SKEW_SECONDS = 30
-_AUTH_VERIFY_RETRIES = 3
-_AUTH_VERIFY_RETRY_DELAY_SECONDS = 0.35
+_AUTH_VERIFY_RETRIES = 2
+_AUTH_VERIFY_RETRY_DELAY_SECONDS = 0.2
 
 class AuthenticationError(Exception):
     """Error de autenticación"""
@@ -80,15 +81,19 @@ def verify_token(token):
             raise
         except Exception as e:
             last_error = e
-            transient = _is_transient_auth_error(e)
+            transient = _is_transient_network_error(e)
             if transient and attempt < _AUTH_VERIFY_RETRIES - 1:
                 time.sleep(_AUTH_VERIFY_RETRY_DELAY_SECONDS * (attempt + 1))
                 continue
             logger.error(f"Error verificando token: {str(e)}")
+            if transient:
+                raise
             raise AuthenticationError("Token inválido")
 
     if last_error:
         logger.error(f"Error verificando token: {str(last_error)}")
+        if _is_transient_network_error(last_error):
+            raise last_error
     raise AuthenticationError("Token inválido")
 
 
@@ -137,19 +142,6 @@ def _cache_verified_user(token: str, user: Dict) -> None:
         'expires_at': cache_exp
     }
 
-
-def _is_transient_auth_error(error: Exception) -> bool:
-    message = str(error).lower()
-    transient_patterns = [
-        "temporary failure in name resolution",
-        "name or service not known",
-        "failed to resolve",
-        "timed out",
-        "timeout",
-        "connection reset",
-        "network is unreachable",
-    ]
-    return any(pattern in message for pattern in transient_patterns)
 
 def require_auth(f):
     """
