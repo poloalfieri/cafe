@@ -36,6 +36,12 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [mesaActive, setMesaActive] = useState(true)
   const [creatingMesa, setCreatingMesa] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [showEditMesa, setShowEditMesa] = useState(false)
+  const [editingMesa, setEditingMesa] = useState<Mesa | null>(null)
+  const [editMesaIdInput, setEditMesaIdInput] = useState("")
+  const [editMesaActive, setEditMesaActive] = useState(true)
+  const [editingMesaSave, setEditingMesaSave] = useState(false)
+  const [editError, setEditError] = useState<string | null>(null)
   const [tableActionError, setTableActionError] = useState<string | null>(null)
   const [copiedMesaId, setCopiedMesaId] = useState<string | null>(null)
   const backendUrl = getTenantApiBase()
@@ -77,6 +83,10 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setCreateError(t("tables.mesaIdRequired"))
       return
     }
+    if (!/^[1-9]\d*$/.test(mesaIdInput.trim())) {
+      setCreateError(t("tables.mesaIdInvalid"))
+      return
+    }
     try {
       setCreatingMesa(true)
       setCreateError(null)
@@ -105,6 +115,60 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setCreateError(error?.message || t("tables.createError"))
     } finally {
       setCreatingMesa(false)
+    }
+  }
+
+  const openEditMesa = (mesa: Mesa) => {
+    setEditingMesa(mesa)
+    setEditMesaIdInput(mesa.mesa_id || "")
+    setEditMesaActive(Boolean(mesa.is_active))
+    setEditError(null)
+    setShowEditMesa(true)
+  }
+
+  const handleEditMesa = async () => {
+    if (!editingMesa) return
+    const resolvedBranchId = editingMesa.branch_id || branchId
+    if (!resolvedBranchId) {
+      setEditError(t("tables.branchRequired"))
+      return
+    }
+    const newMesaId = editMesaIdInput.trim()
+    if (!newMesaId) {
+      setEditError(t("tables.mesaIdRequired"))
+      return
+    }
+    if (!/^[1-9]\d*$/.test(newMesaId)) {
+      setEditError(t("tables.mesaIdInvalid"))
+      return
+    }
+    try {
+      setEditingMesaSave(true)
+      setEditError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/mesas/${editingMesa.mesa_id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader
+        },
+        body: JSON.stringify({
+          mesa_id: newMesaId,
+          is_active: editMesaActive,
+          branch_id: resolvedBranchId
+        })
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || t("tables.updateError"))
+      }
+      setShowEditMesa(false)
+      setEditingMesa(null)
+      await fetchData()
+    } catch (error: any) {
+      setEditError(error?.message || t("tables.updateError"))
+    } finally {
+      setEditingMesaSave(false)
     }
   }
 
@@ -208,6 +272,45 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                 </div>
               </DialogContent>
             </Dialog>
+            <Dialog open={showEditMesa} onOpenChange={setShowEditMesa}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("tables.editTitle")}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {!branchId && !editingMesa?.branch_id && (
+                    <div className="text-sm text-red-600">{t("tables.branchRequired")}</div>
+                  )}
+                  {editError && (
+                    <div className="text-sm text-red-600">{editError}</div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="mesa_id_edit">{t("tables.mesaId")}</Label>
+                    <Input
+                      id="mesa_id_edit"
+                      value={editMesaIdInput}
+                      onChange={(e) => setEditMesaIdInput(e.target.value)}
+                      placeholder={t("tables.mesaIdPlaceholder")}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mesa_active_edit">{t("tables.activeLabel")}</Label>
+                    <Switch
+                      id="mesa_active_edit"
+                      checked={editMesaActive}
+                      onCheckedChange={setEditMesaActive}
+                    />
+                  </div>
+                  <Button
+                    onClick={handleEditMesa}
+                    disabled={editingMesaSave || !editingMesa}
+                    className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                  >
+                    {editingMesaSave ? t("tables.updating") : t("tables.update")}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button onClick={fetchData} className="bg-gray-900 hover:bg-gray-800 text-white">
               {t("actions.refresh")}
             </Button>
@@ -245,7 +348,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                   })}
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -259,6 +362,14 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                       <Copy className="w-4 h-4 mr-2" />
                     )}
                     {copiedMesaId === mesa.id ? t("tables.qrCopied") : t("tables.qrCopy")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => openEditMesa(mesa)}
+                    className="w-full"
+                  >
+                    {t("tables.edit")}
                   </Button>
                   {!qrUrl && (
                     <p className="mt-2 text-xs text-red-600">{t("tables.qrMissingData")}</p>

@@ -88,24 +88,60 @@ def create_mesa():
 @require_auth
 @require_roles('desarrollador', 'admin')
 def update_mesa_status(mesa_id):
-    """Actualizar el estado de una mesa"""
+    """Actualizar datos de una mesa"""
     try:
-        data = request.get_json()
-        is_active = data.get("is_active", True)
-        
-        updated_mesa = mesa_service.update_mesa_status(mesa_id, is_active)
-        
+        data = request.get_json() or {}
+        new_mesa_id = data.get("mesa_id")
+        is_active = data.get("is_active")
+        branch_id = data.get("branch_id")
+
+        if not branch_id:
+            return jsonify({"error": "branch_id requerido"}), 400
+
+        branch_resp = (
+            supabase.table("branches")
+            .select("id, restaurant_id")
+            .eq("id", branch_id)
+            .limit(1)
+            .single()
+            .execute()
+        )
+        if not branch_resp.data:
+            return jsonify({"error": "Sucursal no encontrada"}), 404
+
+        restaurant_id = branch_resp.data.get("restaurant_id")
+        if g.user_role != "desarrollador":
+            membership = (
+                supabase.table("restaurant_users")
+                .select("restaurant_id")
+                .eq("user_id", g.user_id)
+                .eq("restaurant_id", restaurant_id)
+                .limit(1)
+                .execute()
+            )
+            if not membership.data:
+                return jsonify({"error": "No autorizado para esta sucursal"}), 403
+
+        updated_mesa = mesa_service.update_mesa(
+            mesa_id,
+            branch_id=branch_id,
+            new_mesa_id=new_mesa_id,
+            is_active=is_active,
+        )
+
         if not updated_mesa:
             return jsonify({"error": "Mesa no encontrada"}), 404
-        
+
         return jsonify({
             "success": True,
             "mesa": updated_mesa,
-            "message": f"Mesa {mesa_id} marcada como {'activa' if is_active else 'inactiva'}"
+            "message": "Mesa actualizada exitosamente"
         }), 200
-        
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        logger.error(f"Error actualizando estado de mesa: {str(e)}")
+        logger.error(f"Error actualizando mesa: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
 @mesa_bp.route("/<mesa_id>/token", methods=["POST"])
