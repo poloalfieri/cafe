@@ -435,6 +435,57 @@ class MetricsService:
             print(f"Error getting top products: {e}")
             return {"items": []}
 
+    @staticmethod
+    def get_peak_hours(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None,
+        days: int = 30,
+    ) -> Dict[str, List]:
+        """
+        Obtiene picos por horario (últimos N días).
+        """
+        try:
+            cache_key = f"peak-hours:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}:{days}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            start = now_local - timedelta(days=max(1, days))
+            start_iso = _ensure_utc(start).isoformat()
+
+            query = (
+                supabase.table("orders")
+                .select("creation_date, status")
+                .eq("restaurant_id", restaurant_id)
+                .eq("status", "PAID")
+                .gte("creation_date", start_iso)
+            )
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = execute_with_retry(query.execute)
+            orders = response.data or []
+
+            counts = {hour: 0 for hour in range(24)}
+            for order in orders:
+                dt = _parse_order_datetime(order.get("creation_date"))
+                if not dt:
+                    continue
+                local_dt = _apply_tz_offset(dt, offset_minutes)
+                counts[local_dt.hour] += 1
+
+            labels = [f"{hour:02d}:00" for hour in range(24)]
+            values = [counts[hour] for hour in range(24)]
+            result = {"labels": labels, "values": values}
+            _cache_set(cache_key, result)
+            return result
+        except Exception as e:
+            print(f"Error getting peak hours: {e}")
+            return {"labels": [], "values": []}
+
 
 def _parse_order_datetime(value: Any) -> Optional[datetime]:
     if not value:

@@ -24,7 +24,7 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard } from "lucide-react"
+import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard, Clock } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 interface MetricsData {
@@ -33,6 +33,7 @@ interface MetricsData {
   dailyRevenue: { labels: string[]; values: number[] }
   paymentMethods: { labels: string[]; values: number[] }
   topProducts: { items: Array<{ product_id?: string | number; name: string; quantity: number; image_url?: string | null }> }
+  peakHours: { labels: string[]; values: number[] }
 }
 
 
@@ -96,6 +97,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         "daily-revenue",
         "payment-methods",
         "top-products",
+        "peak-hours",
       ]
 
       const params = new URLSearchParams()
@@ -147,6 +149,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         dailyRevenue: validatedResults[2],
         paymentMethods: validatedResults[3],
         topProducts: validatedResults[4],
+        peakHours: validatedResults[5],
       })
       completedKeyRef.current = requestKey
     } catch (err: any) {
@@ -242,6 +245,10 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   })) || []
 
   const topProducts = Array.isArray(data.topProducts?.items) ? data.topProducts.items : []
+  const peakHoursData = data.peakHours?.labels?.map((label, index) => ({
+    hour: label,
+    count: data.peakHours?.values?.[index] || 0
+  })) || []
 
   return (
     <div className="space-y-6">
@@ -259,6 +266,30 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Picos por horario */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {t("charts.peakHours")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={peakHoursData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip
+                  formatter={(value: number) => [formatNumber(value), t("charts.ordersLegend")]}
+                />
+                <Legend />
+                <Bar dataKey="count" fill={COLORS.warning} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
         {/* Productos más vendidos */}
         <Card className="md:col-span-2">
           <CardHeader>

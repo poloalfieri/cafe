@@ -925,6 +925,7 @@
         "topProducts": "Producto más vendido",
         "topProductsEmpty": "No hay productos vendidos en este período.",
         "topProductsQty": "{count} vendidos",
+        "peakHours": "Picos por horario (últimos 30 días)",
         "usage": "Uso",
         "salesLegend": "Ventas",
         "monthLabel": "Mes: {label}",

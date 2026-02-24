@@ -167,3 +167,32 @@ def get_top_products():
     except Exception as e:
         logger.error(f"Error obteniendo productos top: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
+
+@metrics_bp.route("/peak-hours", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin')
+def get_peak_hours():
+    """Endpoint para obtener picos por horario"""
+    logger.info("Iniciando petición para obtener picos por horario")
+    try:
+        branch_id = request.args.get("branch_id")
+        tz_offset = request.args.get("tzOffset")
+        tz_offset_minutes = None
+        if tz_offset is not None:
+            try:
+                tz_offset_minutes = int(tz_offset)
+            except Exception:
+                tz_offset_minutes = None
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
+            return jsonify({"labels": [], "values": []})
+        data = MetricsService.get_peak_hours(
+            restaurant_id,
+            branch_id,
+            tz_offset_minutes,
+        )
+        logger.info(f"Picos por horario obtenidos: {len(data.get('values', []))}")
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error obteniendo picos por horario: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500
