@@ -138,3 +138,32 @@ def get_payment_methods():
     except Exception as e:
         logger.error(f"Error obteniendo métodos de pago: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500 
+
+@metrics_bp.route("/top-products", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin')
+def get_top_products():
+    """Endpoint para obtener productos más vendidos"""
+    logger.info("Iniciando petición para obtener productos más vendidos")
+    try:
+        branch_id = request.args.get("branch_id")
+        tz_offset = request.args.get("tzOffset")
+        tz_offset_minutes = None
+        if tz_offset is not None:
+            try:
+                tz_offset_minutes = int(tz_offset)
+            except Exception:
+                tz_offset_minutes = None
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
+            return jsonify({"items": []})
+        data = MetricsService.get_top_products(
+            restaurant_id,
+            branch_id,
+            tz_offset_minutes,
+        )
+        logger.info(f"Productos top obtenidos: {len(data.get('items', []))}")
+        return jsonify(data)
+    except Exception as e:
+        logger.error(f"Error obteniendo productos top: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500

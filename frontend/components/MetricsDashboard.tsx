@@ -32,6 +32,7 @@ interface MetricsData {
   ordersStatus: { labels: string[]; values: number[] }
   dailyRevenue: { labels: string[]; values: number[] }
   paymentMethods: { labels: string[]; values: number[] }
+  topProducts: { items: Array<{ product_id?: string | number; name: string; quantity: number; image_url?: string | null }> }
 }
 
 
@@ -94,6 +95,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         "orders-status",
         "daily-revenue",
         "payment-methods",
+        "top-products",
       ]
 
       const params = new URLSearchParams()
@@ -126,11 +128,14 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       )
 
       // Validar que todos los resultados tengan la estructura correcta
-      const validatedResults = results.map((result) => {
+      const validatedResults = results.map((result, index) => {
         if (!result || typeof result !== "object") {
-          return { labels: [], values: [] }
+          return index === 4 ? { items: [] } : { labels: [], values: [] }
         }
-        if (!Array.isArray(result.labels) || !Array.isArray(result.values)) {
+        if (index === 4) {
+          return Array.isArray((result as any).items) ? result : { items: [] }
+        }
+        if (!Array.isArray((result as any).labels) || !Array.isArray((result as any).values)) {
           return { labels: [], values: [] }
         }
         return result
@@ -141,6 +146,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         ordersStatus: validatedResults[1],
         dailyRevenue: validatedResults[2],
         paymentMethods: validatedResults[3],
+        topProducts: validatedResults[4],
       })
       completedKeyRef.current = requestKey
     } catch (err: any) {
@@ -235,6 +241,8 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     count: data.paymentMethods?.values?.[index] || 0
   })) || []
 
+  const topProducts = Array.isArray(data.topProducts?.items) ? data.topProducts.items : []
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -251,6 +259,50 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Productos más vendidos */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              {t("charts.topProducts")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topProducts.length === 0 ? (
+              <p className="text-sm text-gray-500">{t("charts.topProductsEmpty")}</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {topProducts.map((item, index) => (
+                  <div
+                    key={`${item.product_id ?? item.name}-${index}`}
+                    className="flex flex-col items-center text-center gap-2"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl">🍽️</span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-medium text-gray-800 truncate max-w-[120px]">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {t("charts.topProductsQty", { count: Math.round(item.quantity || 0) })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Ventas Mensuales - LineChart */}
         <Card className="md:col-span-2">
           <CardHeader>

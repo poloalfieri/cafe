@@ -1,7 +1,26 @@
 from datetime import datetime, timedelta, timezone
+import time
 from typing import Dict, List, Any, Optional
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
+
+_METRICS_CACHE: Dict[str, Dict[str, Any]] = {}
+_METRICS_CACHE_TTL_SECONDS = 90
+
+def _cache_get(key: str) -> Optional[Any]:
+    entry = _METRICS_CACHE.get(key)
+    if not entry:
+        return None
+    if entry.get("expires_at", 0) <= time.time():
+        _METRICS_CACHE.pop(key, None)
+        return None
+    return entry.get("value")
+
+def _cache_set(key: str, value: Any) -> None:
+    _METRICS_CACHE[key] = {
+        "value": value,
+        "expires_at": time.time() + _METRICS_CACHE_TTL_SECONDS,
+    }
 
 class MetricsService:
     @staticmethod
@@ -12,16 +31,22 @@ class MetricsService:
     ) -> Dict[str, Any]:
         """Resumen de métricas para el dashboard"""
         try:
+            cache_key = f"summary:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
             now_local = _apply_tz_offset(now_utc, offset_minutes)
             day_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
             week_start = now_local - timedelta(days=6)
             month_start = now_local - timedelta(days=30)
+            month_start_iso = _ensure_utc(month_start).isoformat()
 
             query = supabase.table("orders").select(
-                "total_amount, items, creation_date, status, restaurant_id, branch_id"
-            ).eq("restaurant_id", restaurant_id)
+                "total_amount, items, creation_date, status"
+            ).eq("restaurant_id", restaurant_id).gte("creation_date", month_start_iso)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
             response = execute_with_retry(query.execute)
@@ -82,7 +107,7 @@ class MetricsService:
                 if current <= minimum:
                     low_stock_items += 1
 
-            return {
+            result = {
                 "dailySales": round(daily_sales, 2),
                 "weeklySales": round(weekly_sales, 2),
                 "monthlySales": round(monthly_sales, 2),
@@ -92,6 +117,8 @@ class MetricsService:
                 "lowStockItems": low_stock_items,
                 "topProducts": top_list,
             }
+            _cache_set(cache_key, result)
+            return result
         except Exception as e:
             print(f"Error getting dashboard summary: {e}")
             return {
@@ -112,13 +139,19 @@ class MetricsService:
     ) -> Dict[str, List]:
         """Obtiene las ventas mensuales del último año"""
         try:
+            cache_key = f"sales-monthly:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
             now_local = _apply_tz_offset(now_utc, offset_minutes)
             start = now_local - timedelta(days=365)
+            start_iso = _ensure_utc(start).isoformat()
             query = supabase.table("orders").select(
-                "total_amount, items, creation_date, status, restaurant_id, branch_id"
-            ).eq("restaurant_id", restaurant_id)
+                "total_amount, items, creation_date, status"
+            ).eq("restaurant_id", restaurant_id).eq("status", "PAID").gte("creation_date", start_iso)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
             response = execute_with_retry(query.execute)
@@ -150,7 +183,9 @@ class MetricsService:
                     totals[key] += _get_order_total(order)
 
             values = [round(totals[key], 2) for key in month_keys]
-            return {"labels": month_labels, "values": values}
+            result = {"labels": month_labels, "values": values}
+            _cache_set(cache_key, result)
+            return result
         except Exception as e:
             print(f"Error getting monthly sales: {e}")
             return {"labels": [], "values": []}
@@ -163,9 +198,19 @@ class MetricsService:
     ) -> Dict[str, List]:
         """Obtiene el conteo de pedidos por estado"""
         try:
+            cache_key = f"orders-status:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            start = now_local - timedelta(days=30)
+            start_iso = _ensure_utc(start).isoformat()
             query = supabase.table("orders").select(
-                "status, restaurant_id, branch_id"
-            ).eq("restaurant_id", restaurant_id)
+                "status"
+            ).eq("restaurant_id", restaurant_id).gte("creation_date", start_iso)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
             response = execute_with_retry(query.execute)
@@ -180,7 +225,9 @@ class MetricsService:
                 elif status == "PAID":
                     accepted += 1
 
-            return {"labels": ["Aceptados", "Rechazados"], "values": [accepted, rejected]}
+            result = {"labels": ["Aceptados", "Rechazados"], "values": [accepted, rejected]}
+            _cache_set(cache_key, result)
+            return result
         except Exception as e:
             print(f"Error getting orders status: {e}")
             return {"labels": [], "values": []}
@@ -193,13 +240,19 @@ class MetricsService:
     ) -> Dict[str, List]:
         """Obtiene los ingresos diarios de la última semana"""
         try:
+            cache_key = f"daily-revenue:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
             now_local = _apply_tz_offset(now_utc, offset_minutes)
             start = now_local - timedelta(days=6)
+            start_iso = _ensure_utc(start).isoformat()
             query = supabase.table("orders").select(
-                "total_amount, items, creation_date, status, restaurant_id, branch_id"
-            ).eq("restaurant_id", restaurant_id)
+                "total_amount, items, creation_date, status"
+            ).eq("restaurant_id", restaurant_id).eq("status", "PAID").gte("creation_date", start_iso)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
             response = execute_with_retry(query.execute)
@@ -226,7 +279,9 @@ class MetricsService:
                     totals[key] += _get_order_total(order)
 
             values = [round(totals[key], 2) for key in keys]
-            return {"labels": labels, "values": values}
+            result = {"labels": labels, "values": values}
+            _cache_set(cache_key, result)
+            return result
         except Exception as e:
             print(f"Error getting daily revenue: {e}")
             return {"labels": [], "values": []}
@@ -239,8 +294,13 @@ class MetricsService:
     ) -> Dict[str, List]:
         """Obtiene el uso de métodos de pago"""
         try:
+            cache_key = f"payment-methods:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
             query = supabase.table("orders").select(
-                "payment_method, restaurant_id, branch_id"
+                "payment_method"
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
@@ -267,10 +327,113 @@ class MetricsService:
 
             labels = list(counts.keys())
             values = [counts[label] for label in labels]
-            return {"labels": labels, "values": values}
+            result = {"labels": labels, "values": values}
+            _cache_set(cache_key, result)
+            return result
         except Exception as e:
             print(f"Error getting payment methods: {e}")
             return {"labels": [], "values": []} 
+
+    @staticmethod
+    def get_top_products(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        tz_offset_minutes: Optional[int] = None,
+        limit: int = 8,
+        days: int = 30,
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Obtiene los productos más vendidos (últimos N días).
+        """
+        try:
+            cache_key = f"top-products:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}:{days}:{limit}"
+            cached = _cache_get(cache_key)
+            if cached is not None:
+                return cached
+
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
+            start = now_local - timedelta(days=max(1, days))
+            start_iso = _ensure_utc(start).isoformat()
+
+            query = supabase.table("orders").select(
+                "items, creation_date, status"
+            ).eq("restaurant_id", restaurant_id).eq("status", "PAID").gte("creation_date", start_iso)
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            response = execute_with_retry(query.execute)
+            orders = response.data or []
+
+            bucket: Dict[str, Dict[str, Any]] = {}
+            product_ids: set = set()
+
+            for order in orders:
+                if order.get("status") != "PAID":
+                    continue
+                dt = _parse_order_datetime(order.get("creation_date"))
+                if not dt:
+                    continue
+                local_dt = _apply_tz_offset(dt, offset_minutes)
+                if local_dt < start:
+                    continue
+
+                items = order.get("items") or []
+                if not isinstance(items, list):
+                    continue
+
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    pid = item.get("item_id") or item.get("product_id") or item.get("id")
+                    name = (
+                        item.get("name")
+                        or item.get("title")
+                        or item.get("product_name")
+                        or item.get("producto")
+                    )
+                    qty = _safe_float(item.get("quantity") or item.get("qty") or 0)
+                    if qty <= 0:
+                        continue
+                    key = str(pid) if pid is not None else f"name::{name}"
+                    if key not in bucket:
+                        bucket[key] = {
+                            "product_id": pid,
+                            "name": str(name) if name else "Producto",
+                            "quantity": 0.0,
+                        }
+                    bucket[key]["quantity"] += qty
+                    if pid is not None:
+                        product_ids.add(pid)
+
+            # Attach image_url from menu when possible
+            images_by_id: Dict[str, Optional[str]] = {}
+            if product_ids:
+                menu_query = supabase.table("menu").select("id, name, image_url").in_("id", list(product_ids))
+                if branch_id:
+                    menu_query = menu_query.eq("branch_id", branch_id)
+                menu_query = menu_query.eq("restaurant_id", restaurant_id)
+                menu_resp = execute_with_retry(menu_query.execute)
+                for row in (menu_resp.data or []):
+                    images_by_id[str(row.get("id"))] = row.get("image_url")
+
+            top_list = list(bucket.values())
+            top_list.sort(key=lambda x: (-x["quantity"], x["name"]))
+            top_list = top_list[:max(1, limit)]
+
+            for item in top_list:
+                pid = item.get("product_id")
+                if pid is not None:
+                    item["image_url"] = images_by_id.get(str(pid))
+                else:
+                    item["image_url"] = None
+
+            result = {"items": top_list}
+            _cache_set(cache_key, result)
+            return result
+        except Exception as e:
+            print(f"Error getting top products: {e}")
+            return {"items": []}
 
 
 def _parse_order_datetime(value: Any) -> Optional[datetime]:
