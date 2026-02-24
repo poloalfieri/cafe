@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import type { UserRole } from "@/lib/auth/types"
 import { useAuth } from "@/contexts/auth-context"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 export function RoleGate({ allow, children }: { allow: UserRole[]; children: React.ReactNode }) {
   const { role, session, loading, signOut } = useAuth()
@@ -50,6 +51,40 @@ export function RoleGate({ allow, children }: { allow: UserRole[]; children: Rea
       })
     }
   }, [hasAccess, loading, pathname, router, searchParams, session, signOut])
+
+  useEffect(() => {
+    const run = async () => {
+      if (loading || !session || !hasAccess) return
+      const segments = pathname.split("/").filter(Boolean)
+      if (segments.length === 0) return
+      const slug = segments[0]
+      if (!slug) return
+
+      try {
+        const authHeader = await getClientAuthHeaderAsync()
+        const sessionHeader = session?.accessToken
+          ? { Authorization: `Bearer ${session.accessToken}` }
+          : {}
+        const response = await fetch("/api/restaurants/me", {
+          headers: {
+            ...authHeader,
+            ...sessionHeader,
+          },
+        })
+        if (!response.ok) return
+        const data = await response.json()
+        const restaurantSlug = data?.restaurant?.slug
+        if (!restaurantSlug || restaurantSlug === slug) return
+        const rest = segments.slice(1).join("/")
+        const qs = searchParams.toString()
+        const nextPath = rest ? `/${restaurantSlug}/${rest}` : `/${restaurantSlug}`
+        router.replace(qs ? `${nextPath}?${qs}` : nextPath)
+      } catch {
+        // ignore
+      }
+    }
+    void run()
+  }, [hasAccess, loading, pathname, router, searchParams, session])
 
   if (loading) return <div className="p-6">Cargando...</div>
   if (!session) return null

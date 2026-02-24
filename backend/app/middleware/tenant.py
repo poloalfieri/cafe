@@ -23,6 +23,7 @@ FLASK_ENV = os.getenv('FLASK_ENV', 'production')
 GLOBAL_PATHS = [
     '/health',
     '/',
+    '/restaurants',
 ]
 
 def is_global_path(path):
