@@ -85,3 +85,16 @@ def test_waiter_calls_filter_by_branch():
     )
     calls_b2 = waiter_service_module.waiter_service.get_all_calls(branch_id="b2")
     assert all(call.get("branch_id") == "b2" for call in calls_b2)
+
+
+def test_waiter_call_invalid_token_raises_permission_error(monkeypatch):
+    monkeypatch.setattr(waiter_service_module, "validate_token", lambda *_a, **_k: False)
+
+    with pytest.raises(PermissionError):
+        waiter_service_module.waiter_service.create_waiter_call(
+            {"mesa_id": "9", "branch_id": "b1", "payment_method": "ASSISTANCE"},
+            mesa_id="9",
+            branch_id="b1",
+            token="invalid-token",
+            skip_token_validation=False,
+        )

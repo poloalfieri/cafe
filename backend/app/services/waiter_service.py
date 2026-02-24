@@ -147,7 +147,7 @@ class WaiterService:
 
             return dict(new_call), False
 
-        except ValueError:
+        except (ValueError, PermissionError):
             raise
         except Exception as e:
             logger.error(f"Error al crear llamada: {str(e)}")
