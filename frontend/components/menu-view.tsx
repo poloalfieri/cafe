@@ -11,7 +11,7 @@ import FloatingCartBar from "./floating-cart-bar"
 import CategoryFiltersModal from "./category-filters-modal"
 import { useTranslations } from "next-intl"
 import { toast } from "@/hooks/use-toast"
-import { getMesaSession } from "@/lib/mesa-session"
+import { getMesaSession, refreshMesaSessionToken } from "@/lib/mesa-session"
 import {
   Dialog,
   DialogContent,
@@ -317,26 +317,48 @@ export default function MenuView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
-      const session = mesaSession()
+      const sendWaiterCall = async (session: { mesa_id: string; branch_id: string; token: string }) => {
+        const { getTenantApiBase } = await import("@/lib/apiClient")
+        return fetch(`${getTenantApiBase()}/waiter/calls`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mesa_id: session.mesa_id,
+            branch_id: session.branch_id,
+            token: session.token,
+            payment_method: "ASSISTANCE",
+            message: data.message || "",
+          }),
+        })
+      }
+
+      let session = await refreshMesaSessionToken({ mesa_id, token, branch_id })
       if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return
       }
-      
-      const { getTenantApiBase } = await import('@/lib/apiClient')
-      const response = await fetch(`${getTenantApiBase()}/waiter/calls`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mesa_id: session.mesa_id,
-          branch_id: session.branch_id,
-          token: session.token,
-          payment_method: "ASSISTANCE",
-          message: data.message || ""
-        }),
+
+      let response = await sendWaiterCall({
+        mesa_id: session.mesa_id,
+        branch_id: session.branch_id,
+        token: session.token,
       })
+
+      if (response.status === 401) {
+        session = await refreshMesaSessionToken(
+          { mesa_id, token, branch_id },
+          { force: true }
+        )
+        if (session.mesa_id && session.token && session.branch_id) {
+          response = await sendWaiterCall({
+            mesa_id: session.mesa_id,
+            branch_id: session.branch_id,
+            token: session.token,
+          })
+        }
+      }
 
       if (response.ok) {
         toast({

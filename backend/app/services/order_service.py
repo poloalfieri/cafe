@@ -703,6 +703,7 @@ class OrderService:
                 OrderStatus.PAYMENT_APPROVED.value,
                 OrderStatus.PAYMENT_REJECTED.value,
                 OrderStatus.PAID.value,
+                OrderStatus.CANCELLED.value,
             ],
             OrderStatus.PAYMENT_APPROVED.value: [
                 OrderStatus.IN_PREPARATION.value,

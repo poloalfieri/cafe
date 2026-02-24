@@ -13,6 +13,7 @@ class OrderStatus(enum.Enum):
     IN_PREPARATION = "IN_PREPARATION"
     READY = "READY"
     DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 class PaymentStatus(enum.Enum):
     PENDING = "pending"

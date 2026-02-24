@@ -1078,6 +1078,7 @@
         "inPreparation": "En Preparación",
         "ready": "Listo",
         "delivered": "Entregado",
+        "cancelled": "Cancelado",
         "unknown": "Desconocido",
         "active": "activa",
         "inactive": "inactiva"

@@ -12,7 +12,7 @@ import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
 import { formatSelectedOptionLabel } from "@/lib/product-options"
-import { getMesaSession as resolveMesaSession } from "@/lib/mesa-session"
+import { getMesaSession as resolveMesaSession, refreshMesaSessionToken } from "@/lib/mesa-session"
 
 export default function CartView() {
   const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
@@ -55,23 +55,57 @@ export default function CartView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
-      const session = getMesaSession()
+      const { apiFetchTenant } = await import('@/lib/apiClient')
+      const sendWaiterCall = async (session: { mesa_id: string; branch_id: string; token: string }) => {
+        await apiFetchTenant('/waiter/calls', {
+          method: "POST",
+          body: JSON.stringify({
+            mesa_id: session.mesa_id,
+            branch_id: session.branch_id,
+            token: session.token,
+            payment_method: "ASSISTANCE",
+            message: data.message || ""
+          }),
+        })
+      }
+
+      let session = await refreshMesaSessionToken({ mesa_id, token, branch_id })
       if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return
       }
-      
-      const { apiFetchTenant } = await import('@/lib/apiClient')
-      await apiFetchTenant('/waiter/calls', {
-        method: "POST",
-        body: JSON.stringify({
+
+      try {
+        await sendWaiterCall({
           mesa_id: session.mesa_id,
           branch_id: session.branch_id,
           token: session.token,
-          payment_method: "ASSISTANCE",
-          message: data.message || ""
-        }),
-      })
+        })
+      } catch (error) {
+        const status =
+          typeof error === "object" &&
+          error !== null &&
+          "status" in error
+            ? Number((error as { status?: unknown }).status)
+            : null
+        if (status !== 401) {
+          throw error
+        }
+
+        session = await refreshMesaSessionToken(
+          { mesa_id, token, branch_id },
+          { force: true }
+        )
+        if (!session.mesa_id || !session.token || !session.branch_id) {
+          throw error
+        }
+
+        await sendWaiterCall({
+          mesa_id: session.mesa_id,
+          branch_id: session.branch_id,
+          token: session.token,
+        })
+      }
     } catch (error) {
       // Error already handled silently
     } finally {

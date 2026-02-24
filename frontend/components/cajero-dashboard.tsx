@@ -1,15 +1,15 @@
 "use client"
 
 import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import WaiterCallCard from "./waiter-call-card"
+// WaiterCallCard no longer used here; waiter calls rendered inline
 import { api, getClientAuthHeader, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { supabase } from "@/lib/auth/supabase-browser"
@@ -49,6 +49,7 @@ interface Order {
   created_at: string
   items: any[]
   prebill_printed_at?: string | null
+  payment_method?: string | null
 }
 
 type PaymentMethod = "CARD" | "CASH" | "QR"
@@ -127,11 +128,17 @@ export default function CajeroDashboard() {
   const [loadingItemOptions, setLoadingItemOptions] = useState(false)
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
+  const skipNextOrdersSocketRefreshRef = useRef(0)
+  const skipNextWaiterCallsSocketRefreshRef = useRef(0)
 
   const backendUrl = getTenantApiBase()
   const socketBaseUrl = getBackendBaseUrl()
   const normalizePrice = (value: number): number => Math.round(value * 100) / 100
-  const pendingOrders = orders.filter((order) => (order.status || "").toUpperCase() !== "PAID")
+  const pendingOrders = orders.filter((order) => {
+    const s = (order.status || "").toUpperCase()
+    return s !== "PAID" && s !== "CANCELLED"
+  })
 
   const getPaymentMethodIcon = (method?: string | null) => {
     const normalized = (method || "").toUpperCase()
@@ -158,6 +165,8 @@ export default function CajeroDashboard() {
         return tWaiter("payment.qr")
       case "MERCADOPAGO":
         return "Mercado Pago"
+      case "ASSISTANCE":
+        return tWaiter("payment.assistance")
       default:
         return t("payments.unknownPaymentMethod")
     }
@@ -174,28 +183,131 @@ export default function CajeroDashboard() {
       .filter(Boolean) as Array<{ name: string; qty: number }>
   }
 
+  const getResolvedAuthHeader = useCallback(async (): Promise<Record<string, string>> => {
+    const asyncAuthHeader = await getClientAuthHeaderAsync()
+    const fallbackAuthHeader = getClientAuthHeader()
+    if (!asyncAuthHeader.Authorization && !fallbackAuthHeader.Authorization) {
+      return {}
+    }
+    return { ...fallbackAuthHeader, ...asyncAuthHeader }
+  }, [])
+
+  const fetchWithAuthRetry = useCallback(
+    async (url: string, init: RequestInit = {}): Promise<Response> => {
+      const resolvedAuthHeader = await getResolvedAuthHeader()
+      const baseHeaders = init.headers as Record<string, string> | undefined
+
+      let response = await fetch(url, {
+        ...init,
+        headers: {
+          ...(baseHeaders || {}),
+          ...resolvedAuthHeader,
+        },
+      })
+
+      if (response.status !== 401) {
+        return response
+      }
+
+      try {
+        await supabase.auth.refreshSession()
+      } catch {
+        // ignore refresh errors; retry below will still use current token state
+      }
+
+      const retryAuthHeader = await getResolvedAuthHeader()
+      response = await fetch(url, {
+        ...init,
+        headers: {
+          ...(baseHeaders || {}),
+          ...retryAuthHeader,
+        },
+      })
+      return response
+    },
+    [getResolvedAuthHeader]
+  )
+
+  const filterRecentOrders = (ordersData: any[]): Order[] => {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000
+    return (ordersData || []).filter((order: any) => {
+      const raw = order.created_at || order.creation_date
+      if (!raw) return false
+      const ts = new Date(raw).getTime()
+      return Number.isFinite(ts) && ts >= cutoff
+    })
+  }
+
+  const fetchMesasOnly = useCallback(
+    async (currentBranchId?: string | null, authHeaderOverride?: Record<string, string>) => {
+      try {
+        const authHeader = authHeaderOverride || (await getResolvedAuthHeader())
+        const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
+        const mesasResponse = await fetchWithAuthRetry(`${backendUrl}/mesas${branchQuery}`, {
+          headers: authHeader,
+        })
+        if (mesasResponse.ok) {
+          const mesasData = await mesasResponse.json()
+          setMesas(mesasData.mesas || [])
+        } else {
+          console.error(t("errors.fetchData"), `mesas status ${mesasResponse.status}`)
+        }
+      } catch (error) {
+        console.error(t("errors.fetchData"), error)
+      }
+    },
+    [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t]
+  )
+
+  const fetchOrdersOnly = useCallback(
+    async (
+      currentBranchId?: string | null,
+      authHeaderOverride?: Record<string, string>
+    ): Promise<Order[]> => {
+      try {
+        const authHeader = authHeaderOverride || (await getResolvedAuthHeader())
+        const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
+        const ordersResponse = await fetchWithAuthRetry(`${backendUrl}/orders${branchQuery}`, {
+          headers: authHeader,
+        })
+        if (!ordersResponse.ok) {
+          console.error(t("errors.fetchData"), `orders status ${ordersResponse.status}`)
+          return []
+        }
+        const ordersData = await ordersResponse.json()
+        const filtered = filterRecentOrders(ordersData || [])
+        setOrders(filtered)
+        return filtered
+      } catch (error) {
+        console.error(t("errors.fetchData"), error)
+        return []
+      }
+    },
+    [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t]
+  )
+
   const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
     try {
-      const authHeader = await getClientAuthHeaderAsync()
+      const authHeader = await getResolvedAuthHeader()
       const params = new URLSearchParams({ status: "PENDING" })
       if (currentBranchId) {
         params.set("branch_id", currentBranchId)
       }
-      const response = await fetch(`${backendUrl}/waiter/calls?${params.toString()}`, {
-        headers: {
-          ...authHeader,
-        },
+      const response = await fetchWithAuthRetry(`${backendUrl}/waiter/calls?${params.toString()}`, {
+        headers: authHeader,
       })
       if (response.ok) {
         const data = await response.json()
         if (data.success && Array.isArray(data.calls)) {
           setWaiterCalls(data.calls)
         }
+      } else {
+        console.error(t("errors.fetchWaiterCalls"), `waiter calls status ${response.status}`)
       }
     } catch (error) {
       console.error(t("errors.fetchWaiterCalls"), error)
     }
-  }, [backendUrl])
+  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
 
   useEffect(() => {
     fetchBranch()
@@ -214,61 +326,25 @@ export default function CajeroDashboard() {
   const fetchData = useCallback(async (currentBranchId?: string | null): Promise<Order[]> => {
     setLoading(true)
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
-      let nextOrders: Order[] = []
-      // Fetch mesas
-      const mesasResponse = await fetch(`${backendUrl}/mesas${branchQuery}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (mesasResponse.ok) {
-        const mesasData = await mesasResponse.json()
-        setMesas(mesasData.mesas || [])
-      } else {
-        setMesas([])
-      }
-
-      // Fetch orders
-      const ordersResponse = await fetch(`${backendUrl}/orders${branchQuery}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (ordersResponse.ok) {
-        const ordersData = await ordersResponse.json()
-        const cutoff = Date.now() - 24 * 60 * 60 * 1000
-        const filtered = (ordersData || []).filter((order: any) => {
-          const raw = order.created_at || order.creation_date
-          if (!raw) return false
-          const ts = new Date(raw).getTime()
-          return Number.isFinite(ts) && ts >= cutoff
-        })
-        nextOrders = filtered
-        setOrders(filtered)
-      } else {
-        nextOrders = []
-        setOrders([])
-      }
+      const authHeader = await getResolvedAuthHeader()
+      const [, nextOrders] = await Promise.all([
+        fetchMesasOnly(currentBranchId, authHeader),
+        fetchOrdersOnly(currentBranchId, authHeader),
+      ])
       return nextOrders
     } catch (error) {
       console.error(t("errors.fetchData"), error)
-      setMesas([])
-      setOrders([])
       return []
     } finally {
       setLoading(false)
     }
-  }, [backendUrl, t])
+  }, [fetchMesasOnly, fetchOrdersOnly, getResolvedAuthHeader, t])
 
   const fetchBranch = async () => {
     try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches/me`, {
-        headers: {
-          ...authHeader,
-        },
+      const authHeader = await getResolvedAuthHeader()
+      const response = await fetchWithAuthRetry(`${backendUrl}/branches/me`, {
+        headers: authHeader,
       })
       if (response.ok) {
         const data = await response.json()
@@ -279,20 +355,16 @@ export default function CajeroDashboard() {
         }
         if (id) {
           setBranchId(id)
-          await fetchData(id)
-          fetchWaiterCalls(id)
+          await Promise.all([fetchData(id), fetchWaiterCalls(id)])
         } else {
-          await fetchData(null)
-          fetchWaiterCalls(null)
+          await Promise.all([fetchData(null), fetchWaiterCalls(null)])
         }
       } else {
-        await fetchData(null)
-        fetchWaiterCalls(null)
+        await Promise.all([fetchData(null), fetchWaiterCalls(null)])
       }
     } catch (error) {
       console.error(t("errors.fetchBranch"), error)
-      await fetchData(null)
-      fetchWaiterCalls(null)
+      await Promise.all([fetchData(null), fetchWaiterCalls(null)])
     }
   }
 
@@ -314,20 +386,28 @@ export default function CajeroDashboard() {
       if (payload?.branch_id && branchId && payload.branch_id !== branchId) {
         return
       }
-      fetchWaiterCalls(branchId)
+      if (skipNextWaiterCallsSocketRefreshRef.current > 0) {
+        skipNextWaiterCallsSocketRefreshRef.current -= 1
+        return
+      }
+      void fetchWaiterCalls(branchId)
     })
 
     socket.on("orders:updated", (payload: any) => {
       if (payload?.branch_id && branchId && payload.branch_id !== branchId) {
         return
       }
-      fetchData(branchId)
+      if (skipNextOrdersSocketRefreshRef.current > 0) {
+        skipNextOrdersSocketRefreshRef.current -= 1
+        return
+      }
+      void fetchOrdersOnly(branchId)
     })
 
     return () => {
       socket.disconnect()
     }
-  }, [socketBaseUrl, branchId, fetchWaiterCalls, fetchData])
+  }, [socketBaseUrl, branchId, fetchWaiterCalls, fetchOrdersOnly])
 
   const resolveMesaBranchId = (mesa: Mesa | null): string | null => {
     if (!mesa) return null
@@ -671,6 +751,7 @@ export default function CajeroDashboard() {
         setCreateOrderError(errorPayload?.error || t("orders.createError"))
         return
       }
+      const createdOrder = await response.json().catch(() => null)
 
       const callResponse = await fetch(`${backendUrl}/waiter/calls`, {
         method: "POST",
@@ -691,9 +772,27 @@ export default function CajeroDashboard() {
         setCreateOrderError(callErrorPayload?.error || t("orders.createQueueError"))
         return
       }
+      const callPayload = await callResponse.json().catch(() => null)
 
-      await fetchData(branchId)
-      await fetchWaiterCalls(branchId)
+      if (createdOrder?.id) {
+        setOrders((prev) => {
+          if (prev.some((order) => order.id === createdOrder.id)) {
+            return prev
+          }
+          return [createdOrder as Order, ...prev]
+        })
+      }
+
+      const createdCall = callPayload?.call
+      if (createdCall?.id && createdCall?.status === "PENDING") {
+        setWaiterCalls((prev) => {
+          if (prev.some((call) => call.id === createdCall.id)) {
+            return prev
+          }
+          return [createdCall as WaiterCall, ...prev]
+        })
+      }
+
       const createdMesaId = createOrderMesa.mesa_id
       closeCreateOrderDialog()
       setActiveTab("pagos")
@@ -748,6 +847,7 @@ export default function CajeroDashboard() {
       case "IN_PREPARATION": return "bg-yellow-100 text-yellow-800 border-yellow-200"
       case "READY": return "bg-blue-100 text-blue-800 border-blue-200"
       case "DELIVERED": return "bg-gray-100 text-gray-500 border-gray-200"
+      case "CANCELLED": return "bg-red-100 text-red-600 border-red-200"
       default: return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
@@ -767,6 +867,7 @@ export default function CajeroDashboard() {
       case "IN_PREPARATION": return t("status.inPreparation")
       case "READY": return t("status.ready")
       case "DELIVERED": return t("status.delivered")
+      case "CANCELLED": return t("status.cancelled")
       default: return t("status.unknown")
     }
   }
@@ -854,8 +955,18 @@ export default function CajeroDashboard() {
         console.error(t("errors.markPrebillPrinted"), errorData?.error)
         return
       }
+      const payload = await response.json().catch(() => ({}))
+      const printedAt = payload?.prebill_printed_at
 
-      await fetchData(branchId)
+      if (printedAt && prebillOrder?.id) {
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.id === prebillOrder.id
+              ? { ...order, prebill_printed_at: printedAt }
+              : order
+          )
+        )
+      }
       resetPrebillDialog()
     } catch (error) {
       console.error(t("errors.markPrebillPrinted"), error)
@@ -885,6 +996,7 @@ export default function CajeroDashboard() {
   }
 
   const updateCallStatus = async (callId: string, newStatus: WaiterCall["status"]) => {
+    skipNextWaiterCallsSocketRefreshRef.current += 1
     try {
       const authHeader = await getClientAuthHeaderAsync()
       const response = await fetch(`${backendUrl}/waiter/calls/${callId}/status`, {
@@ -897,29 +1009,27 @@ export default function CajeroDashboard() {
       })
 
       if (response.ok) {
-        const payload = await response.json().catch(() => ({}))
         setWaiterCalls(prev => prev.filter(call => call.id !== callId))
-        if (newStatus === "COMPLETED") {
-          const refreshedOrders = await fetchData(branchId)
-          const mesaId = String(payload?.call?.mesa_id ?? "")
-          const targetOrder = mesaId ? getLatestOrderForMesa(mesaId, refreshedOrders) : null
-          if (targetOrder) {
-            setPrebillOrder(targetOrder)
-            setPrebillStep("ASK_PRINT")
-            setPrebillDialogOpen(true)
-          }
-        }
       } else {
+        skipNextWaiterCallsSocketRefreshRef.current = Math.max(
+          0,
+          skipNextWaiterCallsSocketRefreshRef.current - 1
+        )
         const errorData = await response.json()
         console.error(t("errors.updateCallStatus"), errorData.error)
       }
     } catch (error) {
+      skipNextWaiterCallsSocketRefreshRef.current = Math.max(
+        0,
+        skipNextWaiterCallsSocketRefreshRef.current - 1
+      )
       console.error(t("errors.updateCallStatus"), error)
     }
   }
 
   const completePendingOrder = async (order: Order) => {
     if (!order?.id || completingOrderId) return
+    skipNextOrdersSocketRefreshRef.current += 1
     try {
       setCompletingOrderId(order.id)
       const authHeader = await getClientAuthHeaderAsync()
@@ -936,15 +1046,61 @@ export default function CajeroDashboard() {
         body: JSON.stringify(body),
       })
       if (!response.ok) {
+        skipNextOrdersSocketRefreshRef.current = Math.max(
+          0,
+          skipNextOrdersSocketRefreshRef.current - 1
+        )
         const errorData = await response.json().catch(() => ({}))
         console.error(t("payments.completeError"), errorData?.error)
         return
       }
-      await fetchData(branchId)
+      setOrders(prev => prev.filter(o => o.id !== order.id))
+      setPrebillOrder(order)
+      setPrebillStep("ASK_PRINT")
+      setPrebillDialogOpen(true)
     } catch (error) {
+      skipNextOrdersSocketRefreshRef.current = Math.max(
+        0,
+        skipNextOrdersSocketRefreshRef.current - 1
+      )
       console.error(t("payments.completeError"), error)
     } finally {
       setCompletingOrderId(null)
+    }
+  }
+
+  const cancelPendingOrder = async (order: Order) => {
+    if (!order?.id || cancellingOrderId) return
+    skipNextOrdersSocketRefreshRef.current += 1
+    try {
+      setCancellingOrderId(order.id)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/orders/${order.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({ status: "CANCELLED" }),
+      })
+      if (!response.ok) {
+        skipNextOrdersSocketRefreshRef.current = Math.max(
+          0,
+          skipNextOrdersSocketRefreshRef.current - 1
+        )
+        const errorData = await response.json().catch(() => ({}))
+        console.error(t("payments.completeError"), errorData?.error)
+        return
+      }
+      setOrders(prev => prev.filter(o => o.id !== order.id))
+    } catch (error) {
+      skipNextOrdersSocketRefreshRef.current = Math.max(
+        0,
+        skipNextOrdersSocketRefreshRef.current - 1
+      )
+      console.error(t("payments.completeError"), error)
+    } finally {
+      setCancellingOrderId(null)
     }
   }
 
@@ -1548,115 +1704,201 @@ export default function CajeroDashboard() {
             ) : (
               <div className="space-y-4">
                 <p className="text-sm text-gray-500">{t("payments.autoRefresh")}</p>
-                {waiterCalls.map((call) => (
-                  <WaiterCallCard
-                    key={call.id}
-                    call={call}
-                    onStatusUpdate={updateCallStatus}
-                  />
-                ))}
+
                 {pendingOrders.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold text-gray-800">
                       {t("payments.pendingOrdersTitle", { count: pendingOrders.length })}
                     </h4>
+                    {pendingOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
+                      >
+                        <div className="p-4 border-b border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
+                                <span className="text-white font-bold text-lg">
+                                  {String(order.mesa_id).replace("Mesa ", "")}
+                                </span>
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                  <Bell className="w-4 h-4 text-orange-500" />
+                                  {t("payments.tableLabel")} {order.mesa_id}
+                                </h3>
+                                <p className="text-xs text-gray-600">
+                                  #{String(order.id || "").slice(0, 8)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
+                              <Clock className="w-3 h-3" />
+                              <span className="text-xs font-medium">
+                                {new Date(order.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-600">
+                            <span>
+                              {tWaiter("callTime", {
+                                time: new Date(order.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }),
+                              })}
+                            </span>
+                            <Badge variant="outline">{getStatusText(order.status)}</Badge>
+                          </div>
+                        </div>
+
+                        <div className="p-4 space-y-4">
+                          <div className="p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-2 text-gray-900">
+                              {getPaymentMethodIcon(order.payment_method)}
+                              <p className="text-sm font-medium">
+                                {t("payments.paymentMethodLabel")}: {getPaymentMethodText(order.payment_method)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium text-gray-700">
+                              {t("payments.itemsLabel")}
+                            </p>
+                            <div className="space-y-1 text-sm text-gray-700">
+                              {getOrderItems(order).length === 0 ? (
+                                <p className="text-gray-500">{t("payments.noItems")}</p>
+                              ) : (
+                                getOrderItems(order).map((item, idx) => (
+                                  <div key={`${order.id}-${idx}`} className="flex items-center justify-between">
+                                    <span>{item.name}</span>
+                                    <span className="text-gray-500">x{item.qty}</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">{t("payments.totalLabel")}</span>
+                            <span className="font-semibold">
+                              ${normalizePrice(Number(order.total_amount || 0)).toFixed(2)}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-2">
+                            <Button
+                              onClick={() => completePendingOrder(order)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              {completingOrderId === order.id
+                                ? t("payments.completingAction")
+                                : t("payments.completeAction")}
+                            </Button>
+                            <Button
+                              onClick={() => cancelPendingOrder(order)}
+                              variant="outline"
+                              className="border-red-300 text-red-600 hover:bg-red-50"
+                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <XCircle className="w-4 h-4 mr-2" />
+                              {t("orders.cancel")}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {waiterCalls.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      {t("payments.waiterCallsTitle", { count: waiterCalls.length })}
+                    </h4>
                     <div className="grid gap-4 md:grid-cols-2">
-                      {pendingOrders.map((order) => (
-                        <div
-                          key={order.id}
-                          className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
-                        >
-                          <div className="p-4 border-b border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
-                                  <span className="text-white font-bold text-lg">
-                                    {String(order.mesa_id).replace("Mesa ", "")}
+                      {waiterCalls.map((call) => {
+                        const callId = typeof call.id === "string" ? call.id : String(call.id ?? "")
+                        const mesaLabel = typeof call.mesa_id === "string" ? call.mesa_id : String(call.mesa_id ?? "")
+                        return (
+                          <div
+                            key={call.id}
+                            className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
+                          >
+                            <div className="p-4 border-b border-gray-200">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
+                                    <span className="text-white font-bold text-lg">
+                                      {mesaLabel.replace("Mesa ", "")}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                                      <Bell className="w-4 h-4 text-orange-500" />
+                                      {mesaLabel}
+                                    </h3>
+                                    <p className="text-xs text-gray-600">#{callId.slice(0, 8)}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
+                                  <Clock className="w-3 h-3" />
+                                  <span className="text-xs font-medium">
+                                    {new Date(call.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
                                   </span>
                                 </div>
-                                <div>
-                                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                                    <Bell className="w-4 h-4 text-orange-500" />
-                                    {t("payments.tableLabel")} {order.mesa_id}
-                                  </h3>
-                                  <p className="text-xs text-gray-600">
-                                    #{String(order.id || "").slice(0, 8)}
-                                  </p>
-                                </div>
                               </div>
-                              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
-                                <Clock className="w-3 h-3" />
-                                <span className="text-xs font-medium">
-                                  {new Date(order.created_at || order.creation_date || Date.now()).toLocaleTimeString("es-ES", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
+                              <div className="flex items-center justify-between text-xs text-gray-600">
+                                <span>
+                                  {tWaiter("callTime", {
+                                    time: new Date(call.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    }),
                                   })}
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-gray-600">
-                              <span>
-                                {tWaiter("callTime", {
-                                  time: new Date(order.created_at || order.creation_date || Date.now()).toLocaleTimeString("es-ES", {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  }),
-                                })}
-                              </span>
-                              <Badge variant="outline">{order.status}</Badge>
-                            </div>
-                          </div>
-
-                          <div className="p-4 space-y-4">
-                            <div className="p-3 bg-gray-50 rounded-lg">
-                              <div className="flex items-center gap-2 text-gray-900">
-                                {getPaymentMethodIcon(order.payment_method)}
-                                <p className="text-sm font-medium">
-                                  {t("payments.paymentMethodLabel")}: {getPaymentMethodText(order.payment_method)}
-                                </p>
+                            <div className="p-4 space-y-4">
+                              <div className="p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-2 text-gray-900">
+                                  {getPaymentMethodIcon(call.payment_method)}
+                                  <p className="text-sm font-medium">
+                                    {getPaymentMethodText(call.payment_method)}
+                                  </p>
+                                </div>
+                              </div>
+                              {call.message && (
+                                <div className="p-3 bg-gray-50 rounded-lg">
+                                  <p className="text-sm text-gray-900">
+                                    <span className="font-medium text-gray-600">{tWaiter("messageLabel")}</span> {call.message}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="pt-2">
+                                <Button
+                                  onClick={() => updateCallStatus(callId, "COMPLETED")}
+                                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={!callId}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {tWaiter("actions.complete")}
+                                </Button>
                               </div>
                             </div>
-
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium text-gray-700">
-                                {t("payments.itemsLabel")}
-                              </p>
-                              <div className="space-y-1 text-sm text-gray-700">
-                                {getOrderItems(order).length === 0 ? (
-                                  <p className="text-gray-500">{t("payments.noItems")}</p>
-                                ) : (
-                                  getOrderItems(order).map((item, idx) => (
-                                    <div key={`${order.id}-${idx}`} className="flex items-center justify-between">
-                                      <span>{item.name}</span>
-                                      <span className="text-gray-500">x{item.qty}</span>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-500">{t("payments.totalLabel")}</span>
-                              <span className="font-semibold">
-                                ${normalizePrice(Number(order.total_amount || 0)).toFixed(2)}
-                              </span>
-                            </div>
-
-                            <div className="pt-2">
-                              <Button
-                                onClick={() => completePendingOrder(order)}
-                                className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                disabled={completingOrderId === order.id}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                {completingOrderId === order.id
-                                  ? t("payments.completingAction")
-                                  : t("payments.completeAction")}
-                              </Button>
-                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
