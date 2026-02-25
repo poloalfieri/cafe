@@ -977,7 +977,39 @@
       "tabs": {
         "payments": "Pagos ({count})",
         "tables": "Mesas ({count})",
-        "orders": "Pedidos a Realizar ({count})"
+        "orders": "Pedidos a Realizar ({count})",
+        "cash": "Caja"
+      },
+      "cash": {
+        "loading": "Cargando caja...",
+        "registerTitle": "Caja registradora",
+        "sessionTitle": "Sesión activa",
+        "sessionOpenId": "Sesión #{id}",
+        "selectRegister": "Seleccionar caja",
+        "newRegisterPlaceholder": "Nombre de la caja",
+        "createRegister": "Crear caja",
+        "openSession": "Abrir caja",
+        "closeSession": "Cerrar caja",
+        "addMovement": "Registrar movimiento",
+        "openingAmountPlaceholder": "Monto inicial",
+        "closingAmountPlaceholder": "Monto contado al cierre",
+        "expectedNow": "Monto esperado: ${amount}",
+        "movementsTitle": "Movimientos",
+        "noMovements": "Sin movimientos registrados",
+        "manualMovementTitle": "Nuevo movimiento manual",
+        "manualIn": "Ingreso manual",
+        "manualOut": "Egreso manual",
+        "movementAmountPlaceholder": "Monto",
+        "movementNotePlaceholder": "Nota (opcional)",
+        "errors": {
+          "loadRegisters": "No se pudieron cargar las cajas",
+          "loadSession": "No se pudo obtener la sesión de caja",
+          "loadMovements": "No se pudieron cargar los movimientos",
+          "createRegister": "No se pudo crear la caja",
+          "openSession": "No se pudo abrir la caja",
+          "closeSession": "No se pudo cerrar la caja",
+          "createMovement": "No se pudo registrar el movimiento"
+        }
       },
       "payments": {
         "loading": "Cargando solicitudes...",

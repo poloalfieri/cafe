@@ -11,6 +11,7 @@ from ..utils.token_manager import validate_token, renew_token, invalidate_token
 from ..utils.logger import setup_logger
 from ..utils.retry import execute_with_retry
 from ..socketio import socketio
+from ..services.cash_service import cash_service
 
 logger = setup_logger(__name__)
 
@@ -440,6 +441,21 @@ class OrderService:
                 return None
 
             updated_order = response.data[0]
+
+            if status_value == OrderStatus.PAID.value:
+                try:
+                    cash_service.record_order_payment(updated_order)
+                except Exception as cash_error:
+                    try:
+                        supabase.table("orders").update({"status": current_status}).eq("id", order_id).execute()
+                    except Exception:
+                        pass
+                    logger.error(
+                        "Error registrando movimiento de caja para order_id=%s: %s",
+                        order_id,
+                        str(cash_error),
+                    )
+                    raise ValueError(f"No se pudo registrar el cobro en caja: {str(cash_error)}")
 
             logger.info(
                 f"Pedido {order_id}: Estado actualizado de {current_status} a {status_value}"

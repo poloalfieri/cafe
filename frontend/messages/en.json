@@ -977,7 +977,39 @@
       "tabs": {
         "payments": "Pagos ({count})",
         "tables": "Mesas ({count})",
-        "orders": "Pedidos a Realizar ({count})"
+        "orders": "Pedidos a Realizar ({count})",
+        "cash": "Cash Register"
+      },
+      "cash": {
+        "loading": "Loading cash register...",
+        "registerTitle": "Cash register",
+        "sessionTitle": "Active session",
+        "sessionOpenId": "Session #{id}",
+        "selectRegister": "Select register",
+        "newRegisterPlaceholder": "Register name",
+        "createRegister": "Create register",
+        "openSession": "Open register",
+        "closeSession": "Close register",
+        "addMovement": "Add movement",
+        "openingAmountPlaceholder": "Opening amount",
+        "closingAmountPlaceholder": "Counted amount at close",
+        "expectedNow": "Expected amount: ${amount}",
+        "movementsTitle": "Movements",
+        "noMovements": "No movements registered",
+        "manualMovementTitle": "New manual movement",
+        "manualIn": "Manual income",
+        "manualOut": "Manual expense",
+        "movementAmountPlaceholder": "Amount",
+        "movementNotePlaceholder": "Note (optional)",
+        "errors": {
+          "loadRegisters": "Could not load registers",
+          "loadSession": "Could not load cash session",
+          "loadMovements": "Could not load movements",
+          "createRegister": "Could not create register",
+          "openSession": "Could not open register",
+          "closeSession": "Could not close register",
+          "createMovement": "Could not register movement"
+        }
       },
       "payments": {
         "loading": "Cargando solicitudes...",

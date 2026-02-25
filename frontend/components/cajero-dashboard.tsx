@@ -73,6 +73,33 @@ interface DraftOrderItem {
   quantity: number
 }
 
+interface CashRegister {
+  id: string
+  name: string
+  branch_id: string
+  active: boolean
+}
+
+interface CashSession {
+  id: string
+  register_id: string
+  status: "OPEN" | "CLOSED"
+  opening_amount: number
+  expected_amount_live?: number
+  closing_counted_amount?: number | null
+  difference_amount?: number | null
+}
+
+interface CashMovement {
+  id: string
+  type: string
+  amount: number
+  direction: "IN" | "OUT"
+  payment_method?: string | null
+  note?: string | null
+  created_at: string
+}
+
 type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
 
 const PREBILL_TEXT = {
@@ -103,7 +130,7 @@ export default function CajeroDashboard() {
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
   const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [activeTab, setActiveTab] = useState<"pagos" | "mesas">("mesas")
+  const [activeTab, setActiveTab] = useState<"pagos" | "mesas" | "caja">("mesas")
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null)
   const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
@@ -129,6 +156,18 @@ export default function CajeroDashboard() {
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
+  const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([])
+  const [selectedRegisterId, setSelectedRegisterId] = useState<string>("")
+  const [cashSession, setCashSession] = useState<CashSession | null>(null)
+  const [cashMovements, setCashMovements] = useState<CashMovement[]>([])
+  const [cashLoading, setCashLoading] = useState(false)
+  const [cashError, setCashError] = useState<string | null>(null)
+  const [openingAmount, setOpeningAmount] = useState("0")
+  const [registerName, setRegisterName] = useState("")
+  const [movementAmount, setMovementAmount] = useState("")
+  const [movementType, setMovementType] = useState<"MANUAL_IN" | "MANUAL_OUT">("MANUAL_IN")
+  const [movementNote, setMovementNote] = useState("")
+  const [closingAmount, setClosingAmount] = useState("")
   const skipNextOrdersSocketRefreshRef = useRef(0)
   const skipNextWaiterCallsSocketRefreshRef = useRef(0)
 
@@ -309,6 +348,73 @@ export default function CajeroDashboard() {
     }
   }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
 
+  const fetchCashRegisters = useCallback(async (currentBranchId?: string | null) => {
+    if (!currentBranchId) return
+    try {
+      const authHeader = await getResolvedAuthHeader()
+      const response = await fetchWithAuthRetry(`${backendUrl}/cash/registers?branch_id=${encodeURIComponent(currentBranchId)}`, {
+        headers: authHeader,
+      })
+      if (!response.ok) {
+        setCashError(t("cash.errors.loadRegisters"))
+        return
+      }
+      const payload = await response.json()
+      const list = Array.isArray(payload?.data) ? payload.data : []
+      setCashRegisters(list)
+      if (!selectedRegisterId && list.length > 0) {
+        setSelectedRegisterId(String(list[0].id))
+      }
+    } catch (error) {
+      console.error(t("cash.errors.loadRegisters"), error)
+      setCashError(t("cash.errors.loadRegisters"))
+    }
+  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, selectedRegisterId, t])
+
+  const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null, registerId?: string) => {
+    if (!currentBranchId) return
+    try {
+      const authHeader = await getResolvedAuthHeader()
+      const params = new URLSearchParams({ branch_id: currentBranchId })
+      if (registerId) params.set("register_id", registerId)
+      const response = await fetchWithAuthRetry(`${backendUrl}/cash/sessions/current?${params.toString()}`, {
+        headers: authHeader,
+      })
+      if (!response.ok) {
+        setCashSession(null)
+        return
+      }
+      const payload = await response.json()
+      setCashSession(payload?.data || null)
+    } catch (error) {
+      console.error(t("cash.errors.loadSession"), error)
+      setCashError(t("cash.errors.loadSession"))
+    }
+  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
+
+  const fetchCashMovements = useCallback(async (sessionId?: string) => {
+    if (!sessionId) {
+      setCashMovements([])
+      return
+    }
+    try {
+      const authHeader = await getResolvedAuthHeader()
+      const response = await fetchWithAuthRetry(`${backendUrl}/cash/sessions/${sessionId}/movements`, {
+        headers: authHeader,
+      })
+      if (!response.ok) {
+        setCashError(t("cash.errors.loadMovements"))
+        return
+      }
+      const payload = await response.json()
+      const list = Array.isArray(payload?.data) ? payload.data : []
+      setCashMovements(list)
+    } catch (error) {
+      console.error(t("cash.errors.loadMovements"), error)
+      setCashError(t("cash.errors.loadMovements"))
+    }
+  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
+
   useEffect(() => {
     fetchBranch()
     ;(async () => {
@@ -355,7 +461,7 @@ export default function CajeroDashboard() {
         }
         if (id) {
           setBranchId(id)
-          await Promise.all([fetchData(id), fetchWaiterCalls(id)])
+          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCashRegisters(id)])
         } else {
           await Promise.all([fetchData(null), fetchWaiterCalls(null)])
         }
@@ -367,6 +473,28 @@ export default function CajeroDashboard() {
       await Promise.all([fetchData(null), fetchWaiterCalls(null)])
     }
   }
+
+  useEffect(() => {
+    if (!branchId) return
+    if (!selectedRegisterId) {
+      setCashSession(null)
+      setCashMovements([])
+      return
+    }
+    void (async () => {
+      setCashLoading(true)
+      setCashError(null)
+      try {
+        await fetchCurrentCashSession(branchId, selectedRegisterId)
+      } finally {
+        setCashLoading(false)
+      }
+    })()
+  }, [branchId, selectedRegisterId, fetchCurrentCashSession])
+
+  useEffect(() => {
+    void fetchCashMovements(cashSession?.id)
+  }, [cashSession?.id, fetchCashMovements])
 
   useEffect(() => {
     const socket = io(socketBaseUrl || undefined, {
@@ -1107,6 +1235,139 @@ export default function CajeroDashboard() {
   const refreshData = () => {
     void fetchData(branchId)
     void fetchWaiterCalls(branchId)
+    void fetchCashRegisters(branchId)
+    if (selectedRegisterId) {
+      void fetchCurrentCashSession(branchId, selectedRegisterId)
+    }
+  }
+
+  const createCashRegister = async () => {
+    if (!branchId || !registerName.trim()) return
+    try {
+      setCashLoading(true)
+      setCashError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/cash/registers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({ name: registerName.trim(), branch_id: branchId }),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || t("cash.errors.createRegister"))
+      }
+      setRegisterName("")
+      await fetchCashRegisters(branchId)
+    } catch (error: any) {
+      setCashError(error?.message || t("cash.errors.createRegister"))
+    } finally {
+      setCashLoading(false)
+    }
+  }
+
+  const openCashSession = async () => {
+    if (!selectedRegisterId) return
+    try {
+      setCashLoading(true)
+      setCashError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/cash/sessions/open`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          register_id: selectedRegisterId,
+          opening_amount: Number(openingAmount || "0"),
+        }),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || t("cash.errors.openSession"))
+      }
+      await fetchCurrentCashSession(branchId, selectedRegisterId)
+    } catch (error: any) {
+      setCashError(error?.message || t("cash.errors.openSession"))
+    } finally {
+      setCashLoading(false)
+    }
+  }
+
+  const createManualMovement = async () => {
+    if (!cashSession?.id) return
+    const amount = Number(movementAmount || "0")
+    if (!Number.isFinite(amount) || amount <= 0) return
+    const direction = movementType === "MANUAL_IN" ? "IN" : "OUT"
+    try {
+      setCashLoading(true)
+      setCashError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/cash/movements`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          session_id: cashSession.id,
+          type: movementType,
+          amount,
+          direction,
+          note: movementNote,
+          impacts_cash: true,
+        }),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || t("cash.errors.createMovement"))
+      }
+      setMovementAmount("")
+      setMovementNote("")
+      await Promise.all([
+        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCashMovements(cashSession.id),
+      ])
+    } catch (error: any) {
+      setCashError(error?.message || t("cash.errors.createMovement"))
+    } finally {
+      setCashLoading(false)
+    }
+  }
+
+  const closeCashSession = async () => {
+    if (!cashSession?.id) return
+    try {
+      setCashLoading(true)
+      setCashError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/cash/sessions/${cashSession.id}/close`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          closing_counted_amount: Number(closingAmount || "0"),
+        }),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        throw new Error(payload?.error || t("cash.errors.closeSession"))
+      }
+      setClosingAmount("")
+      await Promise.all([
+        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCashMovements(undefined),
+      ])
+    } catch (error: any) {
+      setCashError(error?.message || t("cash.errors.closeSession"))
+    } finally {
+      setCashLoading(false)
+    }
   }
 
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
@@ -1670,10 +1931,10 @@ export default function CajeroDashboard() {
         </Dialog>
         <Tabs
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as "pagos" | "mesas")}
+          onValueChange={(value) => setActiveTab(value as "pagos" | "mesas" | "caja")}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-2 mb-6 bg-card border border-border">
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-card border border-border">
             <TabsTrigger value="pagos" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               <Bell className="w-4 h-4" />
               {t("tabs.payments", { count: waiterCalls.length })}
@@ -1685,6 +1946,9 @@ export default function CajeroDashboard() {
             </TabsTrigger>
             <TabsTrigger value="mesas" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
               {t("tabs.tables", { count: mesas.length })}
+            </TabsTrigger>
+            <TabsTrigger value="caja" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+              {t("tabs.cash")}
             </TabsTrigger>
           </TabsList>
 
@@ -1904,6 +2168,129 @@ export default function CajeroDashboard() {
                 )}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="caja">
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+                <h3 className="font-semibold text-gray-900">{t("cash.registerTitle")}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <select
+                    className="border border-gray-300 rounded-md px-3 py-2"
+                    value={selectedRegisterId}
+                    onChange={(e) => setSelectedRegisterId(e.target.value)}
+                  >
+                    <option value="">{t("cash.selectRegister")}</option>
+                    {cashRegisters.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={registerName}
+                    onChange={(e) => setRegisterName(e.target.value)}
+                    placeholder={t("cash.newRegisterPlaceholder")}
+                    className="border border-gray-300 rounded-md px-3 py-2"
+                  />
+                  <Button onClick={createCashRegister} disabled={cashLoading || !branchId || !registerName.trim()}>
+                    {t("cash.createRegister")}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+                <h3 className="font-semibold text-gray-900">{t("cash.sessionTitle")}</h3>
+                {cashSession ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700">
+                      {t("cash.sessionOpenId", { id: cashSession.id.slice(0, 8) })}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      {t("cash.expectedNow", { amount: Number(cashSession.expected_amount_live || 0).toFixed(2) })}
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        value={closingAmount}
+                        onChange={(e) => setClosingAmount(e.target.value)}
+                        placeholder={t("cash.closingAmountPlaceholder")}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      <Button
+                        onClick={closeCashSession}
+                        disabled={cashLoading || !closingAmount}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        {t("cash.closeSession")}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <input
+                      value={openingAmount}
+                      onChange={(e) => setOpeningAmount(e.target.value)}
+                      placeholder={t("cash.openingAmountPlaceholder")}
+                      className="border border-gray-300 rounded-md px-3 py-2"
+                    />
+                    <Button onClick={openCashSession} disabled={cashLoading || !selectedRegisterId}>
+                      {t("cash.openSession")}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {cashSession && (
+                <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-900">{t("cash.manualMovementTitle")}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    <select
+                      className="border border-gray-300 rounded-md px-3 py-2"
+                      value={movementType}
+                      onChange={(e) => setMovementType(e.target.value as "MANUAL_IN" | "MANUAL_OUT")}
+                    >
+                      <option value="MANUAL_IN">{t("cash.manualIn")}</option>
+                      <option value="MANUAL_OUT">{t("cash.manualOut")}</option>
+                    </select>
+                    <input
+                      value={movementAmount}
+                      onChange={(e) => setMovementAmount(e.target.value)}
+                      placeholder={t("cash.movementAmountPlaceholder")}
+                      className="border border-gray-300 rounded-md px-3 py-2"
+                    />
+                    <input
+                      value={movementNote}
+                      onChange={(e) => setMovementNote(e.target.value)}
+                      placeholder={t("cash.movementNotePlaceholder")}
+                      className="border border-gray-300 rounded-md px-3 py-2"
+                    />
+                    <Button onClick={createManualMovement} disabled={cashLoading || !movementAmount}>
+                      {t("cash.addMovement")}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+                <h3 className="font-semibold text-gray-900">{t("cash.movementsTitle")}</h3>
+                {cashError && <p className="text-sm text-red-600">{cashError}</p>}
+                {cashLoading && <p className="text-sm text-gray-500">{t("cash.loading")}</p>}
+                {!cashLoading && cashMovements.length === 0 && (
+                  <p className="text-sm text-gray-500">{t("cash.noMovements")}</p>
+                )}
+                {cashMovements.length > 0 && (
+                  <div className="space-y-2">
+                    {cashMovements.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-md px-3 py-2">
+                        <span>{m.type}</span>
+                        <span className={m.direction === "IN" ? "text-green-700" : "text-red-700"}>
+                          {m.direction === "IN" ? "+" : "-"}${Number(m.amount || 0).toFixed(2)}
+                        </span>
+                        <span className="text-gray-500">{new Date(m.created_at).toLocaleTimeString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="mesas">
