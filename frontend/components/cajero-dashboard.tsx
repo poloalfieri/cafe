@@ -165,7 +165,6 @@ export default function CajeroDashboard() {
   const [cashLoading, setCashLoading] = useState(false)
   const [cashError, setCashError] = useState<string | null>(null)
   const [openingAmount, setOpeningAmount] = useState("0")
-  const [registerName, setRegisterName] = useState("")
   const [movementAmount, setMovementAmount] = useState("")
   const [movementType, setMovementType] = useState<"MANUAL_IN" | "MANUAL_OUT">("MANUAL_IN")
   const [movementNote, setMovementNote] = useState("")
@@ -1262,32 +1261,6 @@ export default function CajeroDashboard() {
     }
   }
 
-  const createCashRegister = async () => {
-    if (!branchId || !registerName.trim()) return
-    try {
-      setCashLoading(true)
-      setCashError(null)
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/cash/registers`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify({ name: registerName.trim(), branch_id: branchId }),
-      })
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        throw new Error(payload?.error || t("cash.errors.createRegister"))
-      }
-      setRegisterName("")
-      await fetchCashRegisters(branchId)
-    } catch (error: any) {
-      setCashError(error?.message || t("cash.errors.createRegister"))
-    } finally {
-      setCashLoading(false)
-    }
-  }
 
   const openCashSession = async () => {
     if (!selectedRegisterId) return
@@ -2247,15 +2220,6 @@ export default function CajeroDashboard() {
                       <option key={r.id} value={r.id}>{r.name}</option>
                     ))}
                   </select>
-                  <input
-                    value={registerName}
-                    onChange={(e) => setRegisterName(e.target.value)}
-                    placeholder={t("cash.newRegisterPlaceholder")}
-                    className="border border-gray-300 rounded-md px-3 py-2"
-                  />
-                  <Button onClick={createCashRegister} disabled={cashLoading || !branchId || !registerName.trim()}>
-                    {t("cash.createRegister")}
-                  </Button>
                 </div>
               </div>
 

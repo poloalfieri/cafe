@@ -35,6 +35,7 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
+import CashRegistersManagement from "./admin/cash-registers-management"
 import StockMovements from "./admin/stock-movements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
@@ -496,6 +497,7 @@ export default function AdminDashboard() {
 
           <TabsContent value="cashiers">
             <CashierManagement branchId={selectedBranchId || undefined} />
+            <CashRegistersManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="movements">
