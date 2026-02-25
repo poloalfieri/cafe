@@ -10,19 +10,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
-import { api } from '@/lib/fetcher'
+import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
 import { getTenantApiBase } from '@/lib/apiClient'
 import { ALLOWED_UNITS } from '@/lib/validation'
 import { useTranslations } from "next-intl"
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Archive, 
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Archive,
   AlertTriangle,
   DollarSign,
-  Package
+  Package,
+  Download
 } from 'lucide-react'
 
 interface Ingredient {
@@ -176,6 +177,25 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     }
   }
 
+  const handleExportCsv = async () => {
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const params = new URLSearchParams()
+      if (branchId) params.set('branch_id', branchId)
+      const url = `${backendUrl}/reports/stock.csv${params.toString() ? '?' + params.toString() : ''}`
+      const res = await fetch(url, { headers: authHeader })
+      if (!res.ok) throw new Error('Error al exportar')
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `stock_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      toast({ title: t("toast.errorTitle"), description: 'No se pudo exportar el CSV', variant: 'destructive' })
+    }
+  }
+
   const openNewModal = () => {
     setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null, minStock: 0, trackStock: true })
     setEditingId(null)
@@ -201,7 +221,12 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
           <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
           <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
-        <Dialog open={showModal} onOpenChange={setShowModal}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportCsv}>
+            <Download className="w-4 h-4 mr-2" />
+            {t("actions.exportCsv")}
+          </Button>
+          <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogTrigger asChild>
             <Button onClick={openNewModal} className="bg-gray-900 hover:bg-gray-800">
               <Plus className="w-4 h-4 mr-2" />
@@ -305,6 +330,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -331,7 +357,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
               </div>
               <div className="min-w-0">
                 <p className="text-lg sm:text-2xl font-bold truncate">
-                  {ingredients.filter(i => i.currentStock < 50).length}
+                  {ingredients.filter(i => i.trackStock && i.currentStock <= i.minStock).length}
                 </p>
                 <p className="text-xs sm:text-sm text-gray-600">{t("stats.lowStock")}</p>
               </div>

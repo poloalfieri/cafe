@@ -73,6 +73,27 @@ class IngredientsService:
             },
         }
 
+    def get_low_stock(self, restaurant_id: str, branch_id: Optional[str] = None) -> List[Dict]:
+        """Devuelve ingredientes con track_stock=true y current_stock <= min_stock,
+        ordenados por déficit descendente (más crítico primero)."""
+        def _run():
+            q = (
+                supabase.table("ingredients")
+                .select("*")
+                .eq("restaurant_id", restaurant_id)
+                .eq("track_stock", True)
+            )
+            if branch_id:
+                q = q.eq("branch_id", branch_id)
+            return q.execute()
+
+        response = execute_with_retry(_run)
+        rows = response.data or []
+        low = [r for r in rows if (r.get("current_stock") or 0) <= (r.get("min_stock") or 0)]
+        # Ordenar por déficit: cuánto falta relativo al mínimo (más crítico = más negativo)
+        low.sort(key=lambda r: (r.get("current_stock") or 0) - (r.get("min_stock") or 0))
+        return [_row_to_camel(r) for r in low]
+
     def create_ingredient(self, user_id: str, restaurant_id: str, payload: Dict) -> Dict:
         name = (payload.get("name") or "").strip()
         unit = normalize_unit(payload.get("unit"))

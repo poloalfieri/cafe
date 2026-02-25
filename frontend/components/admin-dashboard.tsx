@@ -4,12 +4,12 @@ import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { 
-  TrendingUp, 
-  DollarSign, 
-  ShoppingCart, 
-  Users, 
-  Settings, 
+import {
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  Settings,
   Package,
   Clock,
   BarChart3,
@@ -20,7 +20,10 @@ import {
   Share,
   Archive,
   ChefHat,
-  UserPlus
+  UserPlus,
+  AlertTriangle,
+  Download,
+  X
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -83,6 +86,8 @@ export default function AdminDashboard() {
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
   const [branchesReady, setBranchesReady] = useState(false)
+  const [lowStockBannerDismissed, setLowStockBannerDismissed] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState<"sales" | "stock" | null>(null)
 
   const backendUrl = getTenantApiBase()
   const isMetricsScopeReady = branchesReady && (branches.length === 0 || Boolean(selectedBranchId))
@@ -134,7 +139,7 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchDashboardData = async (branchId?: string) => {
+  const fetchDashboardData = async (branchId?: string, force = false) => {
     setLoading(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
@@ -142,6 +147,7 @@ export default function AdminDashboard() {
       const params = new URLSearchParams()
       if (branchId) params.set("branch_id", branchId)
       params.set("tzOffset", String(tzOffset))
+      if (force) params.set("refresh", "1")
       const query = params.toString() ? `?${params.toString()}` : ""
       const summaryResponse = await fetch(`${backendUrl}/metrics/summary${query}`, {
         headers: {
@@ -179,6 +185,18 @@ export default function AdminDashboard() {
     }
   }
 
+  useEffect(() => {
+    if (!isMetricsScopeReady) {
+      return
+    }
+    const intervalId = window.setInterval(() => {
+      void fetchDashboardData(selectedBranchId || undefined, true)
+    }, 3 * 60 * 60 * 1000)
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [isMetricsScopeReady, selectedBranchId])
+
   const handleLogout = useCallback(async () => {
     try {
       setLoggingOut(true)
@@ -196,7 +214,30 @@ export default function AdminDashboard() {
     if (!isMetricsScopeReady) {
       return
     }
-    void fetchDashboardData(selectedBranchId || undefined)
+    void fetchDashboardData(selectedBranchId || undefined, true)
+  }
+
+  const handleExportCsv = async (type: "sales" | "stock") => {
+    try {
+      setExportingCsv(type)
+      const authHeader = await getClientAuthHeaderAsync()
+      const params = new URLSearchParams()
+      if (selectedBranchId) params.set("branch_id", selectedBranchId)
+      const path = type === "sales" ? "reports/sales.csv" : "reports/stock.csv"
+      const url = `${backendUrl}/${path}${params.toString() ? "?" + params.toString() : ""}`
+      const res = await fetch(url, { headers: authHeader })
+      if (!res.ok) throw new Error("Error al exportar")
+      const blob = await res.blob()
+      const a = document.createElement("a")
+      a.href = URL.createObjectURL(blob)
+      a.download = `${type}_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      // silent fail — el usuario verá que no se descargó nada
+    } finally {
+      setExportingCsv(null)
+    }
   }
 
   return (
@@ -233,6 +274,15 @@ export default function AdminDashboard() {
                   </select>
                 </div>
               )}
+              <Button
+                variant="outline"
+                onClick={() => handleExportCsv("sales")}
+                disabled={exportingCsv === "sales"}
+                className="px-3 sm:px-4 py-2 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">{exportingCsv === "sales" ? "..." : t("actions.exportSales")}</span>
+              </Button>
               <Button
                 onClick={refreshData}
                 disabled={loading || !isMetricsScopeReady}
@@ -301,6 +351,37 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Banner de stock bajo */}
+      {lowStock.length > 0 && !lowStockBannerDismissed && (
+        <div className="bg-red-50 border-b border-red-200">
+          <div className="container mx-auto px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-800">
+                {t("lowStock.bannerTitle", { count: lowStock.length })}
+              </p>
+              <p className="text-xs text-red-700 mt-0.5 truncate">
+                {lowStock.slice(0, 3).map(i => i.name).join(", ")}
+                {lowStock.length > 3 ? ` y ${lowStock.length - 3} más` : ""}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowLowStockDialog(true)}
+              className="text-xs text-red-700 underline whitespace-nowrap flex-shrink-0"
+            >
+              {t("lowStock.seeAll")}
+            </button>
+            <button
+              onClick={() => setLowStockBannerDismissed(true)}
+              className="text-red-500 flex-shrink-0 ml-1"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contenido principal */}
       <div className="container mx-auto px-4 py-6">

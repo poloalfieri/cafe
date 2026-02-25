@@ -155,7 +155,8 @@
       "actions": {
         "refresh": "Actualizar",
         "logout": "Salir",
-        "loggingOut": "Saliendo..."
+        "loggingOut": "Saliendo...",
+        "exportSales": "Exportar Ventas"
       },
       "metrics": {
         "dailySales": "Ventas del Día",
@@ -169,7 +170,9 @@
       "lowStock": {
         "title": "Stock mínimo alcanzado",
         "description": "Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.",
-        "stockLine": "{current} / min {min}"
+        "stockLine": "{current} / min {min}",
+        "bannerTitle": "{count} ingrediente(s) con stock crítico",
+        "seeAll": "Ver todos"
       },
       "tabs": {
         "dashboard": "Dashboard",
@@ -309,7 +312,8 @@
         "new": "Nuevo Ingrediente",
         "cancel": "Cancelar",
         "update": "Actualizar",
-        "create": "Crear"
+        "create": "Crear",
+        "exportCsv": "Exportar CSV"
       },
       "dialog": {
         "editTitle": "Editar Ingrediente",
@@ -922,10 +926,16 @@
         "dailyRevenue": "Ingresos Diarios (Última Semana)",
         "orderStatus": "Estado de Pedidos",
         "paymentMethods": "Métodos de Pago Más Usados",
-        "topProducts": "Producto más vendido",
+        "topProducts": "Productos más vendidos",
         "topProductsEmpty": "No hay productos vendidos en este período.",
         "topProductsQty": "{count} vendidos",
         "peakHours": "Picos por horario (últimos 30 días)",
+        "topProductsQtyUnits": "{count} unidades",
+        "topProductsQtyOrders": "{count} pedidos",
+        "periodRange": "Últimos {days} días ({from} - {to})",
+        "periodFallback": "Últimos {days} días",
+        "periodAllTime": "Histórico total",
+        "periodAllTimeSince": "Histórico total (desde {from})",
         "usage": "Uso",
         "salesLegend": "Ventas",
         "monthLabel": "Mes: {label}",

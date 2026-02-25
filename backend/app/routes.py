@@ -11,6 +11,7 @@ from .controllers.ingredients_controller import ingredients_bp
 from .controllers.recipes_controller import recipes_bp
 from .controllers.product_options_controller import product_options_bp
 from .controllers.restaurants_controller import restaurants_bp
+from .controllers.reports_controller import reports_bp
 
 def register_routes(app):
     app.register_blueprint(orders_bp)
@@ -26,3 +27,4 @@ def register_routes(app):
     app.register_blueprint(recipes_bp)
     app.register_blueprint(product_options_bp)
     app.register_blueprint(restaurants_bp)
+    app.register_blueprint(reports_bp)
