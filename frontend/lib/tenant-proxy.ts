@@ -23,12 +23,21 @@ export async function proxyToBackend(
     })
 
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
       'X-Restaurant-Slug': restaurantSlug,
     }
 
     if (INTERNAL_PROXY_KEY) {
       headers['X-Internal-Key'] = INTERNAL_PROXY_KEY
+    }
+
+    const requestContentType = request.headers.get('content-type')
+    if (requestContentType) {
+      headers['Content-Type'] = requestContentType
+    }
+
+    const accept = request.headers.get('accept')
+    if (accept) {
+      headers['Accept'] = accept
     }
 
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
@@ -44,8 +53,8 @@ export async function proxyToBackend(
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       try {
-        const body = await request.text()
-        if (body) {
+        const body = await request.arrayBuffer()
+        if (body.byteLength > 0) {
           fetchOptions.body = body
         }
       } catch {
@@ -55,20 +64,24 @@ export async function proxyToBackend(
 
     const response = await fetch(url.toString(), fetchOptions)
 
-    const contentType = response.headers.get('content-type')
-    let data
-    
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json()
-    } else {
-      data = await response.text()
+    const responseContentType = response.headers.get('content-type') || ''
+
+    if (responseContentType.includes('application/json')) {
+      const data = await response.json()
+      return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data, {
+    const passthroughHeaders = new Headers()
+    if (responseContentType) passthroughHeaders.set('Content-Type', responseContentType)
+    const disposition = response.headers.get('content-disposition')
+    if (disposition) passthroughHeaders.set('Content-Disposition', disposition)
+    const cacheControl = response.headers.get('cache-control')
+    if (cacheControl) passthroughHeaders.set('Cache-Control', cacheControl)
+
+    const body = await response.arrayBuffer()
+    return new NextResponse(body, {
       status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: passthroughHeaders,
     })
   } catch (error) {
     console.error('Proxy error:', error)

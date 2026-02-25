@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
-import { 
+import {
   Check,
   Copy,
-  MapPin
+  MapPin,
+  Users
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
@@ -20,6 +21,7 @@ interface Mesa {
   mesa_id: string
   branch_id?: string
   is_active: boolean
+  capacity?: number
   created_at?: string
   updated_at?: string
 }
@@ -34,17 +36,30 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [showCreateMesa, setShowCreateMesa] = useState(false)
   const [mesaIdInput, setMesaIdInput] = useState("")
   const [mesaActive, setMesaActive] = useState(true)
+  const [mesaCapacity, setMesaCapacity] = useState("4")
   const [creatingMesa, setCreatingMesa] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [showEditMesa, setShowEditMesa] = useState(false)
   const [editingMesa, setEditingMesa] = useState<Mesa | null>(null)
   const [editMesaIdInput, setEditMesaIdInput] = useState("")
   const [editMesaActive, setEditMesaActive] = useState(true)
+  const [editMesaCapacity, setEditMesaCapacity] = useState("4")
   const [editingMesaSave, setEditingMesaSave] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [tableActionError, setTableActionError] = useState<string | null>(null)
   const [copiedMesaId, setCopiedMesaId] = useState<string | null>(null)
   const backendUrl = getTenantApiBase()
+
+  const parseCapacityInput = (value: string) => {
+    const normalizedValue = value.trim()
+    if (!normalizedValue) {
+      return { value: null as number | null, error: t("tables.capacityRequired") }
+    }
+    if (!/^[1-9]\d*$/.test(normalizedValue)) {
+      return { value: null as number | null, error: t("tables.capacityInvalid") }
+    }
+    return { value: parseInt(normalizedValue, 10), error: null as string | null }
+  }
 
   useEffect(() => {
     fetchData()
@@ -87,6 +102,11 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setCreateError(t("tables.mesaIdInvalid"))
       return
     }
+    const capacityValidation = parseCapacityInput(mesaCapacity)
+    if (capacityValidation.error || capacityValidation.value === null) {
+      setCreateError(capacityValidation.error || t("tables.capacityInvalid"))
+      return
+    }
     try {
       setCreatingMesa(true)
       setCreateError(null)
@@ -100,7 +120,8 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
         body: JSON.stringify({
           mesa_id: mesaIdInput.trim(),
           branch_id: branchId,
-          is_active: mesaActive
+          is_active: mesaActive,
+          capacity: capacityValidation.value,
         })
       })
       if (!response.ok) {
@@ -109,6 +130,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       }
       setMesaIdInput("")
       setMesaActive(true)
+      setMesaCapacity("4")
       setShowCreateMesa(false)
       await fetchData()
     } catch (error: any) {
@@ -122,6 +144,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
     setEditingMesa(mesa)
     setEditMesaIdInput(mesa.mesa_id || "")
     setEditMesaActive(Boolean(mesa.is_active))
+    setEditMesaCapacity(String(mesa.capacity ?? 4))
     setEditError(null)
     setShowEditMesa(true)
   }
@@ -142,6 +165,11 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setEditError(t("tables.mesaIdInvalid"))
       return
     }
+    const capacityValidation = parseCapacityInput(editMesaCapacity)
+    if (capacityValidation.error || capacityValidation.value === null) {
+      setEditError(capacityValidation.error || t("tables.capacityInvalid"))
+      return
+    }
     try {
       setEditingMesaSave(true)
       setEditError(null)
@@ -155,7 +183,8 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
         body: JSON.stringify({
           mesa_id: newMesaId,
           is_active: editMesaActive,
-          branch_id: resolvedBranchId
+          branch_id: resolvedBranchId,
+          capacity: capacityValidation.value,
         })
       })
       if (!response.ok) {
@@ -262,6 +291,18 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                       onCheckedChange={setMesaActive}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mesa_capacity">{t("tables.capacityLabel")}</Label>
+                    <Input
+                      id="mesa_capacity"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={mesaCapacity}
+                      onChange={(e) => setMesaCapacity(e.target.value)}
+                      placeholder={t("tables.capacityPlaceholder")}
+                    />
+                  </div>
                   <Button
                     onClick={handleCreateMesa}
                     disabled={!branchId || creatingMesa}
@@ -299,6 +340,18 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                       id="mesa_active_edit"
                       checked={editMesaActive}
                       onCheckedChange={setEditMesaActive}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="mesa_capacity_edit">{t("tables.capacityLabel")}</Label>
+                    <Input
+                      id="mesa_capacity_edit"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={editMesaCapacity}
+                      onChange={(e) => setEditMesaCapacity(e.target.value)}
+                      placeholder={t("tables.capacityPlaceholder")}
                     />
                   </div>
                   <Button
@@ -346,6 +399,10 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                   {t("tables.lastUpdate", {
                     value: mesa.updated_at ? new Date(mesa.updated_at).toLocaleString() : "—"
                   })}
+                </div>
+                <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-700">
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span>{t("tables.capacityValue", { count: mesa.capacity ?? 4 })}</span>
                 </div>
 
                 <div className="mt-4 space-y-2">

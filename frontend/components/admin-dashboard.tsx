@@ -23,7 +23,8 @@ import {
   UserPlus,
   AlertTriangle,
   Download,
-  X
+  X,
+  Activity
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -34,6 +35,7 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
+import StockMovements from "./admin/stock-movements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
@@ -410,7 +412,7 @@ export default function AdminDashboard() {
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
           <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 mb-6">
-            <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-9 bg-card border border-border">
+            <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-10 bg-card border border-border">
               <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.dashboard")}</span>
@@ -446,6 +448,10 @@ export default function AdminDashboard() {
               <TabsTrigger value="cashiers" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
                 <UserPlus className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.cashiers")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="movements" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.movements")}</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -490,6 +496,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="cashiers">
             <CashierManagement branchId={selectedBranchId || undefined} />
+          </TabsContent>
+
+          <TabsContent value="movements">
+            <StockMovements branchId={selectedBranchId || undefined} />
           </TabsContent>
         </Tabs>
       </div>

@@ -142,6 +142,8 @@ export default function CajeroDashboard() {
   const [markingPrebill, setMarkingPrebill] = useState(false)
   const [createOrderMesa, setCreateOrderMesa] = useState<Mesa | null>(null)
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [manualDiscounts, setManualDiscounts] = useState<Array<{ id: string; name: string; type: string; value: number }>>([])
+  const [selectedDiscountId, setSelectedDiscountId] = useState<string>("")
   const [menuLoading, setMenuLoading] = useState(false)
   const [selectedMenuItemId, setSelectedMenuItemId] = useState("")
   const [draftOrderItems, setDraftOrderItems] = useState<DraftOrderItem[]>([])
@@ -626,6 +628,7 @@ export default function CajeroDashboard() {
     setMenuItems([])
     setMenuLoading(false)
     setCreatingOrder(false)
+    setSelectedDiscountId("")
     resetOptionsDialogState()
   }
 
@@ -634,7 +637,24 @@ export default function CajeroDashboard() {
     setDraftOrderItems([])
     setCreateOrderPaymentMethod("CASH")
     setCreateOrderError(null)
-    void fetchMenuForCreateOrder(resolveMesaBranchId(mesa))
+    setSelectedDiscountId("")
+    const branchId = resolveMesaBranchId(mesa)
+    void fetchMenuForCreateOrder(branchId)
+    // Cargar descuentos manuales disponibles
+    ;(async () => {
+      try {
+        const authHeader = await getClientAuthHeaderAsync()
+        const params = new URLSearchParams()
+        if (branchId) params.set("branch_id", branchId)
+        const res = await fetch(`${backendUrl}/discounts?${params}`, { headers: authHeader })
+        if (res.ok) {
+          const json = await res.json()
+          setManualDiscounts(json.data || [])
+        }
+      } catch {
+        setManualDiscounts([])
+      }
+    })()
   }
 
   const addOrIncrementDraftItem = (
@@ -871,6 +891,7 @@ export default function CajeroDashboard() {
             basePrice: item.basePrice,
             selectedOptions: item.selectedOptions || [],
           })),
+          ...(selectedDiscountId ? { discount_id: selectedDiscountId } : {}),
         }),
       })
 
@@ -1752,10 +1773,51 @@ export default function CajeroDashboard() {
                 </select>
               </div>
 
+              {/* Selector de descuento manual */}
+              {manualDiscounts.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-900 mb-2">{t("orders.discountLabel")}</p>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={selectedDiscountId}
+                    onChange={(e) => setSelectedDiscountId(e.target.value)}
+                  >
+                    <option value="">{t("orders.noDiscount")}</option>
+                    {manualDiscounts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name} ({d.type === "percent" ? `${d.value}%` : `$${d.value}`})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex items-center justify-between border-t border-gray-200 pt-3">
-                <p className="text-sm font-semibold text-gray-900">
-                  {t("orders.total", { total: createOrderTotal.toFixed(2) })}
-                </p>
+                <div>
+                  {selectedDiscountId && (() => {
+                    const disc = manualDiscounts.find((d) => d.id === selectedDiscountId)
+                    if (!disc) return null
+                    const saving = disc.type === "percent"
+                      ? createOrderTotal * disc.value / 100
+                      : Math.min(disc.value, createOrderTotal)
+                    return (
+                      <p className="text-xs text-green-600">
+                        {t("orders.discountSaving", { amount: saving.toFixed(2) })}
+                      </p>
+                    )
+                  })()}
+                  <p className="text-sm font-semibold text-gray-900">
+                    {t("orders.total", { total: (() => {
+                      if (!selectedDiscountId) return createOrderTotal.toFixed(2)
+                      const disc = manualDiscounts.find((d) => d.id === selectedDiscountId)
+                      if (!disc) return createOrderTotal.toFixed(2)
+                      const saving = disc.type === "percent"
+                        ? createOrderTotal * disc.value / 100
+                        : Math.min(disc.value, createOrderTotal)
+                      return Math.max(0, createOrderTotal - saving).toFixed(2)
+                    })() })}
+                  </p>
+                </div>
                 <div className="flex gap-2">
                   <Button type="button" variant="secondary" onClick={closeCreateOrderDialog}>
                     {t("orders.cancel")}

@@ -85,7 +85,7 @@ class MesaService:
             logger.error(f"Error al obtener mesa {mesa_id}: {str(e)}")
             raise Exception("Error en la base de datos")
 
-    def create_mesa(self, mesa_id: str, branch_id: str, restaurant_id: str, is_active: bool = True) -> Dict:
+    def create_mesa(self, mesa_id: str, branch_id: str, restaurant_id: str, is_active: bool = True, capacity: Optional[int] = None) -> Dict:
         """
         Crear una nueva mesa (requiere branch_id y restaurant_id)
         """
@@ -107,6 +107,10 @@ class MesaService:
                 "token": placeholder_token,
                 "token_expires_at": placeholder_expires.isoformat().replace("+00:00", "Z"),
             }
+            if capacity is not None:
+                if not isinstance(capacity, int) or capacity <= 0:
+                    raise ValueError("capacity debe ser un entero positivo")
+                insert_data["capacity"] = capacity
 
             response = supabase.table("mesas").insert(insert_data).execute()
             if not response.data:
@@ -159,6 +163,7 @@ class MesaService:
         branch_id: str,
         new_mesa_id: Optional[str] = None,
         is_active: Optional[bool] = None,
+        capacity: Optional[int] = None,
     ) -> Optional[Dict]:
         """
         Actualizar datos de una mesa (mesa_id e is_active).
@@ -189,6 +194,11 @@ class MesaService:
 
             if is_active is not None:
                 update_data["is_active"] = bool(is_active)
+
+            if capacity is not None:
+                if not isinstance(capacity, int) or capacity <= 0:
+                    raise ValueError("capacity debe ser un entero positivo")
+                update_data["capacity"] = capacity
 
             response = (
                 supabase.table("mesas")

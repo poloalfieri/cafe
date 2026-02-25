@@ -12,6 +12,8 @@ from ..utils.logger import setup_logger
 from ..utils.retry import execute_with_retry
 from ..socketio import socketio
 from ..services.cash_service import cash_service
+from .ingredients_service import ingredients_service
+from .promotion_engine import apply_promotions_to_items
 
 logger = setup_logger(__name__)
 
@@ -364,9 +366,12 @@ class OrderService:
         branch_id: str,
         restaurant_id: str,
         payment_method: Optional[str] = None,
+        discount_id: Optional[str] = None,
     ) -> Dict:
         """
         Crear un pedido desde backoffice (caja/admin), sin token de mesa.
+        discount_id: ID de una promotion is_manual=true para aplicar al pedido completo.
+        Los ítems individuales también pueden traer discountId/discountAmount desde el frontend.
         """
         if not restaurant_id:
             raise ValueError("restaurant_id requerido")
@@ -379,6 +384,7 @@ class OrderService:
             branch_id=branch_id,
             restaurant_id=restaurant_id,
             payment_method=payment_method,
+            discount_id=discount_id,
         )
 
     def update_order_status(
@@ -642,10 +648,59 @@ class OrderService:
     def _calculate_total(self, items: List[Dict]) -> float:
         total = 0.0
         for item in items:
-            price = float(item.get("price", 0))
+            price = float(item.get("finalPrice", item.get("price", 0)))
             quantity = int(item.get("quantity", 1))
             total += price * quantity
         return round(total, 2)
+
+    def _consume_ingredients_for_order(
+        self,
+        items: List[Dict],
+        restaurant_id: str,
+        branch_id: str,
+        order_id: str,
+        user_id: Optional[str] = None,
+    ) -> None:
+        """Descuenta el stock de ingredientes según las recetas de cada producto vendido."""
+        try:
+            for item in items:
+                product_id = item.get("id")
+                if not product_id:
+                    continue
+                quantity = int(item.get("quantity", 1))
+
+                recipes_resp = (
+                    supabase.table("recipes")
+                    .select("ingredient_id, quantity")
+                    .eq("product_id", product_id)
+                    .eq("restaurant_id", restaurant_id)
+                    .execute()
+                )
+                recipes = recipes_resp.data or []
+                for recipe in recipes:
+                    ing_id = recipe.get("ingredient_id")
+                    recipe_qty = float(recipe.get("quantity", 0))
+                    if not ing_id or recipe_qty <= 0:
+                        continue
+                    consumed = round(recipe_qty * quantity, 4)
+                    try:
+                        ingredients_service.record_movement(
+                            ingredient_id=str(ing_id),
+                            qty=-consumed,
+                            movement_type="sale",
+                            restaurant_id=restaurant_id,
+                            reason=f"Venta ítem: {item.get('name', product_id)}",
+                            source=f"order:{order_id}",
+                            user_id=user_id,
+                            branch_id=branch_id,
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"No se pudo descontar stock de ingrediente {ing_id} "
+                            f"para pedido {order_id}: {e}"
+                        )
+        except Exception as e:
+            logger.warning(f"Error consumiendo ingredientes para pedido {order_id}: {e}")
 
     def _create_order_for_mesa(
         self,
@@ -654,13 +709,13 @@ class OrderService:
         branch_id: str,
         restaurant_id: Optional[str] = None,
         payment_method: Optional[str] = None,
+        discount_id: Optional[str] = None,
     ) -> Dict:
         if not branch_id:
             raise ValueError("branch_id requerido")
         if not items or len(items) == 0:
             raise ValueError("El pedido debe tener al menos un item")
 
-        total_amount = self._calculate_total(items)
         order_token = str(uuid.uuid4())
         now_iso = self._now_iso()
 
@@ -680,22 +735,72 @@ class OrderService:
             if not mesa:
                 raise ValueError("Mesa no encontrada")
 
+            actual_restaurant_id = mesa.get("restaurant_id") or restaurant_id
+            actual_branch_id = mesa.get("branch_id") or branch_id
+
+            # Aplicar promociones automáticas
+            try:
+                promo_items, savings_summary = apply_promotions_to_items(
+                    items=items,
+                    restaurant_id=actual_restaurant_id,
+                    branch_id=actual_branch_id,
+                )
+            except Exception as e:
+                logger.warning(f"Error aplicando promotions, usando items sin descuento: {e}")
+                promo_items = items
+                savings_summary = []
+
+            # Aplicar descuento manual del cajero (discount_id referencia promotions.is_manual=true)
+            manual_discount_amount = 0.0
+            if discount_id:
+                try:
+                    promo_resp = (
+                        supabase.table("promotions")
+                        .select("type, value, name")
+                        .eq("id", discount_id)
+                        .eq("is_manual", True)
+                        .limit(1)
+                        .execute()
+                    )
+                    promo = (promo_resp.data or [None])[0]
+                    if promo:
+                        subtotal = self._calculate_total(promo_items)
+                        v = float(promo.get("value") or 0)
+                        if promo.get("type") == "percent":
+                            manual_discount_amount = round(subtotal * v / 100, 2)
+                        else:  # fixed
+                            manual_discount_amount = min(v, subtotal)
+                        savings_summary.append({
+                            "id": discount_id,
+                            "name": promo.get("name", ""),
+                            "type": "manual",
+                            "saving_amount": manual_discount_amount,
+                        })
+                except Exception as e:
+                    logger.warning(f"Error aplicando discount_id {discount_id}: {e}")
+
             self._validate_stock_for_items(
-                items,
-                restaurant_id=mesa.get("restaurant_id"),
-                branch_id=mesa.get("branch_id"),
+                promo_items,
+                restaurant_id=actual_restaurant_id,
+                branch_id=actual_branch_id,
             )
+
+            total_amount = max(0.0, round(self._calculate_total(promo_items) - manual_discount_amount, 2))
 
             insert_data = {
                 "mesa_id": mesa_id,
                 "status": OrderStatus.PAYMENT_PENDING.value,
                 "token": order_token,
-                "items": items,
+                "items": promo_items,
                 "total_amount": total_amount,
                 "creation_date": now_iso,
-                "restaurant_id": mesa.get("restaurant_id"),
-                "branch_id": mesa.get("branch_id"),
+                "restaurant_id": actual_restaurant_id,
+                "branch_id": actual_branch_id,
+                "promotions_applied": savings_summary,
+                "discount_amount": sum(s.get("saving_amount", 0) for s in savings_summary),
             }
+            if discount_id:
+                insert_data["discount_id"] = discount_id
             normalized_payment_method = self._normalize_payment_method(payment_method)
             if normalized_payment_method:
                 insert_data["payment_method"] = normalized_payment_method
@@ -705,8 +810,17 @@ class OrderService:
                 raise Exception("No se pudo crear el pedido")
 
             new_order = response.data[0]
+            order_id = new_order.get("id")
+            actual_restaurant_id = new_order.get("restaurant_id") or restaurant_id
             logger.info(
-                f"Pedido creado: ID {new_order.get('id')}, Mesa {mesa_id}, Total ${total_amount}"
+                f"Pedido creado: ID {order_id}, Mesa {mesa_id}, Total ${total_amount}"
+            )
+            # Descontar stock de ingredientes según recetas
+            self._consume_ingredients_for_order(
+                items=items,
+                restaurant_id=actual_restaurant_id,
+                branch_id=new_order.get("branch_id", branch_id),
+                order_id=order_id,
             )
             logger.info(
                 f"[socket] emit orders:updated branch_id={new_order.get('branch_id')} mesa_id={mesa_id}"

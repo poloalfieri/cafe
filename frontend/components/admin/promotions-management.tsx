@@ -32,6 +32,8 @@ interface Promotion {
   endTime?: string
   active: boolean
   applicableProducts?: string[]
+  isManual?: boolean
+  appliesToAll?: boolean
 }
 
 interface PromotionsManagementProps {
@@ -54,7 +56,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
     startTime: "",
     endTime: "",
     active: true,
-    allDay: false
+    allDay: false,
+    isManual: false,
+    appliesToAll: false,
   })
 
   const promotionTypes = [
@@ -96,7 +100,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
         startTime: p.start_time || "",
         endTime: p.end_time || "",
         active: !!p.active,
-        applicableProducts: p.applicable_products || []
+        applicableProducts: p.applicable_products || [],
+        isManual: !!p.is_manual,
+        appliesToAll: !!p.applies_to_all,
       }))
       setPromotions(normalized)
     } catch (error) {
@@ -135,7 +141,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
             start_time: promotionData.startTime,
             end_time: promotionData.endTime,
             active: promotionData.active,
-            branch_id: branchId || null
+            branch_id: branchId || null,
+            is_manual: promotionData.isManual ?? false,
+            applies_to_all: promotionData.appliesToAll ?? false,
           }),
         })
         if (!response.ok) {
@@ -158,7 +166,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
             start_time: promotionData.startTime,
             end_time: promotionData.endTime,
             active: promotionData.active,
-            branch_id: branchId || null
+            branch_id: branchId || null,
+            is_manual: promotionData.isManual ?? false,
+            applies_to_all: promotionData.appliesToAll ?? false,
           }),
         })
         if (!response.ok) {
@@ -186,7 +196,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
       startTime: promotion.startTime || "",
       endTime: promotion.endTime || "",
       active: promotion.active,
-      allDay: !promotion.startTime && !promotion.endTime
+      allDay: !promotion.startTime && !promotion.endTime,
+      isManual: promotion.isManual ?? false,
+      appliesToAll: promotion.appliesToAll ?? false,
     })
     setIsDialogOpen(true)
   }
@@ -247,7 +259,9 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
       startTime: "",
       endTime: "",
       active: true,
-      allDay: false
+      allDay: false,
+      isManual: false,
+      appliesToAll: false,
     })
     setEditingPromotion(null)
   }
@@ -439,6 +453,31 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
                   </div>
                 </div>
               )}
+
+              <div className="flex flex-col gap-2 pt-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="isManual"
+                    type="checkbox"
+                    checked={formData.isManual}
+                    onChange={(e) => setFormData({ ...formData, isManual: e.target.checked })}
+                  />
+                  <Label htmlFor="isManual" className="text-gray-700 font-medium">
+                    {t("form.isManual")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="appliesToAll"
+                    type="checkbox"
+                    checked={formData.appliesToAll}
+                    onChange={(e) => setFormData({ ...formData, appliesToAll: e.target.checked })}
+                  />
+                  <Label htmlFor="appliesToAll" className="text-gray-700 font-medium">
+                    {t("form.appliesToAll")}
+                  </Label>
+                </div>
+              </div>
 
               <div className="flex justify-end space-x-3 pt-6">
                 <Button 

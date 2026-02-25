@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, Response, g, request
 from ..middleware.auth import require_auth, require_roles
 from ..services.metrics_access_service import metrics_access_service
+from ..services.ingredients_service import ingredients_service
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
 from ..utils.logger import setup_logger
@@ -13,8 +14,18 @@ logger = setup_logger(__name__)
 
 
 def _get_restaurant_id():
+    tenant_restaurant_id = getattr(g, "restaurant_id", None)
+    if tenant_restaurant_id:
+        return tenant_restaurant_id
+
     rid = metrics_access_service.get_restaurant_id(g.user_id)
-    return rid
+    if rid:
+        return rid
+
+    try:
+        return ingredients_service.resolve_restaurant_id(g.user_id)
+    except Exception:
+        return None
 
 
 @reports_bp.route("/sales.csv", methods=["GET"])
@@ -150,4 +161,73 @@ def export_stock_csv():
         )
     except Exception as e:
         logger.error(f"Error exportando stock CSV: {e}")
+        return Response("Error interno", status=500)
+
+
+@reports_bp.route("/movements.csv", methods=["GET"])
+@require_auth
+@require_roles("desarrollador", "admin")
+def export_movements_csv():
+    """Exporta el historial de movimientos de stock en CSV."""
+    try:
+        restaurant_id = _get_restaurant_id()
+        if not restaurant_id:
+            return Response("Sin restaurante asociado", status=403)
+
+        branch_id = request.args.get("branch_id")
+        movement_type = request.args.get("type")
+        date_from = request.args.get("date_from")
+        date_to = request.args.get("date_to")
+
+        def _run():
+            q = (
+                supabase.table("stock_movements")
+                .select("*, ingredients(name, unit)")
+                .eq("restaurant_id", restaurant_id)
+                .order("created_at", desc=True)
+            )
+            if branch_id:
+                q = q.eq("branch_id", branch_id)
+            if movement_type:
+                q = q.eq("type", movement_type)
+            if date_from:
+                q = q.gte("created_at", date_from)
+            if date_to:
+                q = q.lte("created_at", date_to)
+            return q.execute()
+
+        resp = execute_with_retry(_run)
+        rows = resp.data or []
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["fecha", "ingrediente", "unidad", "tipo", "cantidad", "motivo", "origen", "sucursal_id"])
+        for r in rows:
+            ing = r.get("ingredients") or {}
+            raw_date = r.get("created_at") or ""
+            try:
+                dt = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+                fecha = dt.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                fecha = raw_date
+            writer.writerow([
+                fecha,
+                ing.get("name", ""),
+                ing.get("unit", ""),
+                r.get("type", ""),
+                r.get("qty", ""),
+                r.get("reason", ""),
+                r.get("source", ""),
+                r.get("branch_id", ""),
+            ])
+
+        csv_bytes = output.getvalue().encode("utf-8-sig")
+        filename = f"movimientos_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+        return Response(
+            csv_bytes,
+            mimetype="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        logger.error(f"Error exportando movements CSV: {e}")
         return Response("Error interno", status=500)

@@ -41,6 +41,12 @@ def create_mesa():
         mesa_id = data.get("mesa_id")
         branch_id = data.get("branch_id")
         is_active = data.get("is_active", True)
+        capacity = data.get("capacity")
+        if capacity is not None:
+            try:
+                capacity = int(capacity)
+            except (TypeError, ValueError):
+                return jsonify({"error": "capacity debe ser un número entero positivo"}), 400
 
         if not mesa_id:
             return jsonify({"error": "mesa_id requerido"}), 400
@@ -75,7 +81,8 @@ def create_mesa():
             mesa_id=mesa_id,
             branch_id=branch_id,
             restaurant_id=restaurant_id,
-            is_active=is_active
+            is_active=is_active,
+            capacity=capacity,
         )
         return jsonify({"success": True, "mesa": mesa}), 201
     except ValueError as e:
@@ -94,6 +101,12 @@ def update_mesa_status(mesa_id):
         new_mesa_id = data.get("mesa_id")
         is_active = data.get("is_active")
         branch_id = data.get("branch_id")
+        capacity = data.get("capacity")
+        if capacity is not None:
+            try:
+                capacity = int(capacity)
+            except (TypeError, ValueError):
+                return jsonify({"error": "capacity debe ser un número entero positivo"}), 400
 
         if not branch_id:
             return jsonify({"error": "branch_id requerido"}), 400
@@ -127,6 +140,7 @@ def update_mesa_status(mesa_id):
             branch_id=branch_id,
             new_mesa_id=new_mesa_id,
             is_active=is_active,
+            capacity=capacity,
         )
 
         if not updated_mesa:

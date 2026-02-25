@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, g, request
 import traceback
 from ..middleware.auth import require_auth, require_roles
 from ..services.promotions_service import promotions_service
+from ..db.supabase_client import supabase
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -21,6 +22,27 @@ def list_promotions():
         logger.error(f"Error listando promociones: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "Error al listar promociones"}), 500
+
+
+@promotions_bp.route("/public", methods=["GET"])
+def list_public_promotions():
+    """Devuelve promotions activas con applies_to_all=true para el panel del usuario (sin auth)."""
+    try:
+        branch_id = request.args.get("branch_id")
+        if not branch_id:
+            return jsonify([]), 200
+        q = (
+            supabase.table("promotions")
+            .select("id, name, type, value, description")
+            .eq("active", True)
+            .eq("applies_to_all", True)
+        )
+        q = q.eq("branch_id", branch_id)
+        resp = q.execute()
+        return jsonify(resp.data or []), 200
+    except Exception as e:
+        logger.error(f"Error listando promotions públicas: {str(e)}")
+        return jsonify([]), 200
 
 
 @promotions_bp.route("", methods=["POST"])

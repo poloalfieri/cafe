@@ -184,7 +184,8 @@
         "branches": "Sucursales",
         "analytics": "Analytics",
         "banking": "Cuenta Bancaria",
-        "cashiers": "Cashiers"
+        "cashiers": "Cashiers",
+        "movements": "Movimientos"
       },
       "analytics": {
         "title": "Estadísticas Avanzadas"
@@ -248,6 +249,8 @@
         "cancel": "Cancelar",
         "update": "Actualizar",
         "create": "Crear",
+        "exportCsv": "Exportar CSV",
+        "importCsv": "Importar CSV",
         "activate": "Activar",
         "deactivate": "Desactivar"
       },
@@ -283,6 +286,12 @@
       "empty": {
         "search": "No se encontraron productos",
         "default": "No hay productos registrados"
+      },
+      "importResult": {
+        "title": "Resultado de importación",
+        "summary": "{created} productos creados, {updated} actualizados",
+        "errors": "{count} error(es) encontrado(s)",
+        "errorRow": "Fila {row}"
       }
     },
     "ingredients": {
@@ -313,7 +322,9 @@
         "cancel": "Cancelar",
         "update": "Actualizar",
         "create": "Crear",
-        "exportCsv": "Exportar CSV"
+        "exportCsv": "Exportar CSV",
+        "importCsv": "Importar CSV",
+        "downloadTemplate": "Descargar plantilla"
       },
       "dialog": {
         "editTitle": "Editar Ingrediente",
@@ -326,6 +337,8 @@
         "namePlaceholder": "Ej: Café en grano, Leche, Azúcar...",
         "unit": "Unidad de Medida",
         "currentStock": "Stock Actual",
+        "wastePercent": "Porcentaje de desecho (%)",
+        "wastePercentHelp": "Opcional. Si no se carga, se usa 0%.",
         "unitCost": "Costo por Unidad (opcional)",
         "minStock": "Stock Mínimo",
         "trackStock": "Monitorear stock"
@@ -343,6 +356,7 @@
         "name": "Nombre",
         "unit": "Unidad",
         "currentStock": "Stock Actual",
+        "wastePercent": "Desecho %",
         "min": "Mínimo",
         "status": "Estado",
         "unitCost": "Costo Unitario",
@@ -354,6 +368,13 @@
         "prev": "Anterior",
         "next": "Siguiente",
         "status": "Página {page} de {totalPages}"
+      },
+      "importResult": {
+        "title": "Resultado de importación",
+        "summary": "{created} ingredientes creados, {updated} actualizados",
+        "errors": "{count} error(es) encontrado(s)",
+        "errorRow": "Fila {row}",
+        "close": "Cerrar"
       }
     },
     "recipes": {
@@ -387,6 +408,7 @@
         "newProduct": "Nuevo Producto",
         "cancel": "Cancelar",
         "createProduct": "Crear Producto",
+        "exportCsv": "Exportar CSV",
         "addIngredient": "Agregar Ingrediente",
         "add": "Agregar"
       },
@@ -652,7 +674,9 @@
         "endDate": "Fecha de Fin",
         "startTime": "Hora de Inicio",
         "endTime": "Hora de Fin",
-        "allDay": "Promoción todo el día"
+        "allDay": "Promoción todo el día",
+        "isManual": "Aplicar manualmente (solo cajero)",
+        "appliesToAll": "Visible para todos los clientes"
       },
       "status": {
         "active": "🟢 Activa",
@@ -672,26 +696,31 @@
       "tables": {
         "title": "Gestión de Mesas",
         "subtitle": "Mesas sincronizadas desde la base de datos",
-      "add": "Agregar mesa",
-      "addTitle": "Nueva mesa",
-      "edit": "Editar mesa",
-      "editTitle": "Editar mesa",
-      "mesaId": "Número de mesa",
-      "mesaIdPlaceholder": "Ej: 12",
-      "activeLabel": "Mesa activa",
-      "create": "Crear mesa",
-      "creating": "Creando...",
-      "update": "Guardar cambios",
-      "updating": "Guardando...",
-      "branchRequired": "Selecciona una sucursal para crear mesas.",
-      "mesaIdRequired": "Ingresa un número de mesa.",
-      "mesaIdInvalid": "El número de mesa debe ser un entero positivo.",
-      "createError": "No se pudo crear la mesa.",
-      "updateError": "No se pudo actualizar la mesa.",
+        "add": "Agregar mesa",
+        "addTitle": "Nueva mesa",
+        "edit": "Editar mesa",
+        "editTitle": "Editar mesa",
+        "mesaId": "Número de mesa",
+        "mesaIdPlaceholder": "Ej: 12",
+        "activeLabel": "Mesa activa",
+        "capacityLabel": "Capacity (people)",
+        "capacityPlaceholder": "E.g.: 4",
+        "create": "Crear mesa",
+        "creating": "Creando...",
+        "update": "Guardar cambios",
+        "updating": "Guardando...",
+        "branchRequired": "Selecciona una sucursal para crear mesas.",
+        "mesaIdRequired": "Ingresa un número de mesa.",
+        "mesaIdInvalid": "El número de mesa debe ser un entero positivo.",
+        "capacityRequired": "Enter the number of people.",
+        "capacityInvalid": "The number of people must be a positive integer.",
+        "createError": "No se pudo crear la mesa.",
+        "updateError": "No se pudo actualizar la mesa.",
         "active": "Activa",
         "inactive": "Inactiva",
         "idLabel": "ID: {id}",
         "lastUpdate": "Última actualización: {value}",
+        "capacityValue": "Capacity: {count} people",
         "qrCopy": "Copiar URL QR",
         "qrCopied": "URL copiada",
         "qrMissingData": "Falta branch_id para generar la URL QR de esta mesa.",
@@ -946,6 +975,32 @@
         "transactionsLegend": "Transacciones",
         "methodLabel": "Método: {label}"
       }
+    },
+    "stockMovements": {
+      "filters": {
+        "type": "Tipo",
+        "allTypes": "Todos los tipos",
+        "dateFrom": "Desde",
+        "dateTo": "Hasta"
+      },
+      "actions": {
+        "refresh": "Actualizar",
+        "exportCsv": "Exportar CSV"
+      },
+      "columns": {
+        "date": "Fecha",
+        "ingredient": "Ingrediente",
+        "type": "Tipo",
+        "qty": "Cantidad",
+        "reason": "Motivo",
+        "source": "Origen"
+      },
+      "empty": "No hay movimientos de stock registrados.",
+      "pagination": {
+        "showing": "Mostrando {from}–{to} de {total}",
+        "prev": "Anterior",
+        "next": "Siguiente"
+      }
     }
   },
   "cajero": {
@@ -1107,7 +1162,10 @@
         "optionsConfirm": "Agregar producto",
         "optionsRequiredNoStock": "El grupo obligatorio \"{group}\" no tiene opciones con stock.",
         "optionsRequiredMissing": "Selecciona al menos una opción en \"{group}\".",
-        "optionsMaxReached": "En \"{group}\" puedes seleccionar hasta {count} opciones."
+        "optionsMaxReached": "En \"{group}\" puedes seleccionar hasta {count} opciones.",
+        "discountLabel": "Descuento del cajero (opcional)",
+        "noDiscount": "Sin descuento",
+        "discountSaving": "Ahorro: ${amount}"
       },
       "status": {
         "available": "Disponible",

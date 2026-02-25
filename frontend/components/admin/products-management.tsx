@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
+import { downloadCsv } from "@/lib/csv"
 import { 
   Plus, 
   Edit, 
@@ -16,7 +17,9 @@ import {
   Package, 
   Search,
   CheckCircle,
-  XCircle
+  XCircle,
+  Download,
+  Upload
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
@@ -50,6 +53,9 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
   const [categories, setCategories] = useState<Category[]>([])
   const [categoryInput, setCategoryInput] = useState("")
   const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [importingCsv, setImportingCsv] = useState(false)
+  const [showImportResult, setShowImportResult] = useState(false)
+  const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -358,6 +364,72 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  const handleExportCsv = () => {
+    try {
+      if (filteredProducts.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay productos para exportar",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const rows = filteredProducts.map((product) => ([
+        product.name,
+        product.category,
+        product.price.toFixed(2),
+        product.available ? t("status.available") : t("status.unavailable"),
+        product.description || "",
+      ]))
+
+      downloadCsv(
+        `productos_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["nombre", "categoria", "precio", "estado", "descripcion"],
+        rows
+      )
+    } catch {
+      toast({
+        title: t("toast.errorTitle"),
+        description: "No se pudo exportar el CSV",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    setImportingCsv(true)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const formData = new FormData()
+      formData.append("file", file)
+      if (branchId) formData.append("branch_id", branchId)
+
+      const res = await fetch(`${backendUrl}/import/products`, {
+        method: "POST",
+        headers: authHeader,
+        body: formData,
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Error al importar productos")
+
+      setImportResult(json.data)
+      setShowImportResult(true)
+      await fetchProducts()
+    } catch (err: any) {
+      toast({
+        title: t("toast.errorTitle"),
+        description: err?.message || "No se pudo importar el CSV de productos",
+        variant: "destructive"
+      })
+    } finally {
+      setImportingCsv(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -366,20 +438,58 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{t("header.title")}</h2>
           <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              {t("actions.newProduct")}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleExportCsv}>
+            <Download className="w-4 h-4 mr-2" />
+            {t("actions.exportCsv")}
+          </Button>
+          <label>
+            <Button variant="outline" disabled={importingCsv} asChild>
+              <span>
+                <Upload className="w-4 h-4 mr-2" />
+                {importingCsv ? "..." : t("actions.importCsv")}
+              </span>
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] bg-white border border-gray-200">
-            <DialogHeader>
-              <DialogTitle className="text-gray-900">
-                {editingProduct ? t("dialog.editTitle") : t("dialog.createTitle")}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <input type="file" accept=".csv" className="sr-only" onChange={handleImportCsv} disabled={importingCsv} />
+          </label>
+
+          <Dialog open={showImportResult} onOpenChange={setShowImportResult}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("importResult.title")}</DialogTitle>
+                <DialogDescription>
+                  {t("importResult.summary", { created: importResult?.created ?? 0, updated: importResult?.updated ?? 0 })}
+                </DialogDescription>
+              </DialogHeader>
+              {importResult && importResult.errors.length > 0 && (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-medium text-destructive">
+                    {t("importResult.errors", { count: importResult.errors.length })}
+                  </p>
+                  {importResult.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {t("importResult.errorRow", { row: err.row })}: {err.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => resetForm()} className="bg-gray-900 hover:bg-gray-800 text-white self-start sm:self-auto">
+                <Plus className="w-4 h-4 mr-2" />
+                {t("actions.newProduct")}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] bg-white border border-gray-200">
+              <DialogHeader>
+                <DialogTitle className="text-gray-900">
+                  {editingProduct ? t("dialog.editTitle") : t("dialog.createTitle")}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-gray-700">{t("form.name")}</Label>
@@ -482,17 +592,18 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
                 <Label htmlFor="available" className="text-gray-700">{t("form.available")}</Label>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 hover:bg-gray-50 text-gray-700">
-                  {t("actions.cancel")}
-                </Button>
-                <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white">
-                  {editingProduct ? t("actions.update") : t("actions.create")}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="border-gray-300 hover:bg-gray-50 text-gray-700">
+                    {t("actions.cancel")}
+                  </Button>
+                  <Button type="submit" className="bg-gray-900 hover:bg-gray-800 text-white">
+                    {editingProduct ? t("actions.update") : t("actions.create")}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Buscador */}

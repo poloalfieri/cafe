@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
 import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
 import { getTenantApiBase } from '@/lib/apiClient'
+import { downloadCsv } from '@/lib/csv'
 import { ALLOWED_UNITS } from '@/lib/validation'
 import { useTranslations } from "next-intl"
 import {
@@ -23,7 +24,8 @@ import {
   AlertTriangle,
   DollarSign,
   Package,
-  Download
+  Download,
+  Upload
 } from 'lucide-react'
 
 interface Ingredient {
@@ -31,6 +33,7 @@ interface Ingredient {
   name: string
   unit: string
   currentStock: number
+  wastePercent?: number
   unitCost: number | null
   minStock: number
   trackStock: boolean
@@ -42,6 +45,7 @@ interface IngredientFormData {
   name: string
   unit: string
   currentStock: number
+  wastePercent: number
   unitCost: number | null
   minStock: number
   trackStock: boolean
@@ -63,12 +67,16 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     name: '',
     unit: 'g',
     currentStock: 0,
+    wastePercent: 0,
     unitCost: null,
     minStock: 0,
     trackStock: true
   })
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  const [importingCsv, setImportingCsv] = useState(false)
+  const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null)
+  const [showImportResult, setShowImportResult] = useState(false)
 
   const fetchIngredients = async () => {
     try {
@@ -124,7 +132,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       
       setShowModal(false)
       setEditingId(null)
-      setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null, minStock: 0, trackStock: true })
+      setFormData({ name: '', unit: 'g', currentStock: 0, wastePercent: 0, unitCost: null, minStock: 0, trackStock: true })
       fetchIngredients()
     } catch (error: any) {
       toast({
@@ -140,6 +148,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       name: ingredient.name,
       unit: ingredient.unit,
       currentStock: ingredient.currentStock,
+      wastePercent: ingredient.wastePercent ?? 0,
       unitCost: ingredient.unitCost,
       minStock: ingredient.minStock,
       trackStock: ingredient.trackStock
@@ -177,27 +186,79 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     }
   }
 
-  const handleExportCsv = async () => {
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    setImportingCsv(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const params = new URLSearchParams()
-      if (branchId) params.set('branch_id', branchId)
-      const url = `${backendUrl}/reports/stock.csv${params.toString() ? '?' + params.toString() : ''}`
-      const res = await fetch(url, { headers: authHeader })
-      if (!res.ok) throw new Error('Error al exportar')
-      const blob = await res.blob()
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = `stock_${new Date().toISOString().slice(0, 10)}.csv`
-      a.click()
-      URL.revokeObjectURL(a.href)
+      const formData = new FormData()
+      formData.append("file", file)
+      if (branchId) formData.append("branch_id", branchId)
+      const res = await fetch(`${backendUrl}/import/ingredients`, {
+        method: "POST",
+        headers: authHeader,
+        body: formData,
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Error al importar")
+      setImportResult(json.data)
+      setShowImportResult(true)
+      void fetchIngredients()
+    } catch (err: any) {
+      toast({ title: t("toast.errorTitle"), description: err.message || "Error al importar CSV", variant: "destructive" })
+    } finally {
+      setImportingCsv(false)
+    }
+  }
+
+  const handleExportCsv = () => {
+    try {
+      if (filteredIngredients.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay ingredientes para exportar",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const rows = filteredIngredients.map((ingredient) => {
+        const status = getStockStatus(ingredient.currentStock, ingredient.minStock)
+        const totalValue = ingredient.unitCost != null
+          ? ingredient.currentStock * ingredient.unitCost
+          : null
+
+        return [
+          ingredient.name,
+          ingredient.unit,
+          ingredient.currentStock.toFixed(2),
+          `${(ingredient.wastePercent ?? 0).toFixed(2)}%`,
+          ingredient.minStock.toFixed(2),
+          status.label,
+          ingredient.unitCost != null ? ingredient.unitCost.toFixed(2) : "",
+          totalValue != null ? totalValue.toFixed(2) : "",
+          ingredient.trackStock ? "si" : "no",
+        ]
+      })
+
+      downloadCsv(
+        `ingredientes_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["nombre", "unidad", "stock_actual", "desecho_pct", "stock_minimo", "estado", "costo_unitario", "valor_total", "track_stock"],
+        rows
+      )
     } catch {
-      toast({ title: t("toast.errorTitle"), description: 'No se pudo exportar el CSV', variant: 'destructive' })
+      toast({
+        title: t("toast.errorTitle"),
+        description: "No se pudo exportar el CSV",
+        variant: "destructive"
+      })
     }
   }
 
   const openNewModal = () => {
-    setFormData({ name: '', unit: 'g', currentStock: 0, unitCost: null, minStock: 0, trackStock: true })
+    setFormData({ name: '', unit: 'g', currentStock: 0, wastePercent: 0, unitCost: null, minStock: 0, trackStock: true })
     setEditingId(null)
     setShowModal(true)
   }
@@ -221,11 +282,42 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
           <h2 className="text-2xl font-bold text-gray-900">{t("header.title")}</h2>
           <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" onClick={handleExportCsv}>
             <Download className="w-4 h-4 mr-2" />
             {t("actions.exportCsv")}
           </Button>
+          <label>
+            <Button variant="outline" disabled={importingCsv} asChild>
+              <span>
+                <Upload className="w-4 h-4 mr-2" />
+                {importingCsv ? "..." : t("actions.importCsv")}
+              </span>
+            </Button>
+            <input type="file" accept=".csv" className="sr-only" onChange={handleImportCsv} disabled={importingCsv} />
+          </label>
+          {/* Dialog resultado de importación */}
+          <Dialog open={showImportResult} onOpenChange={setShowImportResult}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("importResult.title")}</DialogTitle>
+                <DialogDescription>
+                  {t("importResult.summary", { created: importResult?.created ?? 0, updated: importResult?.updated ?? 0 })}
+                </DialogDescription>
+              </DialogHeader>
+              {importResult && importResult.errors.length > 0 && (
+                <div className="space-y-1 max-h-60 overflow-y-auto">
+                  <p className="text-sm font-medium text-destructive">{t("importResult.errors", { count: importResult.errors.length })}</p>
+                  {importResult.errors.map((err, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {t("importResult.errorRow", { row: err.row })}: {err.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogTrigger asChild>
             <Button onClick={openNewModal} className="bg-gray-900 hover:bg-gray-800">
@@ -279,6 +371,20 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
                   value={formData.currentStock}
                   onChange={(e) => setFormData({ ...formData, currentStock: parseFloat(e.target.value) || 0 })}
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="wastePercent">{t("form.wastePercent")}</Label>
+                <Input
+                  id="wastePercent"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.wastePercent}
+                  onChange={(e) => setFormData({ ...formData, wastePercent: parseFloat(e.target.value) || 0 })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("form.wastePercentHelp")}</p>
               </div>
               
               <div>
@@ -436,6 +542,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
                       <TableHead>{t("table.name")}</TableHead>
                       <TableHead>{t("table.unit")}</TableHead>
                       <TableHead>{t("table.currentStock")}</TableHead>
+                      <TableHead>{t("table.wastePercent")}</TableHead>
                       <TableHead>{t("table.min")}</TableHead>
                       <TableHead>{t("table.status")}</TableHead>
                       <TableHead>{t("table.unitCost")}</TableHead>
@@ -451,6 +558,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
                           <TableCell className="font-medium">{ingredient.name}</TableCell>
                           <TableCell>{ingredient.unit}</TableCell>
                           <TableCell>{ingredient.currentStock.toFixed(2)}</TableCell>
+                          <TableCell>{(ingredient.wastePercent ?? 0).toFixed(2)}%</TableCell>
                           <TableCell>{ingredient.minStock.toFixed(2)}</TableCell>
                           <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
                           <TableCell>
@@ -496,6 +604,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
                         <span>{t("table.currentStock")}: <strong>{ingredient.currentStock.toFixed(2)} {ingredient.unit}</strong></span>
+                        <span>{t("table.wastePercent")}: <strong>{(ingredient.wastePercent ?? 0).toFixed(2)}%</strong></span>
                         <span>{t("table.min")}: <strong>{ingredient.minStock.toFixed(2)}</strong></span>
                         <span>{t("table.unitCost")}: <strong>{ingredient.unitCost != null ? `$${ingredient.unitCost.toFixed(2)}` : t("table.notAvailable")}</strong></span>
                         <span>{t("table.totalValue")}: <strong>{ingredient.unitCost != null ? `$${(ingredient.currentStock * ingredient.unitCost).toFixed(2)}` : t("table.notAvailable")}</strong></span>

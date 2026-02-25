@@ -13,6 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
+import { downloadCsv } from "@/lib/csv"
 import { useTranslations } from "next-intl"
 import { 
   ChefHat, 
@@ -24,7 +25,8 @@ import {
   Calculator,
   Search,
   RefreshCw,
-  ListChecks
+  ListChecks,
+  Download
 } from 'lucide-react'
 import ProductOptionsManagement from './product-options-management'
 
@@ -78,6 +80,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [loading, setLoading] = useState(true)
   const [productsLoading, setProductsLoading] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
   const [selectedIngredientId, setSelectedIngredientId] = useState('')
@@ -288,6 +291,91 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
     }
   }
 
+  const handleExportCsv = async () => {
+    try {
+      if (products.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay productos para exportar recetas",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setExportingCsv(true)
+
+      const responses = await Promise.all(
+        products.map(async (product) => {
+          try {
+            const response = await api.get(`${backendUrl}/recipes?productId=${product.id}`)
+            const data = (response as any).data || []
+            return { product, recipes: data as Recipe[], error: false }
+          } catch {
+            return { product, recipes: [] as Recipe[], error: true }
+          }
+        })
+      )
+
+      const rows: Array<Array<string>> = []
+      for (const item of responses) {
+        const totalCost = item.recipes.reduce((sum, recipe) => {
+          if (recipe.unitCost == null) return sum
+          return sum + (recipe.quantity * recipe.unitCost)
+        }, 0)
+        const margin = item.product.price > 0
+          ? ((item.product.price - totalCost) / item.product.price) * 100
+          : 0
+
+        for (const recipe of item.recipes) {
+          rows.push([
+            item.product.name,
+            item.product.category,
+            recipe.name,
+            recipe.unit,
+            recipe.quantity.toFixed(4),
+            recipe.unitCost != null ? recipe.unitCost.toFixed(4) : "",
+            recipe.unitCost != null ? (recipe.quantity * recipe.unitCost).toFixed(4) : "",
+            item.product.price.toFixed(2),
+            totalCost.toFixed(4),
+            margin.toFixed(2),
+          ])
+        }
+      }
+
+      if (rows.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay recetas para exportar",
+          variant: "destructive"
+        })
+        return
+      }
+
+      downloadCsv(
+        `recetas_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["producto", "categoria", "ingrediente", "unidad", "cantidad", "costo_unitario", "costo_total_ingrediente", "precio_venta", "costo_total_receta", "margen_pct"],
+        rows
+      )
+
+      const failedProducts = responses.filter((item) => item.error).length
+      if (failedProducts > 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: `Se exportó parcialmente. ${failedProducts} producto(s) no pudieron consultarse.`,
+          variant: "destructive"
+        })
+      }
+    } catch {
+      toast({
+        title: t("toast.errorTitle"),
+        description: "No se pudo exportar el CSV",
+        variant: "destructive"
+      })
+    } finally {
+      setExportingCsv(false)
+    }
+  }
+
   const calculateEstimatedCost = () => {
     return recipes.reduce((total, recipe) => {
       if (recipe.unitCost) {
@@ -329,6 +417,14 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
           <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleExportCsv()}
+            disabled={exportingCsv || loading || productsLoading}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {exportingCsv ? "..." : t("actions.exportCsv")}
+          </Button>
           <Button 
             variant="outline" 
             onClick={fetchProducts}

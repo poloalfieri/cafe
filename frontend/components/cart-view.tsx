@@ -2,8 +2,8 @@
 
 import React from "react"
 import { getRestaurantSlug } from "@/lib/apiClient"
-import { useState } from "react"
-import { ArrowLeft, Minus, Plus, Trash2, Bell } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, Minus, Plus, Trash2, Bell, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/cart-context"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -24,12 +24,23 @@ export default function CartView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [activePromos, setActivePromos] = useState<Array<{ id: string; name: string; type: string; value: number; description: string }>>([])
   const t = useTranslations("usuario.cart")
   const searchParams = useSearchParams()
   const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
   const branch_id = searchParams.get("branch_id")
+
+  useEffect(() => {
+    if (!branch_id) return
+    const { getTenantApiBase } = require("@/lib/apiClient")
+    const backendUrl = getTenantApiBase()
+    fetch(`${backendUrl}/promotions/public?branch_id=${branch_id}`)
+      .then((r) => r.json())
+      .then((json) => setActivePromos(Array.isArray(json) ? json : []))
+      .catch(() => {})
+  }, [branch_id])
 
   const getMesaSession = () => resolveMesaSession({ mesa_id, token, branch_id })
   const mesaSession = getMesaSession()
@@ -293,6 +304,19 @@ export default function CartView() {
       {/* Footer fijo con total del pedido - solo visible cuando hay productos */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
         <div className="container mx-auto px-4 py-4">
+          {/* Banner de promociones activas */}
+          {activePromos.length > 0 && (
+            <div className="mb-3 space-y-1">
+              {activePromos.map((promo) => (
+                <div key={promo.id} className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs text-green-700">
+                  <Tag className="w-3 h-3 flex-shrink-0" />
+                  <span className="font-medium">{promo.name}</span>
+                  {promo.description && <span className="text-green-600">— {promo.description}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Resumen del pedido */}
           <div className="space-y-3 mb-4">
             <div className="flex justify-between">
