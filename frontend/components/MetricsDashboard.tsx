@@ -27,12 +27,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard, Clock } from "lucide-react"
 import { useTranslations } from "next-intl"
 
+type MetricsPeriod = { type?: string; days?: number; from?: string; to?: string }
+
 interface MetricsData {
   salesMonthly: { labels: string[]; values: number[] }
-  ordersStatus: { labels: string[]; values: number[] }
+  ordersStatus: {
+    labels: string[]
+    values: number[]
+    period?: MetricsPeriod
+  }
   dailyRevenue: { labels: string[]; values: number[] }
-  paymentMethods: { labels: string[]; values: number[] }
-  topProducts: { items: Array<{ product_id?: string | number; name: string; quantity: number; image_url?: string | null }> }
+  paymentMethods: {
+    labels: string[]
+    values: number[]
+    period?: MetricsPeriod
+  }
+  topProducts: {
+    items: Array<{
+      product_id?: string | number
+      name: string
+      quantity: number
+      orders_count?: number
+      image_url?: string | null
+    }>
+    period?: MetricsPeriod
+  }
+  pickhours: { labels: string[]; values: number[] }
   peakHours: { labels: string[]; values: number[] }
 }
 
@@ -49,6 +69,7 @@ const COLORS = {
   success: "#00C49F",
   warning: "#FFBB28",
 }
+const AUTO_REFRESH_MS = 3 * 60 * 60 * 1000
 
 interface MetricsDashboardProps {
   branchId?: string
@@ -103,6 +124,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       const params = new URLSearchParams()
       if (branchId) params.set("branch_id", branchId)
       params.set("tzOffset", String(tzOffset))
+      if (force) params.set("refresh", "1")
       const query = params.toString() ? `?${params.toString()}` : ""
 
       const results = await Promise.all(
@@ -149,6 +171,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         dailyRevenue: validatedResults[2],
         paymentMethods: validatedResults[3],
         topProducts: validatedResults[4],
+        pickhours: validatedResults[5],
         peakHours: validatedResults[5],
       })
       completedKeyRef.current = requestKey
@@ -174,6 +197,15 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   }, [fetchMetricsData])
 
   useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void fetchMetricsData(true)
+    }, AUTO_REFRESH_MS)
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [fetchMetricsData])
+
+  useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
@@ -190,6 +222,33 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('es-AR').format(value)
+  }
+
+  const formatPeriodDate = (value?: string) => {
+    if (!value) return ""
+    const dt = new Date(`${value}T00:00:00`)
+    if (Number.isNaN(dt.getTime())) {
+      return value
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(dt)
+  }
+
+  const buildPeriodLabel = (period?: MetricsPeriod) => {
+    const from = formatPeriodDate(period?.from)
+    if (period?.type === "all_time") {
+      if (from) {
+        return t("charts.periodAllTimeSince", { from })
+      }
+      return t("charts.periodAllTime")
+    }
+    const days = period?.days || 30
+    const to = formatPeriodDate(period?.to)
+    if (!from || !to) return t("charts.periodFallback", { days })
+    return t("charts.periodRange", { days, from, to })
   }
 
   if (loading) {
@@ -245,10 +304,14 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   })) || []
 
   const topProducts = Array.isArray(data.topProducts?.items) ? data.topProducts.items : []
-  const peakHoursData = data.peakHours?.labels?.map((label, index) => ({
+  const peakHoursSource = data.pickhours || data.peakHours
+  const peakHoursData = peakHoursSource?.labels?.map((label, index) => ({
     hour: label,
-    count: data.peakHours?.values?.[index] || 0
+    count: peakHoursSource?.values?.[index] || 0
   })) || []
+  const topProductsPeriodLabel = buildPeriodLabel(data.topProducts?.period)
+  const ordersStatusPeriodLabel = buildPeriodLabel(data.ordersStatus?.period)
+  const paymentMethodsPeriodLabel = buildPeriodLabel(data.paymentMethods?.period)
 
   return (
     <div className="space-y-6">
@@ -297,6 +360,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
               <ShoppingCart className="h-5 w-5" />
               {t("charts.topProducts")}
             </CardTitle>
+            <p className="text-xs text-gray-500">{topProductsPeriodLabel}</p>
           </CardHeader>
           <CardContent>
             {topProducts.length === 0 ? (
@@ -324,7 +388,10 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                         {item.name}
                       </p>
                       <p className="text-[11px] text-gray-500">
-                        {t("charts.topProductsQty", { count: Math.round(item.quantity || 0) })}
+                        {t("charts.topProductsQtyUnits", { count: Math.round(item.quantity || 0) })}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {t("charts.topProductsQtyOrders", { count: Math.round(item.orders_count || 0) })}
                       </p>
                     </div>
                   </div>
@@ -398,6 +465,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
               <ShoppingCart className="h-5 w-5" />
               {t("charts.orderStatus")}
             </CardTitle>
+            <p className="text-xs text-gray-500">{ordersStatusPeriodLabel}</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -433,6 +501,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
               <CreditCard className="h-5 w-5" />
               {t("charts.paymentMethods")}
             </CardTitle>
+            <p className="text-xs text-gray-500">{paymentMethodsPeriodLabel}</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>

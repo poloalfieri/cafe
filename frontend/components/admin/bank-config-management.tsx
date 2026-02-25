@@ -29,7 +29,6 @@ interface MercadoPagoConfig {
   enabled: boolean
   access_token: string
   public_key: string
-  webhook_url: string
   webhook_secret: string
 }
 
@@ -54,7 +53,6 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
     enabled: false,
     access_token: "",
     public_key: "",
-    webhook_url: "",
     webhook_secret: "",
   })
 
@@ -225,7 +223,6 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
               enabled: mpConfig.enabled,
               access_token: mpConfig.access_token,
               public_key: mpConfig.public_key,
-              webhook_url: mpConfig.webhook_url,
               webhook_secret: mpConfig.webhook_secret,
             },
           }),
@@ -584,18 +581,12 @@ export default function BankConfigManagement({ branchId }: BankConfigManagementP
                   )}
                 </div>
 
-                <div>
-                  <Label htmlFor="mp-webhook-url">Webhook URL</Label>
-                  <Input
-                    id="mp-webhook-url"
-                    value={mpConfig.webhook_url}
-                    onChange={(e) =>
-                      setMpConfig((prev) => ({ ...prev, webhook_url: e.target.value }))
-                    }
-                    placeholder="https://..."
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    URL donde MercadoPago enviará notificaciones de pago.
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <p className="text-xs font-medium text-blue-900">
+                    Webhook URL automático
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    La plataforma configura la URL de webhook y las URLs de retorno automáticamente al crear cada pago.
                   </p>
                 </div>
 

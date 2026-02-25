@@ -5,7 +5,17 @@ from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
 
 _METRICS_CACHE: Dict[str, Dict[str, Any]] = {}
-_METRICS_CACHE_TTL_SECONDS = 90
+_METRICS_CACHE_TTL_SECONDS = 3 * 60 * 60
+_ACCEPTED_ORDER_STATUSES = {
+    "PAYMENT_APPROVED",
+    "PAID",
+    "IN_PREPARATION",
+    "READY",
+    "DELIVERED",
+}
+_CANCELLED_ORDER_STATUSES = {
+    "CANCELLED",
+}
 
 def _cache_get(key: str) -> Optional[Any]:
     entry = _METRICS_CACHE.get(key)
@@ -27,14 +37,16 @@ class MetricsService:
     def get_dashboard_summary(
         restaurant_id: str,
         branch_id: Optional[str] = None,
-        tz_offset_minutes: Optional[int] = None
+        tz_offset_minutes: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Dict[str, Any]:
         """Resumen de métricas para el dashboard"""
         try:
             cache_key = f"summary:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
@@ -135,14 +147,16 @@ class MetricsService:
     def get_sales_monthly(
         restaurant_id: str,
         branch_id: Optional[str] = None,
-        tz_offset_minutes: Optional[int] = None
+        tz_offset_minutes: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Dict[str, List]:
         """Obtiene las ventas mensuales del último año"""
         try:
             cache_key = f"sales-monthly:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
@@ -194,20 +208,22 @@ class MetricsService:
     def get_orders_status(
         restaurant_id: str,
         branch_id: Optional[str] = None,
-        tz_offset_minutes: Optional[int] = None
+        tz_offset_minutes: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Dict[str, List]:
         """Obtiene el conteo de pedidos por estado"""
         try:
             cache_key = f"orders-status:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             offset_minutes = tz_offset_minutes or 0
-            now_utc = datetime.now(timezone.utc)
-            now_local = _apply_tz_offset(now_utc, offset_minutes)
-            start = now_local - timedelta(days=30)
-            start_iso = _ensure_utc(start).isoformat()
+            _, start, start_iso, period_meta = _build_rolling_period(
+                days=30,
+                offset_minutes=offset_minutes,
+            )
             query = supabase.table("orders").select(
                 "status"
             ).eq("restaurant_id", restaurant_id).gte("creation_date", start_iso)
@@ -217,15 +233,19 @@ class MetricsService:
             orders = response.data or []
 
             accepted = 0
-            rejected = 0
+            cancelled = 0
             for order in orders:
-                status = order.get("status")
-                if status == "PAYMENT_REJECTED":
-                    rejected += 1
-                elif status == "PAID":
+                status = str(order.get("status") or "").upper()
+                if status in _CANCELLED_ORDER_STATUSES:
+                    cancelled += 1
+                elif status in _ACCEPTED_ORDER_STATUSES:
                     accepted += 1
 
-            result = {"labels": ["Aceptados", "Rechazados"], "values": [accepted, rejected]}
+            result = {
+                "labels": ["Aceptados", "Cancelados"],
+                "values": [accepted, cancelled],
+                "period": period_meta,
+            }
             _cache_set(cache_key, result)
             return result
         except Exception as e:
@@ -236,14 +256,16 @@ class MetricsService:
     def get_daily_revenue(
         restaurant_id: str,
         branch_id: Optional[str] = None,
-        tz_offset_minutes: Optional[int] = None
+        tz_offset_minutes: Optional[int] = None,
+        force_refresh: bool = False,
     ) -> Dict[str, List]:
         """Obtiene los ingresos diarios de la última semana"""
         try:
             cache_key = f"daily-revenue:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             offset_minutes = tz_offset_minutes or 0
             now_utc = datetime.now(timezone.utc)
@@ -290,17 +312,22 @@ class MetricsService:
     def get_payment_methods(
         restaurant_id: str,
         branch_id: Optional[str] = None,
-        tz_offset_minutes: Optional[int] = None
-    ) -> Dict[str, List]:
+        tz_offset_minutes: Optional[int] = None,
+        force_refresh: bool = False,
+    ) -> Dict[str, Any]:
         """Obtiene el uso de métodos de pago"""
         try:
             cache_key = f"payment-methods:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
+            offset_minutes = tz_offset_minutes or 0
+            now_utc = datetime.now(timezone.utc)
+            now_local = _apply_tz_offset(now_utc, offset_minutes)
             query = supabase.table("orders").select(
-                "payment_method"
+                "payment_method, creation_date"
             ).eq("restaurant_id", restaurant_id)
             if branch_id:
                 query = query.eq("branch_id", branch_id)
@@ -313,8 +340,16 @@ class MetricsService:
                 "Efectivo": 0,
                 "QR": 0,
             }
+            first_order_date_local: Optional[str] = None
 
             for order in orders:
+                dt = _parse_order_datetime(order.get("creation_date"))
+                if dt:
+                    local_dt = _apply_tz_offset(dt, offset_minutes)
+                    local_date = local_dt.date().isoformat()
+                    if first_order_date_local is None or local_date < first_order_date_local:
+                        first_order_date_local = local_date
+
                 method = (order.get("payment_method") or "").upper()
                 if method == "BILLETERA":
                     counts["Billetera"] += 1
@@ -327,7 +362,15 @@ class MetricsService:
 
             labels = list(counts.keys())
             values = [counts[label] for label in labels]
-            result = {"labels": labels, "values": values}
+            result = {
+                "labels": labels,
+                "values": values,
+                "period": {
+                    "type": "all_time",
+                    "from": first_order_date_local,
+                    "to": now_local.date().isoformat(),
+                },
+            }
             _cache_set(cache_key, result)
             return result
         except Exception as e:
@@ -341,21 +384,23 @@ class MetricsService:
         tz_offset_minutes: Optional[int] = None,
         limit: int = 8,
         days: int = 30,
+        force_refresh: bool = False,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Obtiene los productos más vendidos (últimos N días).
         """
         try:
             cache_key = f"top-products:{restaurant_id}:{branch_id or 'all'}:{tz_offset_minutes or 0}:{days}:{limit}"
-            cached = _cache_get(cache_key)
-            if cached is not None:
-                return cached
+            if not force_refresh:
+                cached = _cache_get(cache_key)
+                if cached is not None:
+                    return cached
 
             offset_minutes = tz_offset_minutes or 0
-            now_utc = datetime.now(timezone.utc)
-            now_local = _apply_tz_offset(now_utc, offset_minutes)
-            start = now_local - timedelta(days=max(1, days))
-            start_iso = _ensure_utc(start).isoformat()
+            _, start, start_iso, period_meta = _build_rolling_period(
+                days=max(1, days),
+                offset_minutes=offset_minutes,
+            )
 
             query = supabase.table("orders").select(
                 "items, creation_date, status"
@@ -382,10 +427,14 @@ class MetricsService:
                 if not isinstance(items, list):
                     continue
 
+                seen_products_in_order = set()
                 for item in items:
                     if not isinstance(item, dict):
                         continue
-                    pid = item.get("item_id") or item.get("product_id") or item.get("id")
+                    pid_raw = item.get("item_id") or item.get("product_id") or item.get("id")
+                    pid = _normalize_product_id(pid_raw)
+                    if pid is None:
+                        continue
                     name = (
                         item.get("name")
                         or item.get("title")
@@ -395,19 +444,24 @@ class MetricsService:
                     qty = _safe_float(item.get("quantity") or item.get("qty") or 0)
                     if qty <= 0:
                         continue
-                    key = str(pid) if pid is not None else f"name::{name}"
+                    key = str(pid)
                     if key not in bucket:
                         bucket[key] = {
                             "product_id": pid,
                             "name": str(name) if name else "Producto",
                             "quantity": 0.0,
+                            "orders_count": 0,
                         }
                     bucket[key]["quantity"] += qty
-                    if pid is not None:
-                        product_ids.add(pid)
+                    seen_products_in_order.add(key)
+                    product_ids.add(pid)
 
-            # Attach image_url from menu when possible
-            images_by_id: Dict[str, Optional[str]] = {}
+                for key in seen_products_in_order:
+                    if key in bucket:
+                        bucket[key]["orders_count"] += 1
+
+            # Keep only existing products from menu and attach current data.
+            menu_by_id: Dict[str, Dict[str, Any]] = {}
             if product_ids:
                 menu_query = supabase.table("menu").select("id, name, image_url").in_("id", list(product_ids))
                 if branch_id:
@@ -415,20 +469,21 @@ class MetricsService:
                 menu_query = menu_query.eq("restaurant_id", restaurant_id)
                 menu_resp = execute_with_retry(menu_query.execute)
                 for row in (menu_resp.data or []):
-                    images_by_id[str(row.get("id"))] = row.get("image_url")
+                    menu_by_id[str(row.get("id"))] = row
 
-            top_list = list(bucket.values())
+            top_list = [item for key, item in bucket.items() if key in menu_by_id]
             top_list.sort(key=lambda x: (-x["quantity"], x["name"]))
             top_list = top_list[:max(1, limit)]
 
             for item in top_list:
-                pid = item.get("product_id")
-                if pid is not None:
-                    item["image_url"] = images_by_id.get(str(pid))
-                else:
+                menu_row = menu_by_id.get(str(item.get("product_id")))
+                if not menu_row:
                     item["image_url"] = None
+                    continue
+                item["name"] = menu_row.get("name") or item.get("name") or "Producto"
+                item["image_url"] = menu_row.get("image_url")
 
-            result = {"items": top_list}
+            result = {"items": top_list, "period": period_meta}
             _cache_set(cache_key, result)
             return result
         except Exception as e:
@@ -539,6 +594,47 @@ def _safe_float(value: Any) -> float:
         return float(value)
     except Exception:
         return 0.0
+
+
+def _normalize_product_id(value: Any) -> Optional[Any]:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else None
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            return None
+        if normalized.isdigit():
+            try:
+                return int(normalized)
+            except Exception:
+                return None
+        return normalized
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def _build_rolling_period(days: int, offset_minutes: int) -> tuple[datetime, datetime, str, Dict[str, Any]]:
+    safe_days = max(1, int(days))
+    now_utc = datetime.now(timezone.utc)
+    now_local = _apply_tz_offset(now_utc, offset_minutes)
+    start_local = now_local - timedelta(days=safe_days)
+    return (
+        now_local,
+        start_local,
+        _ensure_utc(start_local).isoformat(),
+        {
+            "type": "rolling_days",
+            "days": safe_days,
+            "from": start_local.date().isoformat(),
+            "to": now_local.date().isoformat(),
+        },
+    )
 
 
 def _accumulate_top_products(bucket: Dict[str, Dict[str, float]], items: Any) -> None:
