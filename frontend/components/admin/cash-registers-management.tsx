@@ -2,7 +2,7 @@
 
 import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
-import { Plus, Monitor } from "lucide-react"
+import { Plus, Monitor, UserPlus, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,6 +18,19 @@ interface CashRegister {
   created_at: string
 }
 
+interface Cashier {
+  id: string
+  email: string
+  branch_id: string | null
+}
+
+interface Assignment {
+  id: string
+  register_id: string
+  user_id: string
+  active: boolean
+}
+
 interface CashRegistersManagementProps {
   branchId?: string
 }
@@ -25,31 +38,52 @@ interface CashRegistersManagementProps {
 export default function CashRegistersManagement({ branchId }: CashRegistersManagementProps) {
   const { toast } = useToast()
   const [registers, setRegisters] = useState<CashRegister[]>([])
+  const [cashiers, setCashiers] = useState<Cashier[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [assigning, setAssigning] = useState<string | null>(null) // register_id being assigned
   const [newName, setNewName] = useState("")
+  // Per-register selected cashier for assignment
+  const [selectedCashier, setSelectedCashier] = useState<Record<string, string>>({})
   const backendUrl = getTenantApiBase()
 
   useEffect(() => {
-    fetchRegisters()
+    fetchAll()
   }, [branchId])
 
-  const fetchRegisters = async () => {
+  const fetchAll = async () => {
     setLoading(true)
+    await Promise.all([fetchRegisters(), fetchCashiers(), fetchAssignments()])
+    setLoading(false)
+  }
+
+  const fetchRegisters = async () => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
       const params = branchId ? `?branch_id=${branchId}` : ""
-      const response = await fetch(`${backendUrl}/cash/registers${params}`, {
-        headers: { ...authHeader },
-      })
-      if (!response.ok) return
-      const data = await response.json()
+      const res = await fetch(`${backendUrl}/cash/registers${params}`, { headers: { ...authHeader } })
+      if (!res.ok) return
+      const data = await res.json()
       setRegisters(data.data || [])
-    } catch (_) {
-      // ignore
-    } finally {
-      setLoading(false)
-    }
+    } catch (_) {}
+  }
+
+  const fetchCashiers = async () => {
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const res = await fetch("/api/admin/list-cashiers", { headers: { ...authHeader } })
+      if (!res.ok) return
+      const data = await res.json()
+      // Filter to the current branch if possible
+      const list: Cashier[] = data.cashiers || []
+      setCashiers(branchId ? list.filter((c) => !c.branch_id || c.branch_id === branchId) : list)
+    } catch (_) {}
+  }
+
+  const fetchAssignments = async () => {
+    // Assignments are not directly listable via API yet, so we track them locally after assigning
+    // The source of truth for current assignments is refreshed on each assign/unassign action
   }
 
   const handleCreate = async () => {
@@ -57,13 +91,13 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
     setCreating(true)
     try {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/cash/registers`, {
+      const res = await fetch(`${backendUrl}/cash/registers`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeader },
         body: JSON.stringify({ name: newName.trim(), branch_id: branchId }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || "Error al crear caja")
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error al crear caja")
       toast({ title: "Caja creada", description: `"${newName.trim()}" creada correctamente.` })
       setNewName("")
       fetchRegisters()
@@ -74,11 +108,78 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
     }
   }
 
+  const handleAssign = async (registerId: string) => {
+    const userId = selectedCashier[registerId]
+    if (!userId) return
+    setAssigning(registerId)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const res = await fetch(`${backendUrl}/cash/registers/${registerId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ user_id: userId, active: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error al asignar cajero")
+      const cashier = cashiers.find((c) => c.id === userId)
+      toast({ title: "Cajero asignado", description: `${cashier?.email ?? userId} asignado a la caja correctamente.` })
+      setSelectedCashier((prev) => ({ ...prev, [registerId]: "" }))
+      // Track locally
+      setAssignments((prev) => [
+        ...prev.filter((a) => !(a.register_id === registerId && a.user_id === userId)),
+        { id: data.data?.id ?? Math.random().toString(), register_id: registerId, user_id: userId, active: true },
+      ])
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "No se pudo asignar el cajero", variant: "destructive" })
+    } finally {
+      setAssigning(null)
+    }
+  }
+
+  const handleUnassign = async (registerId: string, userId: string) => {
+    setAssigning(registerId)
+    try {
+      const authHeader = await getClientAuthHeaderAsync()
+      const res = await fetch(`${backendUrl}/cash/registers/${registerId}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify({ user_id: userId, active: false }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error al quitar asignación")
+      toast({ title: "Asignación removida" })
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.register_id === registerId && a.user_id === userId ? { ...a, active: false } : a
+        )
+      )
+    } catch (error: any) {
+      toast({ title: "Error", description: error?.message || "No se pudo remover la asignación", variant: "destructive" })
+    } finally {
+      setAssigning(null)
+    }
+  }
+
+  const getAssignedCashiers = (registerId: string) =>
+    assignments
+      .filter((a) => a.register_id === registerId && a.active)
+      .map((a) => cashiers.find((c) => c.id === a.user_id))
+      .filter(Boolean) as Cashier[]
+
+  const getAvailableCashiers = (registerId: string) => {
+    const assignedIds = assignments
+      .filter((a) => a.register_id === registerId && a.active)
+      .map((a) => a.user_id)
+    return cashiers.filter((c) => !assignedIds.includes(c.id))
+  }
+
   return (
     <div className="space-y-4 mt-8 pt-6 border-t border-gray-200">
       <div>
         <h2 className="text-xl font-bold text-gray-900">Cajas registradoras</h2>
-        <p className="text-sm text-gray-600">Crea y gestiona las cajas disponibles para los cajeros</p>
+        <p className="text-sm text-gray-600">
+          Crea cajas y asigná cajeros. Un cajero debe estar asignado a una caja para poder abrirla.
+        </p>
       </div>
 
       {!branchId && (
@@ -118,23 +219,86 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
           <p className="text-sm">No hay cajas registradas para esta sucursal.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {registers.map((r) => (
-            <Card key={r.id} className="border border-gray-200">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Monitor className="w-5 h-5 text-gray-500" />
-                  <div>
-                    <p className="font-medium text-gray-900">{r.name}</p>
-                    <p className="text-xs text-gray-500">ID: {r.id.slice(0, 8)}…</p>
+        <div className="space-y-3">
+          {registers.map((r) => {
+            const assigned = getAssignedCashiers(r.id)
+            const available = getAvailableCashiers(r.id)
+            const isAssigning = assigning === r.id
+
+            return (
+              <Card key={r.id} className="border border-gray-200">
+                <CardContent className="p-4 space-y-3">
+                  {/* Header de la caja */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Monitor className="w-5 h-5 text-gray-500" />
+                      <div>
+                        <p className="font-medium text-gray-900">{r.name}</p>
+                        <p className="text-xs text-gray-400">ID: {r.id.slice(0, 8)}…</p>
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                      {r.active ? "Activa" : "Inactiva"}
+                    </span>
                   </div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                  {r.active ? "Activa" : "Inactiva"}
-                </span>
-              </CardContent>
-            </Card>
-          ))}
+
+                  {/* Cajeros asignados */}
+                  {assigned.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cajeros asignados</p>
+                      {assigned.map((c) => (
+                        <div key={c.id} className="flex items-center justify-between bg-green-50 rounded-md px-3 py-1.5">
+                          <span className="text-sm text-gray-800">{c.email}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleUnassign(r.id, c.id)}
+                            disabled={isAssigning}
+                          >
+                            <UserMinus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Asignar nuevo cajero */}
+                  {available.length > 0 && (
+                    <div className="flex gap-2 items-center">
+                      <select
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                        value={selectedCashier[r.id] ?? ""}
+                        onChange={(e) => setSelectedCashier((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                      >
+                        <option value="">Asignar cajero...</option>
+                        {available.map((c) => (
+                          <option key={c.id} value={c.id}>{c.email}</option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAssign(r.id)}
+                        disabled={!selectedCashier[r.id] || isAssigning}
+                        className="bg-gray-900 hover:bg-gray-800 text-white"
+                      >
+                        <UserPlus className="w-3.5 h-3.5 mr-1" />
+                        {isAssigning ? "..." : "Asignar"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {available.length === 0 && cashiers.length > 0 && assigned.length === 0 && (
+                    <p className="text-xs text-gray-400">No hay cajeros disponibles para asignar.</p>
+                  )}
+
+                  {cashiers.length === 0 && (
+                    <p className="text-xs text-amber-600">Primero creá cajeros en la sección de arriba.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

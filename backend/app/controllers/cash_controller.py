@@ -118,6 +118,31 @@ def open_session():
         return jsonify({"error": "Error al abrir caja"}), 500
 
 
+@cash_bp.route("/sessions", methods=["GET"])
+@require_auth
+@require_roles("desarrollador", "admin")
+def list_sessions():
+    restaurant_id, err = _require_restaurant_scope()
+    if err:
+        return err
+    branch_id = request.args.get("branch_id")
+    register_id = request.args.get("register_id")
+    status = request.args.get("status")
+    limit = min(int(request.args.get("limit", 50)), 200)
+    try:
+        sessions = cash_service.list_sessions(
+            restaurant_id=restaurant_id,
+            branch_id=branch_id,
+            register_id=register_id,
+            status=status,
+            limit=limit,
+        )
+        return jsonify({"data": sessions}), 200
+    except Exception as e:
+        logger.error(f"Error listando sesiones de caja: {str(e)}")
+        return jsonify({"error": "Error al listar sesiones de caja"}), 500
+
+
 @cash_bp.route("/sessions/current", methods=["GET"])
 @require_auth
 @require_roles("desarrollador", "admin", "caja")

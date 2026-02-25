@@ -152,6 +152,27 @@ class CashService:
             raise Exception("No se pudo abrir la caja")
         return self._attach_expected_amount(session)
 
+    def list_sessions(
+        self,
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        register_id: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict]:
+        query = supabase.table("cash_sessions").select("*").eq("restaurant_id", restaurant_id)
+        if branch_id:
+            query = query.eq("branch_id", branch_id)
+        if register_id:
+            query = query.eq("register_id", register_id)
+        if status and status in self.VALID_SESSION_STATUSES:
+            query = query.eq("status", status)
+        response = execute_with_retry(
+            lambda: query.order("opened_at", desc=True).limit(limit).execute()
+        )
+        sessions = response.data or []
+        return [self._attach_expected_amount(s) if s.get("status") == "OPEN" else s for s in sessions]
+
     def get_current_session(
         self,
         restaurant_id: str,
