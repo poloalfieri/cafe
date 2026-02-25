@@ -51,6 +51,15 @@ class MenuService:
                     mesa_id=mesa_id,
                     branch_id=branch_id,
                 )
+
+            # Para backoffice autenticado, refrescar disponibilidad basada en stock
+            # antes de devolver el listado. Evita estados stale en el panel admin.
+            if user_id and not mesa_id:
+                self.sync_unavailable_from_stock(
+                    restaurant_id=restaurant_id,
+                    branch_id=branch_id,
+                )
+
             query = supabase.table("menu").select("*")
             query = query.eq("restaurant_id", restaurant_id)
             if branch_id:
@@ -73,6 +82,101 @@ class MenuService:
         except Exception as e:
             logger.error(f"Error al listar menú: {str(e)}")
             raise Exception(f"Error al consultar el menú: {str(e)}")
+
+    def sync_unavailable_from_stock(
+        self,
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        product_ids: Optional[List[int]] = None,
+    ) -> int:
+        """
+        Sincroniza disponibilidad de productos en base al stock de ingredientes de receta.
+        Si falta stock -> available=false.
+        Si hay stock suficiente -> available=true.
+        """
+        try:
+            menu_query = (
+                supabase.table("menu")
+                .select("id, branch_id, available")
+                .eq("restaurant_id", restaurant_id)
+            )
+            if branch_id:
+                menu_query = menu_query.eq("branch_id", branch_id)
+            if product_ids:
+                menu_query = menu_query.in_("id", product_ids)
+
+            menu_rows = (execute_with_retry(menu_query.execute).data or [])
+            updated_count = 0
+
+            for product in menu_rows:
+                product_id = product.get("id")
+                product_branch_id = product.get("branch_id")
+                if product_id is None:
+                    continue
+
+                recipe_query = (
+                    supabase.table("recipes")
+                    .select("ingredient_id, quantity")
+                    .eq("restaurant_id", restaurant_id)
+                    .eq("product_id", product_id)
+                )
+                recipe_rows = (execute_with_retry(recipe_query.execute).data or [])
+                if not recipe_rows:
+                    continue
+
+                ingredient_ids = [row.get("ingredient_id") for row in recipe_rows if row.get("ingredient_id") is not None]
+                if not ingredient_ids:
+                    continue
+
+                ingredients_query = (
+                    supabase.table("ingredients")
+                    .select("id, current_stock, track_stock")
+                    .eq("restaurant_id", restaurant_id)
+                    .in_("id", ingredient_ids)
+                )
+                if product_branch_id:
+                    ingredients_query = ingredients_query.eq("branch_id", product_branch_id)
+                ingredient_rows = (execute_with_retry(ingredients_query.execute).data or [])
+                ingredients_by_id = {row.get("id"): row for row in ingredient_rows}
+
+                insufficient = False
+                for recipe in recipe_rows:
+                    ingredient = ingredients_by_id.get(recipe.get("ingredient_id"))
+                    if not ingredient:
+                        insufficient = True
+                        break
+                    if ingredient.get("track_stock") is False:
+                        continue
+                    try:
+                        required = float(recipe.get("quantity") or 0)
+                    except (TypeError, ValueError):
+                        required = 0.0
+                    try:
+                        current = float(ingredient.get("current_stock") or 0)
+                    except (TypeError, ValueError):
+                        current = 0.0
+                    if current < required:
+                        insufficient = True
+                        break
+
+                desired_available = not insufficient
+                current_available = bool(product.get("available"))
+                if current_available != desired_available:
+                    update_query = (
+                        supabase.table("menu")
+                        .update({"available": desired_available})
+                        .eq("id", product_id)
+                        .eq("restaurant_id", restaurant_id)
+                    )
+                    if product_branch_id:
+                        update_query = update_query.eq("branch_id", product_branch_id)
+                    execute_with_retry(update_query.execute)
+                    updated_count += 1
+
+            return updated_count
+        except Exception as e:
+            logger.warning(f"No se pudo sincronizar disponibilidad por stock: {str(e)}")
+            return 0
     
     def get_item_by_id(
         self,

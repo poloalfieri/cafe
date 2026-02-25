@@ -1,6 +1,7 @@
 import math
 from typing import Dict, List, Optional
 from ..db.supabase_client import supabase
+from ..services.menu_service import menu_service
 from ..utils.retry import execute_with_retry
 from ..utils.units import ALLOWED_UNITS, normalize_unit, to_display_unit
 
@@ -116,6 +117,10 @@ class IngredientsService:
         row = (response.data or [None])[0]
         if not row:
             raise Exception("No se pudo crear el ingrediente")
+        menu_service.sync_unavailable_from_stock(
+            restaurant_id=restaurant_id,
+            branch_id=row.get("branch_id"),
+        )
         return _row_to_camel(row)
 
     def update_ingredient(
@@ -164,6 +169,10 @@ class IngredientsService:
         row = (response.data or [None])[0]
         if not row:
             raise Exception("No se pudo actualizar el ingrediente")
+        menu_service.sync_unavailable_from_stock(
+            restaurant_id=restaurant_id,
+            branch_id=row.get("branch_id"),
+        )
         return _row_to_camel(row)
 
     def delete_ingredient(self, user_id: str, restaurant_id: str, ingredient_id: str) -> None:

@@ -498,6 +498,12 @@ class OrderService:
             ]:
                 raise ValueError("No se pueden agregar items a un pedido ya pagado")
 
+            self._validate_stock_for_items(
+                new_items,
+                restaurant_id=order.get("restaurant_id"),
+                branch_id=order.get("branch_id"),
+            )
+
             current_items = order.get("items") or []
             current_items.extend(new_items)
             total_amount = self._calculate_total(current_items)
@@ -658,6 +664,12 @@ class OrderService:
             if not mesa:
                 raise ValueError("Mesa no encontrada")
 
+            self._validate_stock_for_items(
+                items,
+                restaurant_id=mesa.get("restaurant_id"),
+                branch_id=mesa.get("branch_id"),
+            )
+
             insert_data = {
                 "mesa_id": mesa_id,
                 "status": OrderStatus.PAYMENT_PENDING.value,
@@ -750,6 +762,119 @@ class OrderService:
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
         }
+
+    def _validate_stock_for_items(
+        self,
+        items: List[Dict],
+        restaurant_id: Optional[str],
+        branch_id: Optional[str],
+    ) -> None:
+        if not items:
+            return
+
+        # 1) No vender productos marcados como no disponibles
+        product_ids = []
+        for item in items:
+            product_id = item.get("id") or item.get("item_id") or item.get("product_id")
+            if product_id is not None:
+                product_ids.append(product_id)
+
+        if product_ids:
+            menu_query = supabase.table("menu").select("id, name, available")
+            if restaurant_id:
+                menu_query = menu_query.eq("restaurant_id", restaurant_id)
+            if branch_id:
+                menu_query = menu_query.eq("branch_id", branch_id)
+            menu_resp = execute_with_retry(lambda: menu_query.in_("id", product_ids).execute())
+            menu_rows = menu_resp.data or []
+            menu_by_id = {row.get("id"): row for row in menu_rows}
+
+            unavailable = []
+            for item in items:
+                product_id = item.get("id") or item.get("item_id") or item.get("product_id")
+                if product_id is None:
+                    continue
+                product_row = menu_by_id.get(product_id)
+                if product_row and product_row.get("available") is False:
+                    unavailable.append(item.get("name") or product_row.get("name") or str(product_id))
+            if unavailable:
+                raise ValueError("Producto no disponible: " + ", ".join(sorted(set(unavailable))))
+
+        # 2) Validar consumo de ingredientes por receta + opcionales
+        recipe_rows = []
+        if product_ids:
+            recipe_query = (
+                supabase.table("recipes")
+                .select("product_id, ingredient_id, quantity")
+                .in_("product_id", product_ids)
+            )
+            if restaurant_id:
+                recipe_query = recipe_query.eq("restaurant_id", restaurant_id)
+            recipe_resp = execute_with_retry(recipe_query.execute)
+            recipe_rows = recipe_resp.data or []
+
+        required_by_ingredient: Dict = {}
+        option_ingredient_ids = set()
+        for item in items:
+            raw_quantity = item.get("quantity", 1)
+            try:
+                item_quantity = int(raw_quantity)
+            except (TypeError, ValueError):
+                item_quantity = 1
+
+            product_id = item.get("id") or item.get("item_id") or item.get("product_id")
+            if product_id is not None:
+                for row in recipe_rows:
+                    if row.get("product_id") != product_id:
+                        continue
+                    ingredient_id = row.get("ingredient_id")
+                    if ingredient_id is None:
+                        continue
+                    try:
+                        unit_qty = float(row.get("quantity") or 0)
+                    except (TypeError, ValueError):
+                        unit_qty = 0.0
+                    required_by_ingredient[ingredient_id] = required_by_ingredient.get(ingredient_id, 0.0) + (unit_qty * item_quantity)
+
+            for option in (item.get("selectedOptions") or []):
+                ingredient_id = option.get("ingredientId") or option.get("ingredient_id")
+                if ingredient_id is None:
+                    continue
+                option_ingredient_ids.add(ingredient_id)
+                # Cada opcional seleccionado consume 1 unidad por cada cantidad del item
+                required_by_ingredient[ingredient_id] = required_by_ingredient.get(ingredient_id, 0.0) + float(item_quantity)
+
+        ingredient_ids = set(required_by_ingredient.keys()) | option_ingredient_ids
+        if not ingredient_ids:
+            return
+
+        ingredients_query = supabase.table("ingredients").select("id, name, current_stock, track_stock, unit")
+        if restaurant_id:
+            ingredients_query = ingredients_query.eq("restaurant_id", restaurant_id)
+        if branch_id:
+            ingredients_query = ingredients_query.eq("branch_id", branch_id)
+        ingredients_resp = execute_with_retry(lambda: ingredients_query.in_("id", list(ingredient_ids)).execute())
+        ingredients_rows = ingredients_resp.data or []
+        ingredients_by_id = {row.get("id"): row for row in ingredients_rows}
+
+        shortages = []
+        for ingredient_id, required_qty in required_by_ingredient.items():
+            ingredient = ingredients_by_id.get(ingredient_id)
+            if not ingredient:
+                continue
+            if ingredient.get("track_stock") is False:
+                continue
+            try:
+                current_stock = float(ingredient.get("current_stock") or 0)
+            except (TypeError, ValueError):
+                current_stock = 0.0
+            if current_stock < float(required_qty):
+                name = ingredient.get("name") or str(ingredient_id)
+                unit = ingredient.get("unit") or ""
+                shortages.append(f"{name} ({required_qty:.3f}{unit} requerido, {current_stock:.3f}{unit} disponible)")
+
+        if shortages:
+            raise ValueError("Stock insuficiente: " + "; ".join(shortages))
 
     def _get_restaurant_and_branch_names(
         self,
