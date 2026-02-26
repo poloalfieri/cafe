@@ -1040,7 +1040,9 @@
         "assignSuccessDescription": "{email} assigned to register successfully.",
         "assignError": "Could not assign cashier",
         "unassignSuccess": "Assignment removed",
-        "unassignError": "Could not remove assignment"
+        "unassignError": "Could not remove assignment",
+        "loadRegistersError": "Could not load cash registers",
+        "loadCashiersError": "Could not load cashiers"
       }
     },
     "cashMonitor": {
@@ -1089,6 +1091,11 @@
         "MANUAL_IN": "Manual in",
         "MANUAL_OUT": "Manual out",
         "TIP_IN": "Tip"
+      },
+      "errors": {
+        "errorTitle": "Error",
+        "loadSessions": "Could not load cash sessions",
+        "loadMovements": "Could not load movements"
       }
     }
   },

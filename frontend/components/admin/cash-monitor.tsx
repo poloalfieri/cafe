@@ -2,12 +2,13 @@
 
 import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { RefreshCw, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle, Circle } from "lucide-react"
+import { RefreshCw, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle, Circle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
+import { useToast } from "@/hooks/use-toast"
 
 const POLL_INTERVAL_MS = 15_000
 
@@ -57,12 +58,14 @@ interface Props {
 
 export default function CashMonitor({ branchId }: Props) {
   const t = useTranslations("admin.cashMonitor")
+  const { toast } = useToast()
   const backendUrl = getTenantApiBase()
   const [sessions, setSessions] = useState<CashSession[]>([])
   const [registers, setRegisters] = useState<CashRegister[]>([])
   const [movements, setMovements] = useState<Record<string, CashMovement[]>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [sessionError, setSessionError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [filterStatus, setFilterStatus] = useState<"ALL" | "OPEN" | "CLOSED">("ALL")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -83,16 +86,19 @@ export default function CashMonitor({ branchId }: Props) {
       if (branchId) params.set("branch_id", branchId)
       if (filterStatus !== "ALL") params.set("status", filterStatus)
       const res = await fetch(`${backendUrl}/cash/sessions?${params}`, { headers: { ...authHeader } })
-      if (!res.ok) return
+      if (!res.ok) throw new Error()
       const data = await res.json()
       const list: CashSession[] = data.data || []
       setSessions(list)
+      setSessionError(null)
       setLastUpdated(new Date())
       // Auto-fetch movements for expanded sessions
       for (const sessionId of Array.from(expanded)) {
         fetchMovements(sessionId)
       }
-    } catch (_) {}
+    } catch {
+      setSessionError(t("errors.loadSessions"))
+    }
   }, [branchId, filterStatus, expanded])
 
   const fetchRegisters = useCallback(async () => {
@@ -110,11 +116,13 @@ export default function CashMonitor({ branchId }: Props) {
     try {
       const authHeader = await getClientAuthHeaderAsync()
       const res = await fetch(`${backendUrl}/cash/sessions/${sessionId}/movements`, { headers: { ...authHeader } })
-      if (!res.ok) return
+      if (!res.ok) throw new Error()
       const data = await res.json()
       setMovements((prev) => ({ ...prev, [sessionId]: data.data || [] }))
-    } catch (_) {}
-  }, [])
+    } catch {
+      toast({ title: t("errors.errorTitle"), description: t("errors.loadMovements"), variant: "destructive" })
+    }
+  }, [toast])
 
   // Initial load
   useEffect(() => {
@@ -185,6 +193,13 @@ export default function CashMonitor({ branchId }: Props) {
 
       {!branchId && (
         <p className="text-sm text-amber-600">{t("noBranchSelected")}</p>
+      )}
+
+      {sessionError && (
+        <div className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{sessionError}</span>
+        </div>
       )}
 
       {/* Sessions list */}

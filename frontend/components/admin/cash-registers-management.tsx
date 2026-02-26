@@ -64,21 +64,25 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
       const authHeader = await getClientAuthHeaderAsync()
       const params = branchId ? `?branch_id=${branchId}` : ""
       const res = await fetch(`${backendUrl}/cash/registers${params}`, { headers: { ...authHeader } })
-      if (!res.ok) return
+      if (!res.ok) throw new Error()
       const data = await res.json()
       setRegisters(data.data || [])
-    } catch (_) {}
+    } catch {
+      toast({ title: t("toast.errorTitle"), description: t("toast.loadRegistersError"), variant: "destructive" })
+    }
   }
 
   const fetchCashiers = async () => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
       const res = await fetch("/api/admin/list-cashiers", { headers: { ...authHeader } })
-      if (!res.ok) return
+      if (!res.ok) throw new Error()
       const data = await res.json()
       const list: Cashier[] = data.cashiers || []
       setCashiers(branchId ? list.filter((c) => !c.branch_id || c.branch_id === branchId) : list)
-    } catch (_) {}
+    } catch {
+      toast({ title: t("toast.errorTitle"), description: t("toast.loadCashiersError"), variant: "destructive" })
+    }
   }
 
   const handleCreate = async () => {

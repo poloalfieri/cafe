@@ -1040,7 +1040,9 @@
         "assignSuccessDescription": "{email} asignado a la caja correctamente.",
         "assignError": "No se pudo asignar el cajero",
         "unassignSuccess": "Asignación removida",
-        "unassignError": "No se pudo remover la asignación"
+        "unassignError": "No se pudo remover la asignación",
+        "loadRegistersError": "No se pudieron cargar las cajas",
+        "loadCashiersError": "No se pudieron cargar los cajeros"
       }
     },
     "cashMonitor": {
@@ -1089,6 +1091,11 @@
         "MANUAL_IN": "Ingreso manual",
         "MANUAL_OUT": "Egreso manual",
         "TIP_IN": "Propina"
+      },
+      "errors": {
+        "errorTitle": "Error",
+        "loadSessions": "No se pudieron cargar las sesiones de caja",
+        "loadMovements": "No se pudieron cargar los movimientos"
       }
     }
   },
