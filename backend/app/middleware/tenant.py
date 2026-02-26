@@ -24,6 +24,7 @@ GLOBAL_PATHS = [
     '/health',
     '/',
     '/restaurants',
+    '/providers/webhooks',  # Webhooks de Rappi/PedidosYa (restaurantId viene como query param)
 ]
 
 def is_global_path(path):

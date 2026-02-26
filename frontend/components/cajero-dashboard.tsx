@@ -50,6 +50,8 @@ interface Order {
   items: any[]
   prebill_printed_at?: string | null
   payment_method?: string | null
+  source?: "app" | "pedidosya" | "rappi"
+  provider_order_id?: string | null
 }
 
 type PaymentMethod = "CARD" | "CASH" | "QR"

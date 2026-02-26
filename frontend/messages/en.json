@@ -1103,6 +1103,11 @@
     "page": {
       "loading": "Cargando..."
     },
+    "orderSource": {
+      "app": "App",
+      "pedidosya": "PedidosYa",
+      "rappi": "Rappi"
+    },
     "dashboard": {
       "header": {
         "title": "Panel de Cajero",

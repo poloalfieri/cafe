@@ -16,6 +16,8 @@ from .controllers.reports_controller import reports_bp
 from .controllers.stock_movements_controller import stock_movements_bp
 from .controllers.discounts_controller import discounts_bp
 from .controllers.import_controller import import_bp
+from .controllers.provider_webhook_controller import provider_webhooks_bp
+from .controllers.provider_admin_controller import provider_admin_bp
 
 def register_routes(app):
     app.register_blueprint(orders_bp)
@@ -36,3 +38,5 @@ def register_routes(app):
     app.register_blueprint(stock_movements_bp)
     app.register_blueprint(discounts_bp)
     app.register_blueprint(import_bp)
+    app.register_blueprint(provider_webhooks_bp)
+    app.register_blueprint(provider_admin_bp)

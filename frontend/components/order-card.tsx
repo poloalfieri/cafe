@@ -19,10 +19,12 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED" | "CANCELLED"
   created_at: string
   paid_at?: string
   payment_status?: string
+  source?: "app" | "pedidosya" | "rappi"
+  provider_order_id?: string | null
 }
 
 interface OrderCardProps {
@@ -143,7 +145,19 @@ export default function OrderCard({ order, onStatusUpdate, onAcceptOrder, onReje
               </span>
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{order.mesa_id}</h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="font-semibold text-gray-900">{order.mesa_id}</h3>
+                {order.source === "pedidosya" && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 border border-orange-300">
+                    PedidosYa
+                  </span>
+                )}
+                {order.source === "rappi" && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-300">
+                    Rappi
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-gray-600">#{order.id}</p>
             </div>
           </div>

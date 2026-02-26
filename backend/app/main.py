@@ -66,6 +66,20 @@ def create_app():
 
     from .routes import register_routes
     register_routes(app)
+
+    # -------------------------------------------------------------------------
+    # Iniciar workers de proveedores delivery en background (eventlet greenlets)
+    # El outbox_worker procesa jobs pendientes cada 10s.
+    # El reconciliation_worker verifica órdenes perdidas cada 5min.
+    # Compatible con gunicorn -k eventlet -w 1 (Render).
+    # -------------------------------------------------------------------------
+    import eventlet
+    from .integrations.outbox_worker import run_outbox_worker
+    from .integrations.reconciliation_worker import run_reconciliation_worker
+
+    eventlet.spawn(run_outbox_worker)
+    eventlet.spawn(run_reconciliation_worker)
+
     return app
 
 if __name__ == "__main__":

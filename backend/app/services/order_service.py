@@ -472,6 +472,11 @@ class OrderService:
             except Exception:
                 pass
 
+            # Si es una orden de proveedor delivery, crear job outbox para sincronizar estado
+            order_source = updated_order.get("source", "app")
+            if order_source in ("rappi", "pedidosya"):
+                self._create_provider_outbox_job(updated_order, status_value)
+
             return self._serialize_order(updated_order)
 
         except ValueError:
@@ -851,6 +856,7 @@ class OrderService:
                 OrderStatus.IN_PREPARATION.value,
                 OrderStatus.READY.value,
                 OrderStatus.DELIVERED.value,
+                OrderStatus.CANCELLED.value,  # Permite rechazar órdenes de delivery (Rappi/PedidosYa)
             ],
             OrderStatus.PAID.value: [
                 OrderStatus.IN_PREPARATION.value,
@@ -891,6 +897,9 @@ class OrderService:
             "restaurant_id": order.get("restaurant_id"),
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
+            # Campos de integración con proveedores de delivery (PedidosYa, Rappi)
+            "source": order.get("source") or "app",
+            "provider_order_id": order.get("provider_order_id"),
         }
 
     def _validate_stock_for_items(
@@ -1085,6 +1094,66 @@ class OrderService:
                 f"payment_method debe ser uno de: {', '.join(sorted(self.VALID_PAYMENT_METHODS))}"
             )
         return value
+
+    def _create_provider_outbox_job(self, order: Dict, new_status: str) -> None:
+        """
+        Crear job en el outbox para sincronizar el cambio de estado con el proveedor.
+
+        Mapeo de estado interno → acción del job:
+          IN_PREPARATION → confirm_order (cajero aceptó)
+          CANCELLED      → reject_order  (cajero rechazó)
+          READY          → update_status (orden lista para pickup)
+          DELIVERED      → update_status (entregado)
+        """
+        try:
+            # Import aquí para evitar circular imports
+            from ..integrations.outbox_service import create_outbox_job
+
+            provider = order.get("source")
+            provider_order_id = order.get("provider_order_id")
+            order_id = order.get("id")
+            restaurant_id = order.get("restaurant_id")
+            branch_id = order.get("branch_id")
+
+            if not provider or not provider_order_id:
+                logger.warning(
+                    "[order_service] Orden de provider sin provider_order_id: order_id=%s source=%s",
+                    order_id,
+                    provider,
+                )
+                return
+
+            # Determinar acción y payload
+            if new_status == "IN_PREPARATION":
+                action = "confirm_order"
+                payload = {}
+            elif new_status == "CANCELLED":
+                action = "reject_order"
+                payload = {"reason": "RESTAURANT_CANCELLED"}
+            elif new_status in ("READY", "DELIVERED"):
+                action = "update_status"
+                payload = {"internal_status": new_status}
+            else:
+                # Para otros estados (PAID, PAYMENT_APPROVED, etc.) no hay acción outbound
+                return
+
+            create_outbox_job(
+                provider=provider,
+                action=action,
+                restaurant_id=restaurant_id,
+                order_id=order_id,
+                provider_order_id=provider_order_id,
+                payload=payload,
+                branch_id=branch_id,
+            )
+
+        except Exception as e:
+            # No fallar el update de status si el outbox falla
+            logger.error(
+                "[order_service] Error creando outbox job para orden %s: %s",
+                order.get("id"),
+                str(e),
+            )
 
 
 order_service = OrderService()

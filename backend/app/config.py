@@ -37,4 +37,25 @@ class Config:
     
     # Other configurations
     KITCHEN_WEBHOOK_URL = os.getenv("KITCHEN_WEBHOOK_URL", "")
-    TOKEN_EXPIRY_MINUTES = int(os.getenv("TOKEN_EXPIRY_MINUTES", 10)) 
+    TOKEN_EXPIRY_MINUTES = int(os.getenv("TOKEN_EXPIRY_MINUTES", 10))
+
+    # -------------------------------------------------------------------------
+    # Provider delivery integrations (Rappi, PedidosYa)
+    # Credenciales de PLATAFORMA/DESARROLLADOR como fallback global.
+    # Las credenciales de cada restaurante/sucursal van en provider_integration_accounts.
+    # Mismo patrón que MERCADO_PAGO_ACCESS_TOKEN para MercadoPago.
+    # -------------------------------------------------------------------------
+
+    # Rappi (credenciales globales de plataforma — fallback si no hay en DB)
+    RAPPI_CLIENT_ID = os.getenv("RAPPI_CLIENT_ID", "")
+    RAPPI_CLIENT_SECRET = os.getenv("RAPPI_CLIENT_SECRET", "")
+    RAPPI_WEBHOOK_SECRET = os.getenv("RAPPI_WEBHOOK_SECRET", "")
+
+    # PedidosYa (credenciales globales de plataforma — fallback si no hay en DB)
+    PEDIDOSYA_API_KEY = os.getenv("PEDIDOSYA_API_KEY", "")
+    PEDIDOSYA_SECRET = os.getenv("PEDIDOSYA_SECRET", "")
+    PEDIDOSYA_INTEGRATION_TOKEN = os.getenv("PEDIDOSYA_INTEGRATION_TOKEN", "")
+
+    # Feature flag global: si False, el outbox worker no procesa jobs aunque haya cuentas habilitadas
+    # (override de emergencia — normalmente se controla por provider_integration_accounts.enabled)
+    PROVIDERS_ENABLED = os.getenv("PROVIDERS_ENABLED", "true").lower() == "true"
