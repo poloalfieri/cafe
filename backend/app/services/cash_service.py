@@ -338,6 +338,60 @@ class CashService:
         movement["source_id"] = str(order_id)
         return movement
 
+    def record_split_payment(self, payment: Dict, created_by_user_id: str) -> Optional[Dict]:
+        """Record a SALE_IN cash movement for a split payment."""
+        payment_id = payment.get("id")
+        restaurant_id = payment.get("restaurant_id")
+        branch_id = payment.get("branch_id")
+        amount = float(payment.get("amount") or 0)
+        payment_method = (payment.get("payment_method") or "").upper()
+
+        if not payment_id or not restaurant_id or not branch_id:
+            raise ValueError("Faltan datos del pago para registrar movimiento de caja")
+        if amount <= 0:
+            return None
+
+        # Idempotencia
+        existing = (
+            supabase.table("cash_movements")
+            .select("id")
+            .eq("source_type", "PAYMENT")
+            .eq("source_id", str(payment_id))
+            .eq("type", "SALE_IN")
+            .limit(1)
+            .execute()
+        )
+        already = (existing.data or [None])[0]
+        if already:
+            return already
+
+        session = self.get_current_session(restaurant_id=restaurant_id, branch_id=branch_id)
+        if not session:
+            raise ValueError("No hay caja abierta en la sucursal para registrar el cobro")
+
+        impacts_cash = payment_method == "CASH"
+        movement = self.add_manual_movement(
+            restaurant_id=restaurant_id,
+            session_id=session["id"],
+            movement_type="SALE_IN",
+            amount=amount,
+            direction="IN",
+            created_by_user_id=created_by_user_id or "",
+            note=f"Cobro parcial - pago {payment_id}",
+            payment_method=payment_method or None,
+            impacts_cash=impacts_cash,
+        )
+
+        execute_with_retry(
+            lambda: supabase.table("cash_movements")
+            .update({"source_type": "PAYMENT", "source_id": str(payment_id)})
+            .eq("id", movement["id"])
+            .execute()
+        )
+        movement["source_type"] = "PAYMENT"
+        movement["source_id"] = str(payment_id)
+        return movement
+
     def _attach_expected_amount(self, session: Dict) -> Dict:
         enriched = dict(session)
         enriched["expected_amount_live"] = self._calculate_expected_amount(session)

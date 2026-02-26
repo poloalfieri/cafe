@@ -14,6 +14,7 @@ from ..socketio import socketio
 from ..services.cash_service import cash_service
 from .ingredients_service import ingredients_service
 from .promotion_engine import apply_promotions_to_items
+from .order_items_service import insert_order_items_from_json
 
 logger = setup_logger(__name__)
 
@@ -815,6 +816,16 @@ class OrderService:
             logger.info(
                 f"Pedido creado: ID {order_id}, Mesa {mesa_id}, Total ${total_amount}"
             )
+            # Crear order_items normalizados para split payment
+            try:
+                insert_order_items_from_json(
+                    order_id=str(order_id),
+                    items=promo_items,
+                    restaurant_id=actual_restaurant_id,
+                    branch_id=new_order.get("branch_id", branch_id),
+                )
+            except Exception as e:
+                logger.warning(f"Error creando order_items para orden {order_id}: {e}")
             # Descontar stock de ingredientes según recetas
             self._consume_ingredients_for_order(
                 items=items,
@@ -844,6 +855,11 @@ class OrderService:
             OrderStatus.PAYMENT_PENDING.value: [
                 OrderStatus.PAYMENT_APPROVED.value,
                 OrderStatus.PAYMENT_REJECTED.value,
+                OrderStatus.PAID.value,
+                OrderStatus.PARTIALLY_PAID.value,
+                OrderStatus.CANCELLED.value,
+            ],
+            OrderStatus.PARTIALLY_PAID.value: [
                 OrderStatus.PAID.value,
                 OrderStatus.CANCELLED.value,
             ],
@@ -891,6 +907,7 @@ class OrderService:
             "restaurant_id": order.get("restaurant_id"),
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
+            "paid_amount": float(order.get("paid_amount") or 0),
         }
 
     def _validate_stock_for_items(
@@ -1063,6 +1080,8 @@ class OrderService:
             return "pending"
         if status == OrderStatus.PAYMENT_REJECTED.value:
             return "rejected"
+        if status == OrderStatus.PARTIALLY_PAID.value:
+            return "partial"
         return "approved"
 
     @staticmethod

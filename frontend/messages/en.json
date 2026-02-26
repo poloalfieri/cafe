@@ -1187,7 +1187,26 @@
         "paymentMethodLabel": "Payment method",
         "unknownPaymentMethod": "Unknown",
         "itemsLabel": "Items",
-        "noItems": "No items"
+        "noItems": "No items",
+        "splitAction": "Cobrar Parcial",
+        "completeAllAction": "Cobrar Todo"
+      },
+      "splitPayment": {
+        "title": "Cobro Parcial",
+        "subtitle": "Selecciona los items a cobrar",
+        "pendingLabel": "Pendiente",
+        "paidLabel": "Pagado",
+        "totalLabel": "Total",
+        "quantityLabel": "Cantidad a cobrar",
+        "selectAll": "Seleccionar Todo",
+        "deselectAll": "Deseleccionar",
+        "paymentMethod": "Medio de Pago",
+        "chargeButton": "Cobrar",
+        "previousPayments": "Pagos Anteriores",
+        "allPaid": "Todos los items fueron cobrados",
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "qr": "QR"
       },
       "tables": {
         "loading": "Cargando mesas...",
@@ -1266,6 +1285,7 @@
       "status": {
         "available": "Disponible",
         "waitingPayment": "Esperando Pago",
+        "partiallyPaid": "Parcialmente Pagado",
         "paid": "Pagado",
         "preparing": "Preparando",
         "readyToDeliver": "Listo para Entregar",

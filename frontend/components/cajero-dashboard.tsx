@@ -3,7 +3,7 @@
 import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle, Split } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,6 +24,7 @@ import {
   type SelectedProductOption,
 } from "@/lib/product-options"
 import { toast } from "@/hooks/use-toast"
+import SplitPaymentModal from "@/components/split-payment-modal"
 
 interface Mesa {
   id: string
@@ -142,6 +143,8 @@ export default function CajeroDashboard() {
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
+  const [splitPaymentOrderId, setSplitPaymentOrderId] = useState<string | null>(null)
+  const [splitPaymentOrderTotal, setSplitPaymentOrderTotal] = useState<number>(0)
   const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([])
   const [selectedRegisterId, setSelectedRegisterId] = useState<string>("")
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
@@ -954,6 +957,7 @@ export default function CajeroDashboard() {
     if (activeOrder) {
       switch (activeOrder.status) {
         case "PAYMENT_PENDING": return "esperando_pago"
+        case "PARTIALLY_PAID": return "esperando_pago"
         case "PAID": return "pagado"
         case "IN_PREPARATION": return "preparando"
         case "READY": return "listo"
@@ -973,6 +977,7 @@ export default function CajeroDashboard() {
       case "listo": return "bg-purple-100 text-purple-800 border-purple-200"
       case "ocupada": return "bg-gray-100 text-gray-800 border-gray-200"
       case "PAYMENT_PENDING": return "bg-red-100 text-red-800 border-red-200"
+      case "PARTIALLY_PAID": return "bg-amber-100 text-amber-800 border-amber-200"
       case "PAID": return "bg-green-100 text-green-800 border-green-200"
       case "PAYMENT_APPROVED": return "bg-green-100 text-green-800 border-green-200"
       case "PAYMENT_REJECTED": return "bg-gray-100 text-gray-800 border-gray-200"
@@ -993,6 +998,7 @@ export default function CajeroDashboard() {
       case "listo": return t("status.readyToDeliver")
       case "ocupada": return t("status.occupied")
       case "PAYMENT_PENDING": return t("status.waitingPayment")
+      case "PARTIALLY_PAID": return t("status.partiallyPaid")
       case "PAID": return t("status.paid")
       case "PAYMENT_APPROVED": return t("status.paymentApproved")
       case "PAYMENT_REJECTED": return t("status.paymentRejected")
@@ -2074,25 +2080,43 @@ export default function CajeroDashboard() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 pt-2">
+                          <div className="space-y-2 pt-2">
+                            {order.status !== "PARTIALLY_PAID" && (
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  onClick={() => completePendingOrder(order)}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {completingOrderId === order.id
+                                    ? t("payments.completingAction")
+                                    : t("payments.completeAction")}
+                                </Button>
+                                <Button
+                                  onClick={() => cancelPendingOrder(order)}
+                                  variant="outline"
+                                  className="border-red-300 text-red-600 hover:bg-red-50"
+                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  {t("orders.cancel")}
+                                </Button>
+                              </div>
+                            )}
                             <Button
-                              onClick={() => completePendingOrder(order)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                              onClick={() => {
+                                setSplitPaymentOrderId(order.id)
+                                setSplitPaymentOrderTotal(Number(order.total_amount || 0))
+                              }}
+                              variant={order.status === "PARTIALLY_PAID" ? "default" : "outline"}
+                              className={order.status === "PARTIALLY_PAID"
+                                ? "w-full bg-amber-600 hover:bg-amber-700 text-white"
+                                : "w-full"
+                              }
                             >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {completingOrderId === order.id
-                                ? t("payments.completingAction")
-                                : t("payments.completeAction")}
-                            </Button>
-                            <Button
-                              onClick={() => cancelPendingOrder(order)}
-                              variant="outline"
-                              className="border-red-300 text-red-600 hover:bg-red-50"
-                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              {t("orders.cancel")}
+                              <Split className="w-4 h-4 mr-2" />
+                              {t("payments.splitAction")}
                             </Button>
                           </div>
                         </div>
@@ -2401,6 +2425,17 @@ export default function CajeroDashboard() {
           </TabsContent>
 
         </Tabs>
+
+        <SplitPaymentModal
+          isOpen={!!splitPaymentOrderId}
+          onClose={() => setSplitPaymentOrderId(null)}
+          orderId={splitPaymentOrderId || ""}
+          orderTotal={splitPaymentOrderTotal}
+          onPaymentComplete={() => {
+            setSplitPaymentOrderId(null)
+            fetchOrdersOnly(branchId)
+          }}
+        />
       </div>
     </div>
   )

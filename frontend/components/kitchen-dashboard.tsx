@@ -21,7 +21,7 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "PARTIALLY_PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
   created_at: string
   paid_at?: string
   payment_status?: string
