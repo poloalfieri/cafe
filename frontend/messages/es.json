@@ -975,6 +975,7 @@
         "transactionsLegend": "Transacciones",
         "methodLabel": "Método: {label}"
       }
+      
     },
     "stockMovements": {
       "filters": {
