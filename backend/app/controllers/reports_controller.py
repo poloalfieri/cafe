@@ -8,15 +8,16 @@ from ..services.ingredients_service import ingredients_service
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
 from ..utils.logger import setup_logger
+from ..utils.tenant import get_restaurant_id
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/reports")
 logger = setup_logger(__name__)
 
 
 def _get_restaurant_id():
-    tenant_restaurant_id = getattr(g, "restaurant_id", None)
-    if tenant_restaurant_id:
-        return tenant_restaurant_id
+    rid = get_restaurant_id()
+    if rid:
+        return rid
 
     rid = metrics_access_service.get_restaurant_id(g.user_id)
     if rid:

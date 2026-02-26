@@ -3,24 +3,18 @@ from flask import Blueprint, jsonify, request, g
 from ..middleware.auth import require_auth, require_roles
 from ..services.cash_service import cash_service
 from ..utils.logger import setup_logger
+from ..utils.tenant import require_restaurant_scope
 
 logger = setup_logger(__name__)
 
 cash_bp = Blueprint("cash", __name__, url_prefix="/cash")
 
 
-def _require_restaurant_scope():
-    restaurant_id = getattr(g, "restaurant_id", None)
-    if not restaurant_id:
-        return None, (jsonify({"error": "restaurant_id no resuelto"}), 400)
-    return restaurant_id, None
-
-
 @cash_bp.route("/registers", methods=["GET"])
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def list_registers():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     branch_id = request.args.get("branch_id") or getattr(g, "user_branch_id", None)
@@ -36,7 +30,7 @@ def list_registers():
 @require_auth
 @require_roles("desarrollador", "admin")
 def create_register():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     payload = request.get_json() or {}
@@ -61,7 +55,7 @@ def create_register():
 @require_auth
 @require_roles("desarrollador", "admin")
 def assign_cashier(register_id):
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     payload = request.get_json() or {}
@@ -90,7 +84,7 @@ def assign_cashier(register_id):
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def open_session():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     payload = request.get_json() or {}
@@ -122,7 +116,7 @@ def open_session():
 @require_auth
 @require_roles("desarrollador", "admin")
 def list_sessions():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     branch_id = request.args.get("branch_id")
@@ -147,7 +141,7 @@ def list_sessions():
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def current_session():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     register_id = request.args.get("register_id")
@@ -170,7 +164,7 @@ def current_session():
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def close_session(session_id):
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     payload = request.get_json() or {}
@@ -196,7 +190,7 @@ def close_session(session_id):
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def list_movements(session_id):
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     try:
@@ -213,7 +207,7 @@ def list_movements(session_id):
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def add_movement():
-    restaurant_id, err = _require_restaurant_scope()
+    restaurant_id, err = require_restaurant_scope()
     if err:
         return err
     payload = request.get_json() or {}

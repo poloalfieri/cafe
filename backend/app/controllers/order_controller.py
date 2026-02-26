@@ -10,6 +10,7 @@ from ..middleware.auth import (
 )
 from ..services.order_service import order_service
 from ..utils.logger import setup_logger
+from ..utils.tenant import require_restaurant_scope
 
 logger = setup_logger(__name__)
 
@@ -17,9 +18,9 @@ orders_bp = Blueprint("orders", __name__, url_prefix="/orders")
 
 
 def _resolve_authorized_restaurant():
-    restaurant_id = getattr(g, "restaurant_id", None)
-    if not restaurant_id:
-        return None, (jsonify({"error": "restaurant_id no resuelto"}), 400)
+    restaurant_id, err = require_restaurant_scope()
+    if err:
+        return None, err
 
     user_role = getattr(g, "user_role", None)
     user_org_id = getattr(g, "user_org_id", None)
@@ -39,9 +40,9 @@ def list_orders():
     """Listar pedidos (filtrable por branch y status)."""
     try:
         branch_id = request.args.get("branch_id") or getattr(g, "user_branch_id", None)
-        restaurant_id = getattr(g, "restaurant_id", None)
-        if not restaurant_id:
-            return jsonify({"error": "restaurant_id no resuelto"}), 400
+        restaurant_id, err = require_restaurant_scope()
+        if err:
+            return err
         status = request.args.get("status")
         orders = order_service.get_all_orders(
             branch_id=branch_id,
@@ -64,9 +65,9 @@ def list_orders():
 def get_order(order_id):
     """Obtener un pedido por ID."""
     try:
-        restaurant_id = getattr(g, "restaurant_id", None)
-        if not restaurant_id:
-            return jsonify({"error": "restaurant_id no resuelto"}), 400
+        restaurant_id, err = require_restaurant_scope()
+        if err:
+            return err
         order = order_service.get_order_by_id(
             order_id,
             restaurant_id=restaurant_id,
@@ -141,9 +142,9 @@ def create_order():
             return jsonify({"error": "Rol no autorizado para crear pedidos"}), 403
 
         if is_staff_user:
-            restaurant_id = getattr(g, "restaurant_id", None)
-            if not restaurant_id:
-                return jsonify({"error": "restaurant_id no resuelto"}), 400
+            restaurant_id, err = require_restaurant_scope()
+            if err:
+                return err
             user_org_id = getattr(g, "user_org_id", None)
             if user_role != "desarrollador":
                 if not user_org_id:

@@ -4,6 +4,7 @@ from ..middleware.auth import require_auth, require_roles
 from ..services.import_service import import_service
 from ..services.ingredients_service import ingredients_service
 from ..utils.logger import setup_logger
+from ..utils.tenant import get_restaurant_id
 
 logger = setup_logger(__name__)
 
@@ -11,7 +12,7 @@ import_bp = Blueprint("import", __name__, url_prefix="/import")
 
 
 def _get_restaurant_id():
-    return getattr(g, "restaurant_id", None) or ingredients_service.resolve_restaurant_id(g.user_id)
+    return get_restaurant_id() or ingredients_service.resolve_restaurant_id(g.user_id)
 
 
 @import_bp.route("/ingredients", methods=["POST"])
