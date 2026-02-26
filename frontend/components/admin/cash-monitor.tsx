@@ -6,6 +6,7 @@ import { RefreshCw, ChevronDown, ChevronUp, ArrowDownCircle, ArrowUpCircle, Circ
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
 import { useToast } from "@/hooks/use-toast"
@@ -170,15 +171,16 @@ export default function CashMonitor({ branchId }: Props) {
         </div>
         <div className="flex items-center gap-2">
           {/* Filter */}
-          <select
-            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as "ALL" | "OPEN" | "CLOSED")}
-          >
-            <option value="ALL">{t("filter.all")}</option>
-            <option value="OPEN">{t("filter.open")}</option>
-            <option value="CLOSED">{t("filter.closed")}</option>
-          </select>
+          <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as "ALL" | "OPEN" | "CLOSED")}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">{t("filter.all")}</SelectItem>
+              <SelectItem value="OPEN">{t("filter.open")}</SelectItem>
+              <SelectItem value="CLOSED">{t("filter.closed")}</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             variant="outline"

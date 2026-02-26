@@ -4,9 +4,11 @@ import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect } from "react"
 import { Plus, Monitor, UserPlus, UserMinus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslations } from "next-intl"
@@ -239,9 +241,9 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
                         <p className="text-xs text-gray-400">ID: {r.id.slice(0, 8)}…</p>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                    <Badge variant="outline" className={r.active ? "border-green-200 bg-green-50 text-green-700" : "border-gray-200 bg-gray-50 text-gray-500"}>
                       {r.active ? t("status.active") : t("status.inactive")}
-                    </span>
+                    </Badge>
                   </div>
 
                   {/* Cajeros asignados */}
@@ -268,17 +270,19 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
                   {/* Asignar nuevo cajero */}
                   {available.length > 0 && (
                     <div className="flex gap-2 items-center">
-                      <select
-                        className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white"
+                      <Select
                         value={selectedCashier[r.id] ?? ""}
-                        onChange={(e) => setSelectedCashier((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        aria-label={t("assigned.placeholder")}
+                        onValueChange={(value) => setSelectedCashier((prev) => ({ ...prev, [r.id]: value }))}
                       >
-                        <option value="">{t("assigned.placeholder")}</option>
-                        {available.map((c) => (
-                          <option key={c.id} value={c.id}>{c.email}</option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder={t("assigned.placeholder")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {available.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.email}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
                         onClick={() => handleAssign(r.id)}
