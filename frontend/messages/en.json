@@ -1289,24 +1289,24 @@
         "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"
       },
       "prebill": {
-        "printedBadge": "Precuenta impresa",
-        "printedAt": "Precuenta impresa: {date}",
+        "printedBadge": "Pre-bill printed",
+        "printedAt": "Pre-bill printed: {date}",
         "dialog": {
-          "completedTitle": "Pedido completado",
-          "askPrint": "¿Querés imprimir la precuenta?",
-          "confirmTitle": "Confirmar impresión",
-          "confirmPrinted": "¿Salió el ticket?",
-          "orderRef": "Pedido #{id}"
+          "completedTitle": "Order completed",
+          "askPrint": "Do you want to print the pre-bill?",
+          "confirmTitle": "Confirm printing",
+          "confirmPrinted": "Did the ticket come out?",
+          "orderRef": "Order #{id}"
         },
         "actions": {
-          "print": "Imprimir precuenta",
-          "skip": "No imprimir",
-          "fiscalPlaceholder": "Imprimir comprobante fiscal (próximamente)",
-          "confirmPrinted": "Sí, salió",
-          "marking": "Marcando...",
-          "retry": "No / Reintentar",
-          "close": "Cerrar",
-          "reprint": "Reimprimir"
+          "print": "Print pre-bill",
+          "skip": "Don't print",
+          "fiscalPlaceholder": "Print fiscal receipt (coming soon)",
+          "confirmPrinted": "Yes, it came out",
+          "marking": "Marking...",
+          "retry": "No / Retry",
+          "close": "Close",
+          "reprint": "Reprint"
         }
       }
     },

@@ -102,22 +102,6 @@ interface CashMovement {
 
 type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
 
-const PREBILL_TEXT = {
-  printedBadge: "Precuenta impresa",
-  printedAt: "Precuenta impresa",
-  completedTitle: "Pedido completado",
-  askPrint: "Querés imprimir la precuenta?",
-  confirmTitle: "Confirmar impresión",
-  confirmPrinted: "Salió el ticket?",
-  print: "Imprimir precuenta",
-  skip: "No imprimir",
-  fiscalPlaceholder: "Imprimir comprobante fiscal (próximamente)",
-  confirmPrintedAction: "Sí, salió",
-  marking: "Marcando...",
-  retry: "No / Reintentar",
-  close: "Cerrar",
-  reprint: "Reimprimir",
-}
 
 export default function CajeroDashboard() {
   const t = useTranslations("cajero.dashboard")
@@ -1545,10 +1529,10 @@ export default function CajeroDashboard() {
                             {order.prebill_printed_at ? (
                               <div className="mt-2 space-y-1">
                                 <Badge className="border border-emerald-200 bg-emerald-50 text-emerald-700">
-                                  {PREBILL_TEXT.printedBadge}
+                                  {t("prebill.printedBadge")}
                                 </Badge>
                                 <p className="text-[11px] text-emerald-700">
-                                  {`${PREBILL_TEXT.printedAt}: ${formatPrebillPrintedAt(order.prebill_printed_at)}`}
+                                  {t("prebill.printedAt", { date: formatPrebillPrintedAt(order.prebill_printed_at) })}
                                 </p>
                               </div>
                             ) : null}
@@ -1598,7 +1582,7 @@ export default function CajeroDashboard() {
                               size="sm"
                               onClick={() => handleReprint(order.id)}
                             >
-                              {PREBILL_TEXT.reprint}
+                              {t("prebill.actions.reprint")}
                             </Button>
                           </div>
                         ) : null}
@@ -1923,42 +1907,42 @@ export default function CajeroDashboard() {
             <DialogHeader>
               <DialogTitle>
                 {prebillStep === "ASK_PRINT"
-                  ? PREBILL_TEXT.completedTitle
-                  : PREBILL_TEXT.confirmTitle}
+                  ? t("prebill.dialog.completedTitle")
+                  : t("prebill.dialog.confirmTitle")}
               </DialogTitle>
               <DialogDescription>
                 {prebillStep === "ASK_PRINT"
-                  ? PREBILL_TEXT.askPrint
-                  : PREBILL_TEXT.confirmPrinted}
+                  ? t("prebill.dialog.askPrint")
+                  : t("prebill.dialog.confirmPrinted")}
               </DialogDescription>
             </DialogHeader>
             {prebillOrder ? (
               <p className="text-xs text-muted-foreground">
-                {`Pedido #${prebillOrder.id}`}
+                {t("prebill.dialog.orderRef", { id: prebillOrder.id })}
               </p>
             ) : null}
             {prebillStep === "ASK_PRINT" ? (
               <div className="space-y-2 pt-2">
                 <Button onClick={startPrebillPrinting} className="w-full">
-                  {PREBILL_TEXT.print}
+                  {t("prebill.actions.print")}
                 </Button>
                 <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
-                  {PREBILL_TEXT.skip}
+                  {t("prebill.actions.skip")}
                 </Button>
                 <Button type="button" variant="ghost" disabled className="w-full">
-                  {PREBILL_TEXT.fiscalPlaceholder}
+                  {t("prebill.actions.fiscalPlaceholder")}
                 </Button>
               </div>
             ) : (
               <div className="space-y-2 pt-2">
                 <Button onClick={markPrebillPrinted} className="w-full" disabled={markingPrebill}>
-                  {markingPrebill ? PREBILL_TEXT.marking : PREBILL_TEXT.confirmPrintedAction}
+                  {markingPrebill ? t("prebill.actions.marking") : t("prebill.actions.confirmPrinted")}
                 </Button>
                 <Button type="button" variant="outline" onClick={retryPrebillPrinting} className="w-full">
-                  {PREBILL_TEXT.retry}
+                  {t("prebill.actions.retry")}
                 </Button>
                 <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
-                  {PREBILL_TEXT.close}
+                  {t("prebill.actions.close")}
                 </Button>
               </div>
             )}
