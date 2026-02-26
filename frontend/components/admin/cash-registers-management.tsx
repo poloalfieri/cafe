@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslations } from "next-intl"
 
 interface CashRegister {
   id: string
@@ -36,15 +37,15 @@ interface CashRegistersManagementProps {
 }
 
 export default function CashRegistersManagement({ branchId }: CashRegistersManagementProps) {
+  const t = useTranslations("admin.cashRegisters")
   const { toast } = useToast()
   const [registers, setRegisters] = useState<CashRegister[]>([])
   const [cashiers, setCashiers] = useState<Cashier[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  const [assigning, setAssigning] = useState<string | null>(null) // register_id being assigned
+  const [assigning, setAssigning] = useState<string | null>(null)
   const [newName, setNewName] = useState("")
-  // Per-register selected cashier for assignment
   const [selectedCashier, setSelectedCashier] = useState<Record<string, string>>({})
   const backendUrl = getTenantApiBase()
 
@@ -54,7 +55,7 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
 
   const fetchAll = async () => {
     setLoading(true)
-    await Promise.all([fetchRegisters(), fetchCashiers(), fetchAssignments()])
+    await Promise.all([fetchRegisters(), fetchCashiers()])
     setLoading(false)
   }
 
@@ -75,15 +76,9 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
       const res = await fetch("/api/admin/list-cashiers", { headers: { ...authHeader } })
       if (!res.ok) return
       const data = await res.json()
-      // Filter to the current branch if possible
       const list: Cashier[] = data.cashiers || []
       setCashiers(branchId ? list.filter((c) => !c.branch_id || c.branch_id === branchId) : list)
     } catch (_) {}
-  }
-
-  const fetchAssignments = async () => {
-    // Assignments are not directly listable via API yet, so we track them locally after assigning
-    // The source of truth for current assignments is refreshed on each assign/unassign action
   }
 
   const handleCreate = async () => {
@@ -97,12 +92,15 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
         body: JSON.stringify({ name: newName.trim(), branch_id: branchId }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Error al crear caja")
-      toast({ title: "Caja creada", description: `"${newName.trim()}" creada correctamente.` })
+      if (!res.ok) throw new Error(data.error || t("toast.createError"))
+      toast({
+        title: t("toast.createSuccess"),
+        description: t("toast.createSuccessDescription", { name: newName.trim() }),
+      })
       setNewName("")
       fetchRegisters()
     } catch (error: any) {
-      toast({ title: "Error", description: error?.message || "No se pudo crear la caja", variant: "destructive" })
+      toast({ title: t("toast.errorTitle"), description: error?.message || t("toast.createError"), variant: "destructive" })
     } finally {
       setCreating(false)
     }
@@ -120,17 +118,19 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
         body: JSON.stringify({ user_id: userId, active: true }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Error al asignar cajero")
+      if (!res.ok) throw new Error(data.error || t("toast.assignError"))
       const cashier = cashiers.find((c) => c.id === userId)
-      toast({ title: "Cajero asignado", description: `${cashier?.email ?? userId} asignado a la caja correctamente.` })
+      toast({
+        title: t("toast.assignSuccess"),
+        description: t("toast.assignSuccessDescription", { email: cashier?.email ?? userId }),
+      })
       setSelectedCashier((prev) => ({ ...prev, [registerId]: "" }))
-      // Track locally
       setAssignments((prev) => [
         ...prev.filter((a) => !(a.register_id === registerId && a.user_id === userId)),
         { id: data.data?.id ?? Math.random().toString(), register_id: registerId, user_id: userId, active: true },
       ])
     } catch (error: any) {
-      toast({ title: "Error", description: error?.message || "No se pudo asignar el cajero", variant: "destructive" })
+      toast({ title: t("toast.errorTitle"), description: error?.message || t("toast.assignError"), variant: "destructive" })
     } finally {
       setAssigning(null)
     }
@@ -146,15 +146,15 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
         body: JSON.stringify({ user_id: userId, active: false }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Error al quitar asignación")
-      toast({ title: "Asignación removida" })
+      if (!res.ok) throw new Error(data.error || t("toast.unassignError"))
+      toast({ title: t("toast.unassignSuccess") })
       setAssignments((prev) =>
         prev.map((a) =>
           a.register_id === registerId && a.user_id === userId ? { ...a, active: false } : a
         )
       )
     } catch (error: any) {
-      toast({ title: "Error", description: error?.message || "No se pudo remover la asignación", variant: "destructive" })
+      toast({ title: t("toast.errorTitle"), description: error?.message || t("toast.unassignError"), variant: "destructive" })
     } finally {
       setAssigning(null)
     }
@@ -176,25 +176,23 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
   return (
     <div className="space-y-4 mt-8 pt-6 border-t border-gray-200">
       <div>
-        <h2 className="text-xl font-bold text-gray-900">Cajas registradoras</h2>
-        <p className="text-sm text-gray-600">
-          Crea cajas y asigná cajeros. Un cajero debe estar asignado a una caja para poder abrirla.
-        </p>
+        <h2 className="text-xl font-bold text-gray-900">{t("header.title")}</h2>
+        <p className="text-sm text-gray-600">{t("header.subtitle")}</p>
       </div>
 
       {!branchId && (
-        <p className="text-sm text-amber-600">Seleccioná una sucursal para gestionar sus cajas.</p>
+        <p className="text-sm text-amber-600">{t("noBranchSelected")}</p>
       )}
 
       {branchId && (
         <div className="flex gap-2 items-end">
           <div className="flex-1 max-w-xs">
-            <Label htmlFor="new-register-name">Nombre de la caja</Label>
+            <Label htmlFor="new-register-name">{t("form.nameLabel")}</Label>
             <Input
               id="new-register-name"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Ej: Caja 1, Caja Principal..."
+              placeholder={t("form.namePlaceholder")}
               onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             />
           </div>
@@ -204,7 +202,7 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
             className="bg-gray-900 hover:bg-gray-800 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
-            {creating ? "Creando..." : "Crear caja"}
+            {creating ? t("actions.creating") : t("actions.create")}
           </Button>
         </div>
       )}
@@ -216,7 +214,7 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
       ) : registers.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Monitor className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">No hay cajas registradas para esta sucursal.</p>
+          <p className="text-sm">{t("empty.noRegisters")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -238,14 +236,14 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
                       </div>
                     </div>
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${r.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {r.active ? "Activa" : "Inactiva"}
+                      {r.active ? t("status.active") : t("status.inactive")}
                     </span>
                   </div>
 
                   {/* Cajeros asignados */}
                   {assigned.length > 0 && (
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cajeros asignados</p>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t("assigned.title")}</p>
                       {assigned.map((c) => (
                         <div key={c.id} className="flex items-center justify-between bg-green-50 rounded-md px-3 py-1.5">
                           <span className="text-sm text-gray-800">{c.email}</span>
@@ -270,8 +268,9 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
                         className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white"
                         value={selectedCashier[r.id] ?? ""}
                         onChange={(e) => setSelectedCashier((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        aria-label={t("assigned.placeholder")}
                       >
-                        <option value="">Asignar cajero...</option>
+                        <option value="">{t("assigned.placeholder")}</option>
                         {available.map((c) => (
                           <option key={c.id} value={c.id}>{c.email}</option>
                         ))}
@@ -283,17 +282,17 @@ export default function CashRegistersManagement({ branchId }: CashRegistersManag
                         className="bg-gray-900 hover:bg-gray-800 text-white"
                       >
                         <UserPlus className="w-3.5 h-3.5 mr-1" />
-                        {isAssigning ? "..." : "Asignar"}
+                        {isAssigning ? "…" : t("actions.assign")}
                       </Button>
                     </div>
                   )}
 
                   {available.length === 0 && cashiers.length > 0 && assigned.length === 0 && (
-                    <p className="text-xs text-gray-400">No hay cajeros disponibles para asignar.</p>
+                    <p className="text-xs text-gray-400">{t("empty.noCashiersAvailable")}</p>
                   )}
 
                   {cashiers.length === 0 && (
-                    <p className="text-xs text-amber-600">Primero creá cajeros en la sección de arriba.</p>
+                    <p className="text-xs text-amber-600">{t("empty.noCashiersCreated")}</p>
                   )}
                 </CardContent>
               </Card>

@@ -1001,6 +1001,95 @@
         "prev": "Anterior",
         "next": "Siguiente"
       }
+    },
+    "cashRegisters": {
+      "header": {
+        "title": "Cajas registradoras",
+        "subtitle": "Crea cajas y asigná cajeros. Un cajero debe estar asignado a una caja para poder abrirla."
+      },
+      "noBranchSelected": "Seleccioná una sucursal para gestionar sus cajas.",
+      "form": {
+        "nameLabel": "Nombre de la caja",
+        "namePlaceholder": "Ej: Caja 1, Caja Principal..."
+      },
+      "actions": {
+        "create": "Crear caja",
+        "creating": "Creando...",
+        "assign": "Asignar"
+      },
+      "status": {
+        "active": "Activa",
+        "inactive": "Inactiva"
+      },
+      "assigned": {
+        "title": "Cajeros asignados",
+        "placeholder": "Asignar cajero..."
+      },
+      "empty": {
+        "noRegisters": "No hay cajas registradas para esta sucursal.",
+        "noCashiersAvailable": "No hay cajeros disponibles para asignar.",
+        "noCashiersCreated": "Primero creá cajeros en la sección de arriba."
+      },
+      "toast": {
+        "successTitle": "Éxito",
+        "errorTitle": "Error",
+        "createSuccess": "Caja creada",
+        "createSuccessDescription": "\"{name}\" creada correctamente.",
+        "createError": "No se pudo crear la caja",
+        "assignSuccess": "Cajero asignado",
+        "assignSuccessDescription": "{email} asignado a la caja correctamente.",
+        "assignError": "No se pudo asignar el cajero",
+        "unassignSuccess": "Asignación removida",
+        "unassignError": "No se pudo remover la asignación"
+      }
+    },
+    "cashMonitor": {
+      "header": {
+        "title": "Monitor de caja",
+        "lastUpdated": "Última actualización: {time} · se actualiza cada {seconds}s",
+        "loading": "Cargando..."
+      },
+      "filter": {
+        "all": "Todas las sesiones",
+        "open": "Solo abiertas",
+        "closed": "Solo cerradas"
+      },
+      "actions": {
+        "refresh": "Actualizar"
+      },
+      "noBranchSelected": "Seleccioná una sucursal para ver sus sesiones de caja.",
+      "empty": {
+        "noSessions": "No hay sesiones de caja registradas."
+      },
+      "status": {
+        "open": "ABIERTA",
+        "closed": "CERRADA"
+      },
+      "movements": {
+        "show": "Ver movimientos",
+        "hide": "Ocultar",
+        "cashIn": "Ingresos efectivo:",
+        "cashOut": "Egresos efectivo:",
+        "empty": "Sin movimientos registrados.",
+        "notImpactsCash": "no impacta efectivo"
+      },
+      "session": {
+        "opening": "Apertura",
+        "closing": "Cierre",
+        "openingAmount": "Monto inicial",
+        "expectedNow": "Esperado ahora",
+        "expectedAtClose": "Esperado al cierre",
+        "counted": "Contado",
+        "difference": "Diferencia"
+      },
+      "types": {
+        "SALE_IN": "Venta",
+        "REFUND_OUT": "Devolución",
+        "EXPENSE_OUT": "Egreso",
+        "MANUAL_IN": "Ingreso manual",
+        "MANUAL_OUT": "Egreso manual",
+        "TIP_IN": "Propina"
+      }
     }
   },
   "cajero": {

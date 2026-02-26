@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
+import { useTranslations } from "next-intl"
 
 const POLL_INTERVAL_MS = 15_000
 
@@ -41,15 +42,6 @@ interface CashRegister {
   name: string
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  SALE_IN: "Venta",
-  REFUND_OUT: "Devolución",
-  EXPENSE_OUT: "Egreso",
-  MANUAL_IN: "Ingreso manual",
-  MANUAL_OUT: "Egreso manual",
-  TIP_IN: "Propina",
-}
-
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(n)
 
@@ -64,6 +56,7 @@ interface Props {
 }
 
 export default function CashMonitor({ branchId }: Props) {
+  const t = useTranslations("admin.cashMonitor")
   const backendUrl = getTenantApiBase()
   const [sessions, setSessions] = useState<CashSession[]>([])
   const [registers, setRegisters] = useState<CashRegister[]>([])
@@ -73,6 +66,15 @@ export default function CashMonitor({ branchId }: Props) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [filterStatus, setFilterStatus] = useState<"ALL" | "OPEN" | "CLOSED">("ALL")
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const typeLabels: Record<string, string> = {
+    SALE_IN: t("types.SALE_IN"),
+    REFUND_OUT: t("types.REFUND_OUT"),
+    EXPENSE_OUT: t("types.EXPENSE_OUT"),
+    MANUAL_IN: t("types.MANUAL_IN"),
+    MANUAL_OUT: t("types.MANUAL_OUT"),
+    TIP_IN: t("types.TIP_IN"),
+  }
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -151,11 +153,11 @@ export default function CashMonitor({ branchId }: Props) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Monitor de caja</h2>
+          <h2 className="text-xl font-bold text-gray-900">{t("header.title")}</h2>
           <p className="text-sm text-gray-500">
             {lastUpdated
-              ? `Última actualización: ${lastUpdated.toLocaleTimeString("es-AR")} · se actualiza cada ${POLL_INTERVAL_MS / 1000}s`
-              : "Cargando..."}
+              ? t("header.lastUpdated", { time: lastUpdated.toLocaleTimeString("es-AR"), seconds: POLL_INTERVAL_MS / 1000 })
+              : t("header.loading")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -165,9 +167,9 @@ export default function CashMonitor({ branchId }: Props) {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value as "ALL" | "OPEN" | "CLOSED")}
           >
-            <option value="ALL">Todas las sesiones</option>
-            <option value="OPEN">Solo abiertas</option>
-            <option value="CLOSED">Solo cerradas</option>
+            <option value="ALL">{t("filter.all")}</option>
+            <option value="OPEN">{t("filter.open")}</option>
+            <option value="CLOSED">{t("filter.closed")}</option>
           </select>
           <Button
             size="sm"
@@ -176,13 +178,13 @@ export default function CashMonitor({ branchId }: Props) {
             disabled={loading}
           >
             <RefreshCw className={`w-4 h-4 mr-1 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
+            {t("actions.refresh")}
           </Button>
         </div>
       </div>
 
       {!branchId && (
-        <p className="text-sm text-amber-600">Seleccioná una sucursal para ver sus sesiones de caja.</p>
+        <p className="text-sm text-amber-600">{t("noBranchSelected")}</p>
       )}
 
       {/* Sessions list */}
@@ -193,7 +195,7 @@ export default function CashMonitor({ branchId }: Props) {
       ) : sessions.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Circle className="w-10 h-10 mx-auto mb-2" />
-          <p className="text-sm">No hay sesiones de caja registradas.</p>
+          <p className="text-sm">{t("empty.noSessions")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -217,7 +219,7 @@ export default function CashMonitor({ branchId }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge className={isOpen ? "bg-green-600 text-white" : "bg-gray-400 text-white"}>
-                        {isOpen ? "ABIERTA" : "CERRADA"}
+                        {isOpen ? t("status.open") : t("status.closed")}
                       </Badge>
                       <CardTitle className="text-base font-semibold text-gray-900">
                         {getRegisterName(s.register_id)}
@@ -231,7 +233,7 @@ export default function CashMonitor({ branchId }: Props) {
                       onClick={() => toggleExpand(s.id)}
                     >
                       {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      {isExpanded ? "Ocultar" : "Ver movimientos"}
+                      {isExpanded ? t("movements.hide") : t("movements.show")}
                     </Button>
                   </div>
                 </CardHeader>
@@ -240,34 +242,34 @@ export default function CashMonitor({ branchId }: Props) {
                   {/* Session summary */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                     <div>
-                      <p className="text-xs text-gray-500">Apertura</p>
+                      <p className="text-xs text-gray-500">{t("session.opening")}</p>
                       <p className="font-medium">{fmtTime(s.opened_at)}</p>
                     </div>
                     {s.closed_at && (
                       <div>
-                        <p className="text-xs text-gray-500">Cierre</p>
+                        <p className="text-xs text-gray-500">{t("session.closing")}</p>
                         <p className="font-medium">{fmtTime(s.closed_at)}</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-xs text-gray-500">Monto inicial</p>
+                      <p className="text-xs text-gray-500">{t("session.openingAmount")}</p>
                       <p className="font-medium">{fmt(s.opening_amount)}</p>
                     </div>
                     {expected !== null && (
                       <div>
-                        <p className="text-xs text-gray-500">{isOpen ? "Esperado ahora" : "Esperado al cierre"}</p>
+                        <p className="text-xs text-gray-500">{isOpen ? t("session.expectedNow") : t("session.expectedAtClose")}</p>
                         <p className="font-semibold text-blue-700">{fmt(expected)}</p>
                       </div>
                     )}
                     {s.closing_counted_amount !== undefined && s.closing_counted_amount !== null && (
                       <div>
-                        <p className="text-xs text-gray-500">Contado</p>
+                        <p className="text-xs text-gray-500">{t("session.counted")}</p>
                         <p className="font-medium">{fmt(s.closing_counted_amount)}</p>
                       </div>
                     )}
                     {s.difference_amount !== undefined && s.difference_amount !== null && (
                       <div>
-                        <p className="text-xs text-gray-500">Diferencia</p>
+                        <p className="text-xs text-gray-500">{t("session.difference")}</p>
                         <p className={`font-semibold ${s.difference_amount < 0 ? "text-red-600" : s.difference_amount > 0 ? "text-green-600" : "text-gray-700"}`}>
                           {s.difference_amount > 0 ? "+" : ""}{fmt(s.difference_amount)}
                         </p>
@@ -283,17 +285,17 @@ export default function CashMonitor({ branchId }: Props) {
                         <div className="flex gap-4 text-sm mb-2">
                           <span className="flex items-center gap-1 text-green-700">
                             <ArrowDownCircle className="w-4 h-4" />
-                            Ingresos efectivo: <strong>{fmt(totalIn)}</strong>
+                            {t("movements.cashIn")} <strong>{fmt(totalIn)}</strong>
                           </span>
                           <span className="flex items-center gap-1 text-red-600">
                             <ArrowUpCircle className="w-4 h-4" />
-                            Egresos efectivo: <strong>{fmt(totalOut)}</strong>
+                            {t("movements.cashOut")} <strong>{fmt(totalOut)}</strong>
                           </span>
                         </div>
                       )}
 
                       {sessionMovements.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-4">Sin movimientos registrados.</p>
+                        <p className="text-xs text-gray-400 text-center py-4">{t("movements.empty")}</p>
                       ) : (
                         <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
                           {sessionMovements.map((m) => (
@@ -307,10 +309,10 @@ export default function CashMonitor({ branchId }: Props) {
                                   : <ArrowUpCircle className="w-4 h-4 text-red-500 shrink-0" />
                                 }
                                 <div className="min-w-0">
-                                  <p className="font-medium truncate">{TYPE_LABELS[m.type] ?? m.type}</p>
+                                  <p className="font-medium truncate">{typeLabels[m.type] ?? m.type}</p>
                                   {m.note && <p className="text-xs text-gray-500 truncate">{m.note}</p>}
                                   {m.payment_method && (
-                                    <p className="text-xs text-gray-400">{m.payment_method}{!m.impacts_cash && " · no impacta efectivo"}</p>
+                                    <p className="text-xs text-gray-400">{m.payment_method}{!m.impacts_cash && ` · ${t("movements.notImpactsCash")}`}</p>
                                   )}
                                 </div>
                               </div>

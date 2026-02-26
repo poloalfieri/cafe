@@ -1001,6 +1001,95 @@
         "prev": "Anterior",
         "next": "Siguiente"
       }
+    },
+    "cashRegisters": {
+      "header": {
+        "title": "Cash registers",
+        "subtitle": "Create registers and assign cashiers. A cashier must be assigned to a register to open it."
+      },
+      "noBranchSelected": "Select a branch to manage its registers.",
+      "form": {
+        "nameLabel": "Register name",
+        "namePlaceholder": "E.g. Register 1, Main Register..."
+      },
+      "actions": {
+        "create": "Create register",
+        "creating": "Creating...",
+        "assign": "Assign"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "assigned": {
+        "title": "Assigned cashiers",
+        "placeholder": "Assign cashier..."
+      },
+      "empty": {
+        "noRegisters": "No registers found for this branch.",
+        "noCashiersAvailable": "No cashiers available to assign.",
+        "noCashiersCreated": "First create cashiers in the section above."
+      },
+      "toast": {
+        "successTitle": "Success",
+        "errorTitle": "Error",
+        "createSuccess": "Register created",
+        "createSuccessDescription": "\"{name}\" created successfully.",
+        "createError": "Could not create register",
+        "assignSuccess": "Cashier assigned",
+        "assignSuccessDescription": "{email} assigned to register successfully.",
+        "assignError": "Could not assign cashier",
+        "unassignSuccess": "Assignment removed",
+        "unassignError": "Could not remove assignment"
+      }
+    },
+    "cashMonitor": {
+      "header": {
+        "title": "Cash monitor",
+        "lastUpdated": "Last updated: {time} · refreshes every {seconds}s",
+        "loading": "Loading..."
+      },
+      "filter": {
+        "all": "All sessions",
+        "open": "Open only",
+        "closed": "Closed only"
+      },
+      "actions": {
+        "refresh": "Refresh"
+      },
+      "noBranchSelected": "Select a branch to view its cash sessions.",
+      "empty": {
+        "noSessions": "No cash sessions recorded."
+      },
+      "status": {
+        "open": "OPEN",
+        "closed": "CLOSED"
+      },
+      "movements": {
+        "show": "View movements",
+        "hide": "Hide",
+        "cashIn": "Cash in:",
+        "cashOut": "Cash out:",
+        "empty": "No movements recorded.",
+        "notImpactsCash": "does not affect cash"
+      },
+      "session": {
+        "opening": "Opened",
+        "closing": "Closed",
+        "openingAmount": "Opening amount",
+        "expectedNow": "Expected now",
+        "expectedAtClose": "Expected at close",
+        "counted": "Counted",
+        "difference": "Difference"
+      },
+      "types": {
+        "SALE_IN": "Sale",
+        "REFUND_OUT": "Refund",
+        "EXPENSE_OUT": "Expense",
+        "MANUAL_IN": "Manual in",
+        "MANUAL_OUT": "Manual out",
+        "TIP_IN": "Tip"
+      }
     }
   },
   "cajero": {
