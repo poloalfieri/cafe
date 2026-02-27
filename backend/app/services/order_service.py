@@ -14,7 +14,6 @@ from ..socketio import socketio
 from ..services.cash_service import cash_service
 from .ingredients_service import ingredients_service
 from .promotion_engine import apply_promotions_to_items
-from .order_items_service import insert_order_items_from_json
 
 logger = setup_logger(__name__)
 
@@ -333,6 +332,8 @@ class OrderService:
         token: str = None,
         branch_id: Optional[str] = None,
         payment_method: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         """
         Crear un nuevo pedido (flujo público con token de mesa)
@@ -358,6 +359,8 @@ class OrderService:
             items=items,
             branch_id=branch_id,
             payment_method=payment_method,
+            customer_phone=customer_phone,
+            delivery_address=delivery_address,
         )
 
     def create_order_by_staff(
@@ -368,6 +371,8 @@ class OrderService:
         restaurant_id: str,
         payment_method: Optional[str] = None,
         discount_id: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         """
         Crear un pedido desde backoffice (caja/admin), sin token de mesa.
@@ -386,6 +391,8 @@ class OrderService:
             restaurant_id=restaurant_id,
             payment_method=payment_method,
             discount_id=discount_id,
+            customer_phone=customer_phone,
+            delivery_address=delivery_address,
         )
 
     def update_order_status(
@@ -711,6 +718,8 @@ class OrderService:
         restaurant_id: Optional[str] = None,
         payment_method: Optional[str] = None,
         discount_id: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         if not branch_id:
             raise ValueError("branch_id requerido")
@@ -805,6 +814,10 @@ class OrderService:
             normalized_payment_method = self._normalize_payment_method(payment_method)
             if normalized_payment_method:
                 insert_data["payment_method"] = normalized_payment_method
+            if customer_phone:
+                insert_data["customer_phone"] = str(customer_phone).strip()
+            if delivery_address:
+                insert_data["delivery_address"] = str(delivery_address).strip()
 
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:
@@ -816,16 +829,6 @@ class OrderService:
             logger.info(
                 f"Pedido creado: ID {order_id}, Mesa {mesa_id}, Total ${total_amount}"
             )
-            # Crear order_items normalizados para split payment
-            try:
-                insert_order_items_from_json(
-                    order_id=str(order_id),
-                    items=promo_items,
-                    restaurant_id=actual_restaurant_id,
-                    branch_id=new_order.get("branch_id", branch_id),
-                )
-            except Exception as e:
-                logger.warning(f"Error creando order_items para orden {order_id}: {e}")
             # Descontar stock de ingredientes según recetas
             self._consume_ingredients_for_order(
                 items=items,

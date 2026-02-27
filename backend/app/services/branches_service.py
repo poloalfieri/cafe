@@ -1,6 +1,9 @@
 from typing import Dict, List, Optional, Tuple
 from ..db.supabase_client import supabase
 from ..utils.retry import execute_with_retry
+from ..utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
 class BranchesService:
@@ -60,6 +63,26 @@ class BranchesService:
         branch = (response.data or [None])[0]
         if not branch:
             raise Exception("No se pudo crear la sucursal")
+
+        # Auto-crear mesas "Delivery" y "Caja" para la nueva sucursal
+        try:
+            from ..services.mesa_service import mesa_service
+            restaurant_id = membership.get("restaurant_id")
+            branch_id = branch["id"]
+            mesa_service.create_mesa(
+                mesa_id="Delivery",
+                branch_id=branch_id,
+                restaurant_id=restaurant_id,
+                allowed_payment_methods=["CASH", "MERCADOPAGO"],
+            )
+            mesa_service.create_mesa(
+                mesa_id="Caja",
+                branch_id=branch_id,
+                restaurant_id=restaurant_id,
+            )
+        except Exception as e:
+            logger.warning(f"No se pudieron crear mesas por defecto: {e}")
+
         return branch
 
     def update_branch(self, user_id: str, branch_id: str, payload: Dict) -> Dict:

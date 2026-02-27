@@ -33,6 +33,7 @@ interface Mesa {
   is_active: boolean
   created_at: string
   updated_at: string
+  allowed_payment_methods?: string[]
 }
 
 interface MenuItem {
@@ -135,6 +136,8 @@ export default function CajeroDashboard() {
   const [createOrderPaymentMethod, setCreateOrderPaymentMethod] = useState<PaymentMethod>("CASH")
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
+  const [deliveryPhone, setDeliveryPhone] = useState("")
+  const [deliveryAddress, setDeliveryAddress] = useState("")
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
   const [optionsProduct, setOptionsProduct] = useState<MenuItem | null>(null)
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([])
@@ -326,7 +329,11 @@ export default function CajeroDashboard() {
       if (response.ok) {
         const data = await response.json()
         if (data.success && Array.isArray(data.calls)) {
-          setWaiterCalls(data.calls)
+          const visibleCalls = data.calls.filter(
+            (call: WaiterCall) =>
+              (call.message || "").trim().toLowerCase() !== "solicitud de pago (caja)"
+          )
+          setWaiterCalls(visibleCalls)
         }
       } else {
         console.error(t("errors.fetchWaiterCalls"), `waiter calls status ${response.status}`)
@@ -611,6 +618,8 @@ export default function CajeroDashboard() {
     setCreateOrderPaymentMethod("CASH")
     setSelectedMenuItemId("")
     setCreateOrderError(null)
+    setDeliveryPhone("")
+    setDeliveryAddress("")
     setMenuItems([])
     setMenuLoading(false)
     setCreatingOrder(false)
@@ -868,6 +877,7 @@ export default function CajeroDashboard() {
           mesa_id: createOrderMesa.mesa_id,
           branch_id: targetBranchId,
           token: authToken,
+          payment_method: createOrderPaymentMethod,
           items: draftOrderItems.map((item) => ({
             id: item.id,
             lineId: item.lineId,
@@ -878,6 +888,8 @@ export default function CajeroDashboard() {
             selectedOptions: item.selectedOptions || [],
           })),
           ...(selectedDiscountId ? { discount_id: selectedDiscountId } : {}),
+          ...(deliveryPhone ? { customer_phone: deliveryPhone } : {}),
+          ...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
         }),
       })
 
@@ -888,43 +900,13 @@ export default function CajeroDashboard() {
       }
       const createdOrder = await response.json().catch(() => null)
 
-      const callResponse = await fetch(`${backendUrl}/waiter/calls`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify({
-          mesa_id: createOrderMesa.mesa_id,
-          branch_id: targetBranchId,
-          payment_method: createOrderPaymentMethod,
-          message: "Solicitud de pago (caja)",
-        }),
-      })
-
-      if (!callResponse.ok) {
-        const callErrorPayload = await callResponse.json().catch(() => ({}))
-        setCreateOrderError(callErrorPayload?.error || t("orders.createQueueError"))
-        return
-      }
-      const callPayload = await callResponse.json().catch(() => null)
-
       if (createdOrder?.id) {
+        skipNextOrdersSocketRefreshRef.current += 1
         setOrders((prev) => {
           if (prev.some((order) => order.id === createdOrder.id)) {
             return prev
           }
           return [createdOrder as Order, ...prev]
-        })
-      }
-
-      const createdCall = callPayload?.call
-      if (createdCall?.id && createdCall?.status === "PENDING") {
-        setWaiterCalls((prev) => {
-          if (prev.some((call) => call.id === createdCall.id)) {
-            return prev
-          }
-          return [createdCall as WaiterCall, ...prev]
         })
       }
 
@@ -1357,6 +1339,10 @@ export default function CajeroDashboard() {
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
   const mesasOcupadas = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) !== "disponible")
 
+  const SPECIAL_MESAS = new Set(["Delivery", "Caja"])
+  const getMesaLabel = (mesaId: string) =>
+    SPECIAL_MESAS.has(mesaId) ? mesaId : t("tables.tableLabel", { id: mesaId })
+
   const handleMesaStatusChange = async (mesaId: string, newStatus: boolean) => {
     try {
       // En producción, aquí harías una llamada al backend para cambiar el estado
@@ -1507,7 +1493,7 @@ export default function CajeroDashboard() {
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>
-                {selectedMesa ? t("tables.tableLabel", { id: selectedMesa.mesa_id }) : ""}
+                {selectedMesa ? getMesaLabel(selectedMesa.mesa_id) : ""}
               </DialogTitle>
               <DialogDescription>
                 {t("orders.itemsTitle")}
@@ -1721,6 +1707,32 @@ export default function CajeroDashboard() {
                 )}
               </div>
 
+              {createOrderMesa?.mesa_id === "Delivery" && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <p className="text-sm font-medium text-blue-900">{t("orders.deliveryInfo")}</p>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.customerPhone")}</label>
+                    <input
+                      type="tel"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder={t("orders.customerPhonePlaceholder")}
+                      value={deliveryPhone}
+                      onChange={(e) => setDeliveryPhone(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryAddress")}</label>
+                    <input
+                      type="text"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder={t("orders.deliveryAddressPlaceholder")}
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border border-gray-200 p-3">
                 <p className="text-sm font-medium text-gray-900 mb-2">{t("orders.paymentMethodLabel")}</p>
                 <select
@@ -1730,9 +1742,15 @@ export default function CajeroDashboard() {
                     setCreateOrderPaymentMethod(event.target.value as PaymentMethod)
                   }
                 >
-                  <option value="CASH">{t("orders.paymentMethods.cash")}</option>
-                  <option value="CARD">{t("orders.paymentMethods.card")}</option>
-                  <option value="QR">{t("orders.paymentMethods.qr")}</option>
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("CASH")) && (
+                    <option value="CASH">{t("orders.paymentMethods.cash")}</option>
+                  )}
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("CARD")) && (
+                    <option value="CARD">{t("orders.paymentMethods.card")}</option>
+                  )}
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("QR")) && (
+                    <option value="QR">{t("orders.paymentMethods.qr")}</option>
+                  )}
                 </select>
               </div>
 
@@ -2015,7 +2033,7 @@ export default function CajeroDashboard() {
                               <div>
                                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                                   <Bell className="w-4 h-4 text-orange-500" />
-                                  {t("payments.tableLabel")} {order.mesa_id}
+                                  {getMesaLabel(String(order.mesa_id))}
                                 </h3>
                                 <p className="text-xs text-gray-600">
                                   #{String(order.id || "").slice(0, 8)}
@@ -2351,7 +2369,7 @@ export default function CajeroDashboard() {
                       <Card key={mesa.id} className="hover:shadow-md transition-shadow">
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{t("tables.tableLabel", { id: mesa.mesa_id })}</CardTitle>
+                            <CardTitle className="text-lg">{getMesaLabel(mesa.mesa_id)}</CardTitle>
                             <Badge className={`${getStatusColor(status)} border`}>
                               {getStatusText(status)}
                             </Badge>

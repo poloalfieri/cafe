@@ -62,7 +62,11 @@ export async function proxyToBackend(
       }
     }
 
-    const response = await fetch(url.toString(), fetchOptions)
+    const response = await fetchWithRetry(
+      url.toString(),
+      fetchOptions,
+      request.method
+    )
 
     const responseContentType = response.headers.get('content-type') || ''
 
@@ -90,4 +94,50 @@ export async function proxyToBackend(
       { status: 500 }
     )
   }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  method: string
+): Promise<Response> {
+  const isSafeMethod = method === 'GET' || method === 'HEAD'
+  const maxAttempts = isSafeMethod ? 2 : 1
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fetch(url, options)
+    } catch (error) {
+      lastError = error
+      if (attempt >= maxAttempts || !isTransientProxyError(error)) {
+        throw error
+      }
+      await delay(100 * attempt)
+    }
+  }
+
+  throw lastError ?? new Error('Unexpected proxy fetch error')
+}
+
+function isTransientProxyError(error: unknown): boolean {
+  const text = String(error ?? '').toLowerCase()
+  const cause = (error as { cause?: { code?: string } })?.cause
+  const code = String(cause?.code ?? '').toUpperCase()
+
+  if (code === 'UND_ERR_SOCKET') return true
+  if (code === 'ECONNRESET') return true
+  if (code === 'EPIPE') return true
+  if (code === 'ETIMEDOUT') return true
+  if (code === 'ECONNREFUSED') return true
+
+  return (
+    text.includes('other side closed') ||
+    text.includes('socket hang up') ||
+    text.includes('fetch failed')
+  )
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

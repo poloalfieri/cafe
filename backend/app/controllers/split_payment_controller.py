@@ -2,7 +2,10 @@ from flask import Blueprint, jsonify, request, g
 
 from ..middleware.auth import require_auth, require_roles
 from ..services.split_payment_service import split_payment_service
+from ..db.supabase_client import supabase
+from ..utils.retry import execute_with_retry
 from ..utils.logger import setup_logger
+from ..utils.supabase_errors import is_missing_relation_error
 from ..utils.tenant import require_restaurant_scope
 
 logger = setup_logger(__name__)
@@ -36,6 +39,16 @@ def get_order_items(order_id):
     except LookupError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
+        if is_missing_relation_error(e, "order_items"):
+            try:
+                fallback = _get_order_summary_from_orders_json(order_id)
+                return jsonify(fallback), 200
+            except Exception as fallback_exc:
+                logger.error(
+                    "Fallback split payment falló para orden %s: %s",
+                    order_id,
+                    fallback_exc,
+                )
         logger.error(f"Error obteniendo items de orden {order_id}: {e}")
         return jsonify({"error": "Error interno"}), 500
 
@@ -88,3 +101,28 @@ def list_order_payments(order_id):
     except Exception as e:
         logger.error(f"Error listando pagos de orden {order_id}: {e}")
         return jsonify({"error": "Error interno"}), 500
+
+
+def _get_order_summary_from_orders_json(order_id: str) -> dict:
+    order_resp = execute_with_retry(
+        lambda: supabase.table("orders")
+        .select("id, total_amount, paid_amount, status, items")
+        .eq("id", order_id)
+        .single()
+        .execute()
+    )
+    order = order_resp.data
+    if not order:
+        raise LookupError("Orden no encontrada")
+
+    items = split_payment_service._build_order_items_from_json(order.get("items") or [])
+    paid_amount = split_payment_service._resolve_paid_amount(order, items, [])
+
+    return {
+        "order_id": order_id,
+        "items": items,
+        "payments": [],
+        "total_amount": float(order.get("total_amount") or 0),
+        "paid_amount": paid_amount,
+        "status": order.get("status"),
+    }

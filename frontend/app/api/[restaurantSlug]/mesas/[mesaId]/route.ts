@@ -8,3 +8,11 @@ export async function PATCH(
   const { restaurantSlug, mesaId } = await context.params
   return proxyToBackend(request, restaurantSlug, `/mesas/${mesaId}`)
 }
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ restaurantSlug: string; mesaId: string }> }
+) {
+  const { restaurantSlug, mesaId } = await context.params
+  return proxyToBackend(request, restaurantSlug, `/mesas/${mesaId}`)
+}

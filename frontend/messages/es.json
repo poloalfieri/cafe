@@ -121,7 +121,12 @@
       "secure": "100% seguro",
       "allCards": "Acepta todas las tarjetas",
       "installments": "Pago en cuotas",
-      "waiterNotifyError": "Error al notificar al mozo"
+      "waiterNotifyError": "Error al notificar al mozo",
+      "deliveryInfo": "Datos de envío",
+      "customerPhone": "Teléfono",
+      "customerPhonePlaceholder": "Ej: 1155443322",
+      "deliveryAddress": "Dirección de envío",
+      "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA"
     },
     "instructions": {
       "title": "¿Cómo usar la app?",
@@ -1128,7 +1133,7 @@
       },
       "tabs": {
         "payments": "Pagos ({count})",
-        "tables": "Mesas ({count})",
+        "tables": "Mesas y Pedidos ({count})",
         "orders": "Pedidos a Realizar ({count})",
         "cash": "Caja"
       },
@@ -1223,7 +1228,12 @@
         "createOrder": "Crear pedido",
         "statusLabel": "Estado:",
         "active": "Activa",
-        "inactive": "Inactiva"
+        "inactive": "Inactiva",
+        "delete": "Borrar",
+        "deleting": "Borrando...",
+        "confirmDelete": "¿Confirmar borrado de {id}? Esta acción no se puede deshacer.",
+        "deleteSuccess": "{id} eliminada",
+        "deleteError": "No se pudo eliminar la mesa"
       },
       "orders": {
         "loading": "Cargando pedidos...",
@@ -1250,6 +1260,11 @@
           "card": "Tarjeta",
           "qr": "QR"
         },
+        "deliveryInfo": "Datos de envío",
+        "customerPhone": "Teléfono del cliente",
+        "customerPhonePlaceholder": "Ej: 1155443322",
+        "deliveryAddress": "Dirección de envío",
+        "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA",
         "cancel": "Cancelar",
         "createAction": "Crear pedido",
         "creating": "Creando...",
