@@ -25,6 +25,8 @@ interface CashSession {
   cashier_user_id: string
   opened_at: string
   closed_at?: string | null
+  title?: string | null
+  expected_open_at?: string | null
 }
 
 interface CashMovement {
@@ -39,11 +41,6 @@ interface CashMovement {
   created_at: string
 }
 
-interface CashRegister {
-  id: string
-  name: string
-}
-
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(n)
 
@@ -52,6 +49,9 @@ const fmtTime = (iso: string) =>
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   })
+
+const fmtHour = (iso: string) =>
+  new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
 
 interface Props {
   branchId?: string
@@ -62,7 +62,6 @@ export default function CashMonitor({ branchId }: Props) {
   const { toast } = useToast()
   const backendUrl = getTenantApiBase()
   const [sessions, setSessions] = useState<CashSession[]>([])
-  const [registers, setRegisters] = useState<CashRegister[]>([])
   const [movements, setMovements] = useState<Record<string, CashMovement[]>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -102,17 +101,6 @@ export default function CashMonitor({ branchId }: Props) {
     }
   }, [branchId, filterStatus, expanded])
 
-  const fetchRegisters = useCallback(async () => {
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const params = branchId ? `?branch_id=${branchId}` : ""
-      const res = await fetch(`${backendUrl}/cash/registers${params}`, { headers: { ...authHeader } })
-      if (!res.ok) return
-      const data = await res.json()
-      setRegisters(data.data || [])
-    } catch (_) {}
-  }, [branchId])
-
   const fetchMovements = useCallback(async (sessionId: string) => {
     try {
       const authHeader = await getClientAuthHeaderAsync()
@@ -128,7 +116,7 @@ export default function CashMonitor({ branchId }: Props) {
   // Initial load
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchSessions(), fetchRegisters()]).finally(() => setLoading(false))
+    fetchSessions().finally(() => setLoading(false))
   }, [branchId, filterStatus])
 
   // Polling
@@ -150,9 +138,6 @@ export default function CashMonitor({ branchId }: Props) {
       return next
     })
   }
-
-  const getRegisterName = (registerId: string) =>
-    registers.find((r) => r.id === registerId)?.name ?? registerId.slice(0, 8) + "…"
 
   const expectedFor = (s: CashSession) =>
     s.status === "OPEN" ? (s.expected_amount_live ?? null) : (s.expected_amount ?? null)
@@ -239,9 +224,8 @@ export default function CashMonitor({ branchId }: Props) {
                         {isOpen ? t("status.open") : t("status.closed")}
                       </Badge>
                       <CardTitle className="text-base font-semibold text-gray-900">
-                        {getRegisterName(s.register_id)}
+                        {s.title || `#${s.id.slice(0, 8)}`}
                       </CardTitle>
-                      <span className="text-xs text-gray-500">#{s.id.slice(0, 8)}</span>
                     </div>
                     <Button
                       size="sm"
@@ -258,16 +242,22 @@ export default function CashMonitor({ branchId }: Props) {
                 <CardContent className="p-4 space-y-3">
                   {/* Session summary */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                    {/* Expected open vs actual open */}
                     <div>
                       <p className="text-xs text-gray-500">{t("session.opening")}</p>
                       <p className="font-medium">{fmtTime(s.opened_at)}</p>
+                      {s.expected_open_at && (
+                        <p className="text-xs text-gray-400">{t("session.expected")}: {fmtHour(s.expected_open_at)}</p>
+                      )}
                     </div>
+
                     {s.closed_at && (
                       <div>
                         <p className="text-xs text-gray-500">{t("session.closing")}</p>
                         <p className="font-medium">{fmtTime(s.closed_at)}</p>
                       </div>
                     )}
+
                     <div>
                       <p className="text-xs text-gray-500">{t("session.openingAmount")}</p>
                       <p className="font-medium">{fmt(s.opening_amount)}</p>

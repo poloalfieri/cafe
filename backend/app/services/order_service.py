@@ -332,6 +332,8 @@ class OrderService:
         token: str = None,
         branch_id: Optional[str] = None,
         payment_method: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         """
         Crear un nuevo pedido (flujo público con token de mesa)
@@ -357,6 +359,8 @@ class OrderService:
             items=items,
             branch_id=branch_id,
             payment_method=payment_method,
+            customer_phone=customer_phone,
+            delivery_address=delivery_address,
         )
 
     def create_order_by_staff(
@@ -367,6 +371,8 @@ class OrderService:
         restaurant_id: str,
         payment_method: Optional[str] = None,
         discount_id: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         """
         Crear un pedido desde backoffice (caja/admin), sin token de mesa.
@@ -385,6 +391,8 @@ class OrderService:
             restaurant_id=restaurant_id,
             payment_method=payment_method,
             discount_id=discount_id,
+            customer_phone=customer_phone,
+            delivery_address=delivery_address,
         )
 
     def update_order_status(
@@ -710,6 +718,8 @@ class OrderService:
         restaurant_id: Optional[str] = None,
         payment_method: Optional[str] = None,
         discount_id: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        delivery_address: Optional[str] = None,
     ) -> Dict:
         if not branch_id:
             raise ValueError("branch_id requerido")
@@ -804,6 +814,10 @@ class OrderService:
             normalized_payment_method = self._normalize_payment_method(payment_method)
             if normalized_payment_method:
                 insert_data["payment_method"] = normalized_payment_method
+            if customer_phone:
+                insert_data["customer_phone"] = str(customer_phone).strip()
+            if delivery_address:
+                insert_data["delivery_address"] = str(delivery_address).strip()
 
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:
@@ -844,6 +858,11 @@ class OrderService:
             OrderStatus.PAYMENT_PENDING.value: [
                 OrderStatus.PAYMENT_APPROVED.value,
                 OrderStatus.PAYMENT_REJECTED.value,
+                OrderStatus.PAID.value,
+                OrderStatus.PARTIALLY_PAID.value,
+                OrderStatus.CANCELLED.value,
+            ],
+            OrderStatus.PARTIALLY_PAID.value: [
                 OrderStatus.PAID.value,
                 OrderStatus.CANCELLED.value,
             ],
@@ -891,6 +910,7 @@ class OrderService:
             "restaurant_id": order.get("restaurant_id"),
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
+            "paid_amount": float(order.get("paid_amount") or 0),
         }
 
     def _validate_stock_for_items(
@@ -1063,6 +1083,8 @@ class OrderService:
             return "pending"
         if status == OrderStatus.PAYMENT_REJECTED.value:
             return "rejected"
+        if status == OrderStatus.PARTIALLY_PAID.value:
+            return "partial"
         return "approved"
 
     @staticmethod

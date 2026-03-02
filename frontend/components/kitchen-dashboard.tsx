@@ -21,7 +21,7 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "PARTIALLY_PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
   created_at: string
   paid_at?: string
   payment_status?: string
@@ -399,11 +399,11 @@ export default function KitchenDashboard() {
                 <Bell className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
                 <p className="text-gray-600">Todas las solicitudes de pago fueron atendidas</p>
-                <p className="text-gray-400 text-sm mt-2">Se actualiza automaticamente cada 5 segundos</p>
+                <p className="text-gray-400 text-sm mt-2">Cuando haya un pedido se actualiza automaticamente</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500">Se actualiza automaticamente cada 5 segundos</p>
+                <p className="text-sm text-gray-500">Cuando haya un pedido se actualiza automaticamente</p>
                 {pendingCalls.map((call) => (
                   <WaiterCallCard
                     key={call.id}

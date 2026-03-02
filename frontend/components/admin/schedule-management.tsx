@@ -12,6 +12,7 @@ import {
   Check,
   Copy,
   MapPin,
+  Trash2,
   Users
 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -28,6 +29,11 @@ interface Mesa {
 
 interface ScheduleManagementProps {
   branchId?: string
+}
+
+const SPECIAL_MESAS = new Set(["Delivery", "Caja"])
+function getMesaLabel(mesaId: string) {
+  return SPECIAL_MESAS.has(mesaId) ? mesaId : `Mesa ${mesaId}`
 }
 
 export default function ScheduleManagement({ branchId }: ScheduleManagementProps) {
@@ -48,6 +54,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [editError, setEditError] = useState<string | null>(null)
   const [tableActionError, setTableActionError] = useState<string | null>(null)
   const [copiedMesaId, setCopiedMesaId] = useState<string | null>(null)
+  const [deletingMesaId, setDeletingMesaId] = useState<string | null>(null)
   const backendUrl = getTenantApiBase()
 
   const parseCapacityInput = (value: string) => {
@@ -241,6 +248,28 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
     }
   }
 
+  const handleDeleteMesa = async (mesa: Mesa) => {
+    if (!window.confirm(`¿Eliminar ${getMesaLabel(mesa.mesa_id)}? Esta acción no se puede deshacer.`)) return
+    try {
+      setDeletingMesaId(mesa.id)
+      setTableActionError(null)
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/mesas/${mesa.mesa_id}`, {
+        method: "DELETE",
+        headers: { ...authHeader },
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || "Error al eliminar la mesa")
+      }
+      setMesas((prev) => prev.filter((m) => m.id !== mesa.id))
+    } catch (error: any) {
+      setTableActionError(error?.message || "Error al eliminar la mesa")
+    } finally {
+      setDeletingMesaId(null)
+    }
+  }
+
   const getStatusInfo = (isActive: boolean) => {
     return isActive
       ? { label: t("tables.active"), color: "bg-green-100 text-green-700 border-green-200" }
@@ -387,7 +416,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
               >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="font-bold text-lg text-gray-900">Mesa {mesa.mesa_id}</h3>
+                    <h3 className="font-bold text-lg text-gray-900">{getMesaLabel(mesa.mesa_id)}</h3>
                     <p className="text-gray-600 text-sm">{t("tables.idLabel", { id: mesa.id })}</p>
                   </div>
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold border-2 ${statusInfo.color}`}>
@@ -427,6 +456,16 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                     className="w-full"
                   >
                     {t("tables.edit")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleDeleteMesa(mesa)}
+                    disabled={deletingMesaId === mesa.id}
+                    className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deletingMesaId === mesa.id ? "Eliminando…" : "Eliminar mesa"}
                   </Button>
                   {!qrUrl && (
                     <p className="mt-2 text-xs text-red-600">{t("tables.qrMissingData")}</p>

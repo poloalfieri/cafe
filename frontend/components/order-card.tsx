@@ -19,7 +19,7 @@ interface Order {
   mesa_id: string
   items: OrderItem[]
   total: number
-  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
+  status: "PAYMENT_PENDING" | "PAYMENT_APPROVED" | "PAYMENT_REJECTED" | "PAID" | "PARTIALLY_PAID" | "IN_PREPARATION" | "READY" | "DELIVERED"
   created_at: string
   paid_at?: string
   payment_status?: string
@@ -58,6 +58,14 @@ export default function OrderCard({ order, onStatusUpdate, onAcceptOrder, onReje
           color: "text-red-600",
           bgColor: "bg-red-50",
           borderColor: "border-red-200",
+        }
+      case "PARTIALLY_PAID":
+        return {
+          icon: Clock,
+          text: "Parcialmente Pagado",
+          color: "text-amber-600",
+          bgColor: "bg-amber-50",
+          borderColor: "border-amber-200",
         }
       case "PAID":
         return {

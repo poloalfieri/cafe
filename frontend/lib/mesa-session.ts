@@ -5,6 +5,7 @@ export type MesaSessionPayload = {
   mesa_id: string | null
   branch_id: string | null
   token: string | null
+  allowed_payment_methods?: string[] | null
 }
 
 export function normalizeSessionValue(value: unknown): string | null {
@@ -156,6 +157,7 @@ export async function refreshMesaSessionToken(
       mesa_id: session.mesa_id,
       branch_id: session.branch_id,
       token: refreshedToken,
+      allowed_payment_methods: data?.allowed_payment_methods ?? null,
     }
   } catch {
     return session

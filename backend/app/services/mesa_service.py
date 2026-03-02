@@ -22,12 +22,17 @@ class MesaService:
         self.logger = logger
         self._mesa_id_pattern = None
 
+    SPECIAL_MESA_IDS = {"Delivery", "Caja"}
+
     @staticmethod
     def _is_valid_mesa_id(value: str) -> bool:
         try:
             text = str(value).strip()
-            if not text:
+            if not text or len(text) > 50:
                 return False
+            # Solo "Delivery" y "Caja" pueden ser texto; el resto debe ser numérico
+            if text in MesaService.SPECIAL_MESA_IDS:
+                return True
             if not text.isdigit():
                 return False
             return int(text) > 0
@@ -85,13 +90,15 @@ class MesaService:
             logger.error(f"Error al obtener mesa {mesa_id}: {str(e)}")
             raise Exception("Error en la base de datos")
 
-    def create_mesa(self, mesa_id: str, branch_id: str, restaurant_id: str, is_active: bool = True, capacity: Optional[int] = None) -> Dict:
+    VALID_PAYMENT_METHODS = {"CASH", "CARD", "QR", "MERCADOPAGO"}
+
+    def create_mesa(self, mesa_id: str, branch_id: str, restaurant_id: str, is_active: bool = True, capacity: Optional[int] = None, allowed_payment_methods: Optional[List[str]] = None) -> Dict:
         """
         Crear una nueva mesa (requiere branch_id y restaurant_id)
         """
         try:
             if not self._is_valid_mesa_id(mesa_id):
-                raise ValueError("mesa_id debe ser un número entero positivo")
+                raise ValueError("mesa_id debe ser un número positivo o uno de los nombres especiales (Delivery, Caja)")
             existing = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
             if existing:
                 raise ValueError(f"La mesa {mesa_id} ya existe")
@@ -111,6 +118,12 @@ class MesaService:
                 if not isinstance(capacity, int) or capacity <= 0:
                     raise ValueError("capacity debe ser un entero positivo")
                 insert_data["capacity"] = capacity
+
+            if allowed_payment_methods is not None:
+                invalid = set(allowed_payment_methods) - self.VALID_PAYMENT_METHODS
+                if invalid:
+                    raise ValueError(f"Métodos de pago inválidos: {invalid}")
+                insert_data["allowed_payment_methods"] = allowed_payment_methods
 
             response = supabase.table("mesas").insert(insert_data).execute()
             if not response.data:
@@ -164,6 +177,7 @@ class MesaService:
         new_mesa_id: Optional[str] = None,
         is_active: Optional[bool] = None,
         capacity: Optional[int] = None,
+        allowed_payment_methods: Optional[List[str]] = None,
     ) -> Optional[Dict]:
         """
         Actualizar datos de una mesa (mesa_id e is_active).
@@ -185,7 +199,7 @@ class MesaService:
                 if not new_mesa_id:
                     raise ValueError("mesa_id requerido")
                 if not self._is_valid_mesa_id(new_mesa_id):
-                    raise ValueError("mesa_id debe ser un número entero positivo")
+                    raise ValueError("mesa_id debe ser un número positivo o uno de los nombres especiales (Delivery, Caja)")
                 if new_mesa_id != mesa_id:
                     conflict = self.get_mesa_by_id(new_mesa_id, branch_id=branch_id)
                     if conflict:
@@ -199,6 +213,12 @@ class MesaService:
                 if not isinstance(capacity, int) or capacity <= 0:
                     raise ValueError("capacity debe ser un entero positivo")
                 update_data["capacity"] = capacity
+
+            if allowed_payment_methods is not None:
+                invalid = set(allowed_payment_methods) - self.VALID_PAYMENT_METHODS
+                if invalid:
+                    raise ValueError(f"Métodos de pago inválidos: {invalid}")
+                update_data["allowed_payment_methods"] = allowed_payment_methods
 
             response = (
                 supabase.table("mesas")
@@ -269,6 +289,7 @@ class MesaService:
                 "token": new_token,
                 "expires_in_minutes": expiry_minutes,
                 "expires_at": expires_at.isoformat(),
+                "allowed_payment_methods": mesa.get("allowed_payment_methods"),
             }
 
         except ValueError:
@@ -372,6 +393,8 @@ class MesaService:
             current_token = mesa.get("token")
             expires_at = mesa.get("token_expires_at")
 
+            allowed_methods = mesa.get("allowed_payment_methods")
+
             if current_token and expires_at:
                 if isinstance(expires_at, str):
                     expires_at = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
@@ -383,6 +406,7 @@ class MesaService:
                             (expires_at - datetime.now(timezone.utc)).total_seconds() // 60
                         ),
                         "expires_at": expires_at.isoformat(),
+                        "allowed_payment_methods": allowed_methods,
                     }
 
             return self.generate_token_for_mesa(mesa_id, branch_id, expiry_minutes=expiry_minutes)
@@ -392,6 +416,36 @@ class MesaService:
         except Exception as e:
             logger.error(f"Error obteniendo sesión para mesa {mesa_id}: {str(e)}")
             raise Exception("Error al obtener sesión de mesa")
+
+    def delete_mesa(self, mesa_id: str, branch_id: str) -> bool:
+        """
+        Eliminar una mesa (requiere branch_id).
+        Retorna True si fue eliminada, False si no existía.
+        """
+        try:
+            if not branch_id:
+                raise ValueError("branch_id requerido")
+
+            existing = self.get_mesa_by_id(mesa_id, branch_id=branch_id)
+            if not existing:
+                return False
+
+            response = (
+                supabase.table("mesas")
+                .delete()
+                .eq("mesa_id", mesa_id)
+                .eq("branch_id", branch_id)
+                .execute()
+            )
+
+            logger.info(f"Mesa {mesa_id} eliminada")
+            return True
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Error al eliminar mesa {mesa_id}: {str(e)}")
+            raise Exception("Error en la base de datos")
 
     def initialize_default_mesas(self, count: int = 10) -> List[Dict]:
         """

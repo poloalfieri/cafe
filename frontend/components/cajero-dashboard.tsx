@@ -3,7 +3,7 @@
 import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle, Split } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,6 +24,7 @@ import {
   type SelectedProductOption,
 } from "@/lib/product-options"
 import { toast } from "@/hooks/use-toast"
+import SplitPaymentModal from "@/components/split-payment-modal"
 
 interface Mesa {
   id: string
@@ -32,6 +33,7 @@ interface Mesa {
   is_active: boolean
   created_at: string
   updated_at: string
+  allowed_payment_methods?: string[]
 }
 
 interface MenuItem {
@@ -73,13 +75,6 @@ interface DraftOrderItem {
   quantity: number
 }
 
-interface CashRegister {
-  id: string
-  name: string
-  branch_id: string
-  active: boolean
-}
-
 interface CashSession {
   id: string
   register_id: string
@@ -88,6 +83,9 @@ interface CashSession {
   expected_amount_live?: number
   closing_counted_amount?: number | null
   difference_amount?: number | null
+  title?: string | null
+  expected_open_at?: string | null
+  opened_at?: string
 }
 
 interface CashMovement {
@@ -134,6 +132,8 @@ export default function CajeroDashboard() {
   const [createOrderPaymentMethod, setCreateOrderPaymentMethod] = useState<PaymentMethod>("CASH")
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
+  const [deliveryPhone, setDeliveryPhone] = useState("")
+  const [deliveryAddress, setDeliveryAddress] = useState("")
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
   const [optionsProduct, setOptionsProduct] = useState<MenuItem | null>(null)
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([])
@@ -142,13 +142,14 @@ export default function CajeroDashboard() {
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
-  const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([])
-  const [selectedRegisterId, setSelectedRegisterId] = useState<string>("")
+  const [splitPaymentOrderId, setSplitPaymentOrderId] = useState<string | null>(null)
+  const [splitPaymentOrderTotal, setSplitPaymentOrderTotal] = useState<number>(0)
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
   const [cashMovements, setCashMovements] = useState<CashMovement[]>([])
   const [cashLoading, setCashLoading] = useState(false)
   const [cashError, setCashError] = useState<string | null>(null)
-  const [openingAmount, setOpeningAmount] = useState("0")
+  const [openingAmount, setOpeningAmount] = useState("")
+  const [sessionTitle, setSessionTitle] = useState("")
   const [movementAmount, setMovementAmount] = useState("")
   const [movementType, setMovementType] = useState<"MANUAL_IN" | "MANUAL_OUT">("MANUAL_IN")
   const [movementNote, setMovementNote] = useState("")
@@ -323,7 +324,11 @@ export default function CajeroDashboard() {
       if (response.ok) {
         const data = await response.json()
         if (data.success && Array.isArray(data.calls)) {
-          setWaiterCalls(data.calls)
+          const visibleCalls = data.calls.filter(
+            (call: WaiterCall) =>
+              (call.message || "").trim().toLowerCase() !== "solicitud de pago (caja)"
+          )
+          setWaiterCalls(visibleCalls)
         }
       } else {
         console.error(t("errors.fetchWaiterCalls"), `waiter calls status ${response.status}`)
@@ -333,35 +338,11 @@ export default function CajeroDashboard() {
     }
   }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
 
-  const fetchCashRegisters = useCallback(async (currentBranchId?: string | null) => {
-    if (!currentBranchId) return
-    try {
-      const authHeader = await getResolvedAuthHeader()
-      const response = await fetchWithAuthRetry(`${backendUrl}/cash/registers?branch_id=${encodeURIComponent(currentBranchId)}`, {
-        headers: authHeader,
-      })
-      if (!response.ok) {
-        setCashError(t("cash.errors.loadRegisters"))
-        return
-      }
-      const payload = await response.json()
-      const list = Array.isArray(payload?.data) ? payload.data : []
-      setCashRegisters(list)
-      if (!selectedRegisterId && list.length > 0) {
-        setSelectedRegisterId(String(list[0].id))
-      }
-    } catch (error) {
-      console.error(t("cash.errors.loadRegisters"), error)
-      setCashError(t("cash.errors.loadRegisters"))
-    }
-  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, selectedRegisterId, t])
-
-  const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null, registerId?: string) => {
+  const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null) => {
     if (!currentBranchId) return
     try {
       const authHeader = await getResolvedAuthHeader()
       const params = new URLSearchParams({ branch_id: currentBranchId })
-      if (registerId) params.set("register_id", registerId)
       const response = await fetchWithAuthRetry(`${backendUrl}/cash/sessions/current?${params.toString()}`, {
         headers: authHeader,
       })
@@ -446,7 +427,7 @@ export default function CajeroDashboard() {
         }
         if (id) {
           setBranchId(id)
-          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCashRegisters(id)])
+          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCurrentCashSession(id)])
         } else {
           await Promise.all([fetchData(null), fetchWaiterCalls(null)])
         }
@@ -461,21 +442,16 @@ export default function CajeroDashboard() {
 
   useEffect(() => {
     if (!branchId) return
-    if (!selectedRegisterId) {
-      setCashSession(null)
-      setCashMovements([])
-      return
-    }
     void (async () => {
       setCashLoading(true)
       setCashError(null)
       try {
-        await fetchCurrentCashSession(branchId, selectedRegisterId)
+        await fetchCurrentCashSession(branchId)
       } finally {
         setCashLoading(false)
       }
     })()
-  }, [branchId, selectedRegisterId, fetchCurrentCashSession])
+  }, [branchId, fetchCurrentCashSession])
 
   useEffect(() => {
     void fetchCashMovements(cashSession?.id)
@@ -608,6 +584,8 @@ export default function CajeroDashboard() {
     setCreateOrderPaymentMethod("CASH")
     setSelectedMenuItemId("")
     setCreateOrderError(null)
+    setDeliveryPhone("")
+    setDeliveryAddress("")
     setMenuItems([])
     setMenuLoading(false)
     setCreatingOrder(false)
@@ -865,6 +843,7 @@ export default function CajeroDashboard() {
           mesa_id: createOrderMesa.mesa_id,
           branch_id: targetBranchId,
           token: authToken,
+          payment_method: createOrderPaymentMethod,
           items: draftOrderItems.map((item) => ({
             id: item.id,
             lineId: item.lineId,
@@ -875,6 +854,8 @@ export default function CajeroDashboard() {
             selectedOptions: item.selectedOptions || [],
           })),
           ...(selectedDiscountId ? { discount_id: selectedDiscountId } : {}),
+          ...(deliveryPhone ? { customer_phone: deliveryPhone } : {}),
+          ...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
         }),
       })
 
@@ -885,43 +866,13 @@ export default function CajeroDashboard() {
       }
       const createdOrder = await response.json().catch(() => null)
 
-      const callResponse = await fetch(`${backendUrl}/waiter/calls`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeader,
-        },
-        body: JSON.stringify({
-          mesa_id: createOrderMesa.mesa_id,
-          branch_id: targetBranchId,
-          payment_method: createOrderPaymentMethod,
-          message: "Solicitud de pago (caja)",
-        }),
-      })
-
-      if (!callResponse.ok) {
-        const callErrorPayload = await callResponse.json().catch(() => ({}))
-        setCreateOrderError(callErrorPayload?.error || t("orders.createQueueError"))
-        return
-      }
-      const callPayload = await callResponse.json().catch(() => null)
-
       if (createdOrder?.id) {
+        skipNextOrdersSocketRefreshRef.current += 1
         setOrders((prev) => {
           if (prev.some((order) => order.id === createdOrder.id)) {
             return prev
           }
           return [createdOrder as Order, ...prev]
-        })
-      }
-
-      const createdCall = callPayload?.call
-      if (createdCall?.id && createdCall?.status === "PENDING") {
-        setWaiterCalls((prev) => {
-          if (prev.some((call) => call.id === createdCall.id)) {
-            return prev
-          }
-          return [createdCall as WaiterCall, ...prev]
         })
       }
 
@@ -954,6 +905,7 @@ export default function CajeroDashboard() {
     if (activeOrder) {
       switch (activeOrder.status) {
         case "PAYMENT_PENDING": return "esperando_pago"
+        case "PARTIALLY_PAID": return "esperando_pago"
         case "PAID": return "pagado"
         case "IN_PREPARATION": return "preparando"
         case "READY": return "listo"
@@ -973,6 +925,7 @@ export default function CajeroDashboard() {
       case "listo": return "bg-purple-100 text-purple-800 border-purple-200"
       case "ocupada": return "bg-gray-100 text-gray-800 border-gray-200"
       case "PAYMENT_PENDING": return "bg-red-100 text-red-800 border-red-200"
+      case "PARTIALLY_PAID": return "bg-amber-100 text-amber-800 border-amber-200"
       case "PAID": return "bg-green-100 text-green-800 border-green-200"
       case "PAYMENT_APPROVED": return "bg-green-100 text-green-800 border-green-200"
       case "PAYMENT_REJECTED": return "bg-gray-100 text-gray-800 border-gray-200"
@@ -993,6 +946,7 @@ export default function CajeroDashboard() {
       case "listo": return t("status.readyToDeliver")
       case "ocupada": return t("status.occupied")
       case "PAYMENT_PENDING": return t("status.waitingPayment")
+      case "PARTIALLY_PAID": return t("status.partiallyPaid")
       case "PAID": return t("status.paid")
       case "PAYMENT_APPROVED": return t("status.paymentApproved")
       case "PAYMENT_REJECTED": return t("status.paymentRejected")
@@ -1239,15 +1193,12 @@ export default function CajeroDashboard() {
   const refreshData = () => {
     void fetchData(branchId)
     void fetchWaiterCalls(branchId)
-    void fetchCashRegisters(branchId)
-    if (selectedRegisterId) {
-      void fetchCurrentCashSession(branchId, selectedRegisterId)
-    }
+    void fetchCurrentCashSession(branchId)
   }
 
 
   const openCashSession = async () => {
-    if (!selectedRegisterId) return
+    if (!branchId || !sessionTitle.trim()) return
     try {
       setCashLoading(true)
       setCashError(null)
@@ -1259,7 +1210,8 @@ export default function CajeroDashboard() {
           ...authHeader,
         },
         body: JSON.stringify({
-          register_id: selectedRegisterId,
+          branch_id: branchId,
+          title: sessionTitle.trim(),
           opening_amount: Number(openingAmount || "0"),
         }),
       })
@@ -1267,7 +1219,9 @@ export default function CajeroDashboard() {
         const payload = await response.json().catch(() => ({}))
         throw new Error(payload?.error || t("cash.errors.openSession"))
       }
-      await fetchCurrentCashSession(branchId, selectedRegisterId)
+      setSessionTitle("")
+      setOpeningAmount("")
+      await fetchCurrentCashSession(branchId)
     } catch (error: any) {
       setCashError(error?.message || t("cash.errors.openSession"))
     } finally {
@@ -1306,7 +1260,7 @@ export default function CajeroDashboard() {
       setMovementAmount("")
       setMovementNote("")
       await Promise.all([
-        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCurrentCashSession(branchId),
         fetchCashMovements(cashSession.id),
       ])
     } catch (error: any) {
@@ -1338,7 +1292,7 @@ export default function CajeroDashboard() {
       }
       setClosingAmount("")
       await Promise.all([
-        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCurrentCashSession(branchId),
         fetchCashMovements(undefined),
       ])
     } catch (error: any) {
@@ -1350,6 +1304,10 @@ export default function CajeroDashboard() {
 
   const mesasDisponibles = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) === "disponible")
   const mesasOcupadas = mesas.filter(mesa => getMesaStatus(mesa.mesa_id) !== "disponible")
+
+  const SPECIAL_MESAS = new Set(["Delivery", "Caja"])
+  const getMesaLabel = (mesaId: string) =>
+    SPECIAL_MESAS.has(mesaId) ? mesaId : t("tables.tableLabel", { id: mesaId })
 
   const handleMesaStatusChange = async (mesaId: string, newStatus: boolean) => {
     try {
@@ -1501,7 +1459,7 @@ export default function CajeroDashboard() {
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>
-                {selectedMesa ? t("tables.tableLabel", { id: selectedMesa.mesa_id }) : ""}
+                {selectedMesa ? getMesaLabel(selectedMesa.mesa_id) : ""}
               </DialogTitle>
               <DialogDescription>
                 {t("orders.itemsTitle")}
@@ -1715,6 +1673,32 @@ export default function CajeroDashboard() {
                 )}
               </div>
 
+              {createOrderMesa?.mesa_id === "Delivery" && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <p className="text-sm font-medium text-blue-900">{t("orders.deliveryInfo")}</p>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.customerPhone")}</label>
+                    <input
+                      type="tel"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder={t("orders.customerPhonePlaceholder")}
+                      value={deliveryPhone}
+                      onChange={(e) => setDeliveryPhone(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryAddress")}</label>
+                    <input
+                      type="text"
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      placeholder={t("orders.deliveryAddressPlaceholder")}
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-lg border border-gray-200 p-3">
                 <p className="text-sm font-medium text-gray-900 mb-2">{t("orders.paymentMethodLabel")}</p>
                 <select
@@ -1724,9 +1708,15 @@ export default function CajeroDashboard() {
                     setCreateOrderPaymentMethod(event.target.value as PaymentMethod)
                   }
                 >
-                  <option value="CASH">{t("orders.paymentMethods.cash")}</option>
-                  <option value="CARD">{t("orders.paymentMethods.card")}</option>
-                  <option value="QR">{t("orders.paymentMethods.qr")}</option>
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("CASH")) && (
+                    <option value="CASH">{t("orders.paymentMethods.cash")}</option>
+                  )}
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("CARD")) && (
+                    <option value="CARD">{t("orders.paymentMethods.card")}</option>
+                  )}
+                  {(!createOrderMesa?.allowed_payment_methods || createOrderMesa.allowed_payment_methods.includes("QR")) && (
+                    <option value="QR">{t("orders.paymentMethods.qr")}</option>
+                  )}
                 </select>
               </div>
 
@@ -2009,7 +1999,7 @@ export default function CajeroDashboard() {
                               <div>
                                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                                   <Bell className="w-4 h-4 text-orange-500" />
-                                  {t("payments.tableLabel")} {order.mesa_id}
+                                  {getMesaLabel(String(order.mesa_id))}
                                 </h3>
                                 <p className="text-xs text-gray-600">
                                   #{String(order.id || "").slice(0, 8)}
@@ -2074,26 +2064,31 @@ export default function CajeroDashboard() {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 pt-2">
-                            <Button
-                              onClick={() => completePendingOrder(order)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              {completingOrderId === order.id
-                                ? t("payments.completingAction")
-                                : t("payments.completeAction")}
-                            </Button>
-                            <Button
-                              onClick={() => cancelPendingOrder(order)}
-                              variant="outline"
-                              className="border-red-300 text-red-600 hover:bg-red-50"
-                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              {t("orders.cancel")}
-                            </Button>
+                          <div className="space-y-2 pt-2">
+                            {order.status !== "PARTIALLY_PAID" && (
+                              <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                  onClick={() => completePendingOrder(order)}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {completingOrderId === order.id
+                                    ? t("payments.completingAction")
+                                    : t("payments.completeAction")}
+                                </Button>
+                                <Button
+                                  onClick={() => cancelPendingOrder(order)}
+                                  variant="outline"
+                                  className="border-red-300 text-red-600 hover:bg-red-50"
+                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  {t("orders.cancel")}
+                                </Button>
+                              </div>
+                            )}
+                            {/* Split payment button hidden temporarily */}
                           </div>
                         </div>
                       </div>
@@ -2191,38 +2186,59 @@ export default function CajeroDashboard() {
 
           <TabsContent value="caja">
             <div className="space-y-4">
-              <div className="bg-white rounded-xl border border-border p-4 space-y-3">
-                <h3 className="font-semibold text-gray-900">{t("cash.registerTitle")}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <select
-                    className="border border-gray-300 rounded-md px-3 py-2"
-                    value={selectedRegisterId}
-                    onChange={(e) => setSelectedRegisterId(e.target.value)}
-                  >
-                    <option value="">{t("cash.selectRegister")}</option>
-                    {cashRegisters.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              {cashError && <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{cashError}</p>}
 
+              {/* Refresh button */}
+              {cashSession && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={async () => {
+                      setCashLoading(true)
+                      try {
+                        if (branchId) await fetchCurrentCashSession(branchId)
+                        await fetchCashMovements(cashSession?.id)
+                      } finally {
+                        setCashLoading(false)
+                      }
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${cashLoading ? "animate-spin" : ""}`} />
+                    {t("cash.refresh")}
+                  </button>
+                </div>
+              )}
+
+              {/* Session card */}
               <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                 <h3 className="font-semibold text-gray-900">{t("cash.sessionTitle")}</h3>
                 {cashSession ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-700">
-                      {t("cash.sessionOpenId", { id: cashSession.id.slice(0, 8) })}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      {t("cash.expectedNow", { amount: Number(cashSession.expected_amount_live || 0).toFixed(2) })}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="space-y-3">
+                    {/* Session info */}
+                    <div className="space-y-1">
+                      <p className="text-base font-medium text-gray-900">{cashSession.title || t("cash.sessionOpenId", { id: cashSession.id.slice(0, 8) })}</p>
+                      <p className="text-sm text-gray-600">
+                        {t("cash.expectedNow", { amount: Number(cashSession.expected_amount_live || 0).toFixed(2) })}
+                      </p>
+                    </div>
+
+                    {cashSession.opened_at && (
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                        <span>{t("cash.actualOpen")}: {new Date(cashSession.opened_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">{t("cash.manualCloseNotice")}</p>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <input
                         value={closingAmount}
                         onChange={(e) => setClosingAmount(e.target.value)}
                         placeholder={t("cash.closingAmountPlaceholder")}
                         className="border border-gray-300 rounded-md px-3 py-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
                       />
                       <Button
                         onClick={closeCashSession}
@@ -2234,20 +2250,32 @@ export default function CajeroDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <input
-                      value={openingAmount}
-                      onChange={(e) => setOpeningAmount(e.target.value)}
-                      placeholder={t("cash.openingAmountPlaceholder")}
-                      className="border border-gray-300 rounded-md px-3 py-2"
-                    />
-                    <Button onClick={openCashSession} disabled={cashLoading || !selectedRegisterId}>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        value={sessionTitle}
+                        onChange={(e) => setSessionTitle(e.target.value)}
+                        placeholder={t("cash.titlePlaceholder")}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      <input
+                        value={openingAmount}
+                        onChange={(e) => setOpeningAmount(e.target.value)}
+                        placeholder={t("cash.openingAmountPlaceholder")}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <Button onClick={openCashSession} disabled={cashLoading || !sessionTitle.trim()}>
                       {t("cash.openSession")}
                     </Button>
                   </div>
                 )}
               </div>
 
+              {/* Manual movements */}
               {cashSession && (
                 <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                   <h3 className="font-semibold text-gray-900">{t("cash.manualMovementTitle")}</h3>
@@ -2265,6 +2293,9 @@ export default function CajeroDashboard() {
                       onChange={(e) => setMovementAmount(e.target.value)}
                       placeholder={t("cash.movementAmountPlaceholder")}
                       className="border border-gray-300 rounded-md px-3 py-2"
+                      type="number"
+                      min="0"
+                      step="0.01"
                     />
                     <input
                       value={movementNote}
@@ -2279,24 +2310,32 @@ export default function CajeroDashboard() {
                 </div>
               )}
 
+              {/* Movements list */}
               <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                 <h3 className="font-semibold text-gray-900">{t("cash.movementsTitle")}</h3>
-                {cashError && <p className="text-sm text-red-600">{cashError}</p>}
                 {cashLoading && <p className="text-sm text-gray-500">{t("cash.loading")}</p>}
                 {!cashLoading && cashMovements.length === 0 && (
                   <p className="text-sm text-gray-500">{t("cash.noMovements")}</p>
                 )}
                 {cashMovements.length > 0 && (
                   <div className="space-y-2">
-                    {cashMovements.map((m) => (
-                      <div key={m.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-md px-3 py-2">
-                        <span>{m.type}</span>
-                        <span className={m.direction === "IN" ? "text-green-700" : "text-red-700"}>
-                          {m.direction === "IN" ? "+" : "-"}${Number(m.amount || 0).toFixed(2)}
-                        </span>
-                        <span className="text-gray-500">{new Date(m.created_at).toLocaleTimeString()}</span>
-                      </div>
-                    ))}
+                    {cashMovements.map((m) => {
+                      const label = m.payment_method
+                        ? getPaymentMethodText(m.payment_method)
+                        : m.type === "SALE_IN" ? t("cash.movementSaleIn")
+                        : m.type === "MANUAL_IN" ? t("cash.movementManualIn")
+                        : m.type === "MANUAL_OUT" ? t("cash.movementManualOut")
+                        : m.type
+                      return (
+                        <div key={m.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-md px-3 py-2">
+                          <span className="truncate max-w-[140px]" title={m.note || label}>{label}</span>
+                          <span className={m.direction === "IN" ? "text-green-700" : "text-red-700"}>
+                            {m.direction === "IN" ? "+" : "-"}${Number(m.amount || 0).toFixed(2)}
+                          </span>
+                          <span className="text-gray-500">{new Date(m.created_at).toLocaleTimeString()}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -2327,7 +2366,7 @@ export default function CajeroDashboard() {
                       <Card key={mesa.id} className="hover:shadow-md transition-shadow">
                         <CardHeader className="pb-3">
                           <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{t("tables.tableLabel", { id: mesa.mesa_id })}</CardTitle>
+                            <CardTitle className="text-lg">{getMesaLabel(mesa.mesa_id)}</CardTitle>
                             <Badge className={`${getStatusColor(status)} border`}>
                               {getStatusText(status)}
                             </Badge>
@@ -2401,6 +2440,17 @@ export default function CajeroDashboard() {
           </TabsContent>
 
         </Tabs>
+
+        <SplitPaymentModal
+          isOpen={!!splitPaymentOrderId}
+          onClose={() => setSplitPaymentOrderId(null)}
+          orderId={splitPaymentOrderId || ""}
+          orderTotal={splitPaymentOrderTotal}
+          onPaymentComplete={() => {
+            setSplitPaymentOrderId(null)
+            fetchOrdersOnly(branchId)
+          }}
+        />
       </div>
     </div>
   )

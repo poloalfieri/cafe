@@ -25,6 +25,7 @@ export default function CartView() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [activePromos, setActivePromos] = useState<Array<{ id: string; name: string; type: string; value: number; description: string }>>([])
+  const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[] | null>(null)
   const t = useTranslations("usuario.cart")
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -41,6 +42,17 @@ export default function CartView() {
       .then((json) => setActivePromos(Array.isArray(json) ? json : []))
       .catch(() => {})
   }, [branch_id])
+
+  useEffect(() => {
+    if (!mesa_id || !branch_id) return
+    const fetchMesaInfo = async () => {
+      const session = await refreshMesaSessionToken({ mesa_id, token, branch_id })
+      if (session.allowed_payment_methods) {
+        setAllowedPaymentMethods(session.allowed_payment_methods)
+      }
+    }
+    fetchMesaInfo()
+  }, [mesa_id, branch_id, token])
 
   const getMesaSession = () => resolveMesaSession({ mesa_id, token, branch_id })
   const mesaSession = getMesaSession()
@@ -376,6 +388,7 @@ export default function CartView() {
         branchId={mesaSession.branch_id || ''}
         mesaToken={mesaSession.token || ''}
         totalAmount={state.total}
+        allowedPaymentMethods={allowedPaymentMethods ?? undefined}
         items={state.items.map((item) => ({
           id: item.id,
           lineId: item.lineId,

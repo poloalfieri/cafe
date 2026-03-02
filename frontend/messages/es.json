@@ -121,7 +121,12 @@
       "secure": "100% seguro",
       "allCards": "Acepta todas las tarjetas",
       "installments": "Pago en cuotas",
-      "waiterNotifyError": "Error al notificar al mozo"
+      "waiterNotifyError": "Error al notificar al mozo",
+      "deliveryInfo": "Datos de envío",
+      "customerPhone": "Teléfono",
+      "customerPhonePlaceholder": "Ej: 1155443322",
+      "deliveryAddress": "Dirección de envío",
+      "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA"
     },
     "instructions": {
       "title": "¿Cómo usar la app?",
@@ -1049,7 +1054,7 @@
     "cashMonitor": {
       "header": {
         "title": "Monitor de caja",
-        "lastUpdated": "Última actualización: {time} · se actualiza cada {seconds}s",
+        "lastUpdated": "Ultima actualizacion: {time} · se refresca cada {seconds}s",
         "loading": "Cargando..."
       },
       "filter": {
@@ -1060,7 +1065,7 @@
       "actions": {
         "refresh": "Actualizar"
       },
-      "noBranchSelected": "Seleccioná una sucursal para ver sus sesiones de caja.",
+      "noBranchSelected": "Selecciona una sucursal para ver las sesiones de caja.",
       "empty": {
         "noSessions": "No hay sesiones de caja registradas."
       },
@@ -1071,10 +1076,10 @@
       "movements": {
         "show": "Ver movimientos",
         "hide": "Ocultar",
-        "cashIn": "Ingresos efectivo:",
-        "cashOut": "Egresos efectivo:",
+        "cashIn": "Ingreso efectivo:",
+        "cashOut": "Egreso efectivo:",
         "empty": "Sin movimientos registrados.",
-        "notImpactsCash": "no impacta efectivo"
+        "notImpactsCash": "no afecta efectivo"
       },
       "session": {
         "opening": "Apertura",
@@ -1082,13 +1087,14 @@
         "openingAmount": "Monto inicial",
         "expectedNow": "Esperado ahora",
         "expectedAtClose": "Esperado al cierre",
+        "expected": "Esperado",
         "counted": "Contado",
         "difference": "Diferencia"
       },
       "types": {
         "SALE_IN": "Venta",
-        "REFUND_OUT": "Devolución",
-        "EXPENSE_OUT": "Egreso",
+        "REFUND_OUT": "Devolucion",
+        "EXPENSE_OUT": "Gasto",
         "MANUAL_IN": "Ingreso manual",
         "MANUAL_OUT": "Egreso manual",
         "TIP_IN": "Propina"
@@ -1097,6 +1103,27 @@
         "errorTitle": "Error",
         "loadSessions": "No se pudieron cargar las sesiones de caja",
         "loadMovements": "No se pudieron cargar los movimientos"
+      }
+    },
+    "cashSchedule": {
+      "header": {
+        "title": "Horarios de caja",
+        "subtitle": "Configura los horarios esperados de apertura y cierre, y la tolerancia de autocierre."
+      },
+      "noBranchSelected": "Selecciona una sucursal para configurar los horarios.",
+      "form": {
+        "openTime": "Hora de apertura esperada",
+        "closeTime": "Hora de cierre esperada",
+        "graceMinutes": "Tolerancia de autocierre"
+      },
+      "actions": {
+        "save": "Guardar",
+        "saving": "Guardando..."
+      },
+      "toast": {
+        "saveSuccess": "Horarios guardados correctamente",
+        "saveError": "No se pudieron guardar los horarios",
+        "errorTitle": "Error"
       }
     }
   },
@@ -1127,37 +1154,38 @@
         "stockLine": "{current} / min {min}"
       },
       "tabs": {
-        "payments": "Pagos ({count})",
+        "payments": "Pedidos ({count})",
         "tables": "Mesas ({count})",
         "orders": "Pedidos a Realizar ({count})",
         "cash": "Caja"
       },
       "cash": {
         "loading": "Cargando caja...",
-        "registerTitle": "Caja registradora",
-        "sessionTitle": "Sesión activa",
-        "sessionOpenId": "Sesión #{id}",
-        "selectRegister": "Seleccionar caja",
-        "newRegisterPlaceholder": "Nombre de la caja",
-        "createRegister": "Crear caja",
+        "sessionTitle": "Sesion de caja",
+        "sessionOpenId": "Sesion #{id}",
+        "titlePlaceholder": "Titulo de la sesion (ej: Martes por la manana)",
         "openSession": "Abrir caja",
         "closeSession": "Cerrar caja",
-        "addMovement": "Registrar movimiento",
-        "openingAmountPlaceholder": "Monto inicial",
+        "addMovement": "Agregar movimiento",
+        "openingAmountPlaceholder": "Monto inicial (opcional)",
         "closingAmountPlaceholder": "Monto contado al cierre",
-        "expectedNow": "Monto esperado: ${amount}",
+        "expectedNow": "Esperado ahora: ${amount}",
+        "actualOpen": "Apertura real",
+        "manualCloseNotice": "El cierre de caja es manual y lo realiza el cajero.",
         "movementsTitle": "Movimientos",
         "noMovements": "Sin movimientos registrados",
+        "refresh": "Actualizar",
+        "movementSaleIn": "Venta",
+        "movementManualIn": "Ingreso manual",
+        "movementManualOut": "Egreso manual",
         "manualMovementTitle": "Nuevo movimiento manual",
         "manualIn": "Ingreso manual",
         "manualOut": "Egreso manual",
         "movementAmountPlaceholder": "Monto",
         "movementNotePlaceholder": "Nota (opcional)",
         "errors": {
-          "loadRegisters": "No se pudieron cargar las cajas",
-          "loadSession": "No se pudo obtener la sesión de caja",
+          "loadSession": "No se pudo cargar la sesion de caja",
           "loadMovements": "No se pudieron cargar los movimientos",
-          "createRegister": "No se pudo crear la caja",
           "openSession": "No se pudo abrir la caja",
           "closeSession": "No se pudo cerrar la caja",
           "createMovement": "No se pudo registrar el movimiento"
@@ -1167,7 +1195,7 @@
         "loading": "Cargando solicitudes...",
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
-        "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
+        "autoRefresh": "Cuando haya un pedido se actualiza automaticamente",
         "pendingOrdersTitle": "Pedidos pendientes ({count})",
         "waiterCallsTitle": "Solicitudes de mesas ({count})",
         "methodLabel": "Método de pago",
@@ -1188,7 +1216,26 @@
         "paymentMethodLabel": "Método de pago",
         "unknownPaymentMethod": "Sin método",
         "itemsLabel": "Productos",
-        "noItems": "Sin productos"
+        "noItems": "Sin productos",
+        "splitAction": "Cobrar Parcial",
+        "completeAllAction": "Cobrar Todo"
+      },
+      "splitPayment": {
+        "title": "Cobro Parcial",
+        "subtitle": "Selecciona los items a cobrar",
+        "pendingLabel": "Pendiente",
+        "paidLabel": "Pagado",
+        "totalLabel": "Total",
+        "quantityLabel": "Cantidad a cobrar",
+        "selectAll": "Seleccionar Todo",
+        "deselectAll": "Deseleccionar",
+        "paymentMethod": "Medio de Pago",
+        "chargeButton": "Cobrar",
+        "previousPayments": "Pagos Anteriores",
+        "allPaid": "Todos los items fueron cobrados",
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "qr": "QR"
       },
       "tables": {
         "loading": "Cargando mesas...",
@@ -1204,7 +1251,12 @@
         "createOrder": "Crear pedido",
         "statusLabel": "Estado:",
         "active": "Activa",
-        "inactive": "Inactiva"
+        "inactive": "Inactiva",
+        "delete": "Borrar",
+        "deleting": "Borrando...",
+        "confirmDelete": "¿Confirmar borrado de {id}? Esta acción no se puede deshacer.",
+        "deleteSuccess": "{id} eliminada",
+        "deleteError": "No se pudo eliminar la mesa"
       },
       "orders": {
         "loading": "Cargando pedidos...",
@@ -1231,6 +1283,11 @@
           "card": "Tarjeta",
           "qr": "QR"
         },
+        "deliveryInfo": "Datos de envío",
+        "customerPhone": "Teléfono del cliente",
+        "customerPhonePlaceholder": "Ej: 1155443322",
+        "deliveryAddress": "Dirección de envío",
+        "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA",
         "cancel": "Cancelar",
         "createAction": "Crear pedido",
         "creating": "Creando...",
@@ -1267,6 +1324,7 @@
       "status": {
         "available": "Disponible",
         "waitingPayment": "Esperando Pago",
+        "partiallyPaid": "Parcialmente Pagado",
         "paid": "Pagado",
         "preparing": "Preparando",
         "readyToDeliver": "Listo para Entregar",

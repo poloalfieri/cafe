@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   Download,
   X,
-  Activity
+  Activity,
+  UtensilsCrossed
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -35,7 +36,6 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
-import CashRegistersManagement from "./admin/cash-registers-management"
 import CashMonitor from "./admin/cash-monitor"
 import StockMovements from "./admin/stock-movements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -414,48 +414,48 @@ export default function AdminDashboard() {
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
           <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 mb-6">
-            <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-11 bg-card border border-border">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+            <TabsList className="flex flex-wrap w-full bg-card border border-border">
+              <TabsTrigger value="dashboard" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.dashboard")}</span>
               </TabsTrigger>
-              <TabsTrigger value="products" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="products" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.products")}</span>
               </TabsTrigger>
-              <TabsTrigger value="stock" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="stock" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Archive className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.stock")}</span>
               </TabsTrigger>
-              <TabsTrigger value="recipes" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="recipes" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <ChefHat className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.recipes")}</span>
               </TabsTrigger>
-              <TabsTrigger value="promotions" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="promotions" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.promotions")}</span>
               </TabsTrigger>
-              <TabsTrigger value="schedule" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="schedule" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Clock className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.schedule")}</span>
               </TabsTrigger>
-              <TabsTrigger value="branches" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="branches" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Building className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.branches")}</span>
               </TabsTrigger>
-              <TabsTrigger value="banking" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="banking" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.banking")}</span>
               </TabsTrigger>
-              <TabsTrigger value="cashiers" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="cashiers" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <UserPlus className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.cashiers")}</span>
               </TabsTrigger>
-              <TabsTrigger value="movements" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="movements" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Activity className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.movements")}</span>
               </TabsTrigger>
-              <TabsTrigger value="cash-monitor" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="cash-monitor" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <DollarSign className="w-4 h-4" />
                 <span className="hidden sm:inline">Caja</span>
               </TabsTrigger>
@@ -502,7 +502,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="cashiers">
             <CashierManagement branchId={selectedBranchId || undefined} />
-            <CashRegistersManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
           <TabsContent value="movements">
@@ -512,6 +511,7 @@ export default function AdminDashboard() {
           <TabsContent value="cash-monitor">
             <CashMonitor branchId={selectedBranchId || undefined} />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
