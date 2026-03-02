@@ -75,13 +75,6 @@ interface DraftOrderItem {
   quantity: number
 }
 
-interface CashRegister {
-  id: string
-  name: string
-  branch_id: string
-  active: boolean
-}
-
 interface CashSession {
   id: string
   register_id: string
@@ -90,6 +83,9 @@ interface CashSession {
   expected_amount_live?: number
   closing_counted_amount?: number | null
   difference_amount?: number | null
+  title?: string | null
+  expected_open_at?: string | null
+  opened_at?: string
 }
 
 interface CashMovement {
@@ -148,13 +144,12 @@ export default function CajeroDashboard() {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
   const [splitPaymentOrderId, setSplitPaymentOrderId] = useState<string | null>(null)
   const [splitPaymentOrderTotal, setSplitPaymentOrderTotal] = useState<number>(0)
-  const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([])
-  const [selectedRegisterId, setSelectedRegisterId] = useState<string>("")
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
   const [cashMovements, setCashMovements] = useState<CashMovement[]>([])
   const [cashLoading, setCashLoading] = useState(false)
   const [cashError, setCashError] = useState<string | null>(null)
-  const [openingAmount, setOpeningAmount] = useState("0")
+  const [openingAmount, setOpeningAmount] = useState("")
+  const [sessionTitle, setSessionTitle] = useState("")
   const [movementAmount, setMovementAmount] = useState("")
   const [movementType, setMovementType] = useState<"MANUAL_IN" | "MANUAL_OUT">("MANUAL_IN")
   const [movementNote, setMovementNote] = useState("")
@@ -343,35 +338,11 @@ export default function CajeroDashboard() {
     }
   }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
 
-  const fetchCashRegisters = useCallback(async (currentBranchId?: string | null) => {
-    if (!currentBranchId) return
-    try {
-      const authHeader = await getResolvedAuthHeader()
-      const response = await fetchWithAuthRetry(`${backendUrl}/cash/registers?branch_id=${encodeURIComponent(currentBranchId)}`, {
-        headers: authHeader,
-      })
-      if (!response.ok) {
-        setCashError(t("cash.errors.loadRegisters"))
-        return
-      }
-      const payload = await response.json()
-      const list = Array.isArray(payload?.data) ? payload.data : []
-      setCashRegisters(list)
-      if (!selectedRegisterId && list.length > 0) {
-        setSelectedRegisterId(String(list[0].id))
-      }
-    } catch (error) {
-      console.error(t("cash.errors.loadRegisters"), error)
-      setCashError(t("cash.errors.loadRegisters"))
-    }
-  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, selectedRegisterId, t])
-
-  const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null, registerId?: string) => {
+  const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null) => {
     if (!currentBranchId) return
     try {
       const authHeader = await getResolvedAuthHeader()
       const params = new URLSearchParams({ branch_id: currentBranchId })
-      if (registerId) params.set("register_id", registerId)
       const response = await fetchWithAuthRetry(`${backendUrl}/cash/sessions/current?${params.toString()}`, {
         headers: authHeader,
       })
@@ -456,7 +427,7 @@ export default function CajeroDashboard() {
         }
         if (id) {
           setBranchId(id)
-          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCashRegisters(id)])
+          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCurrentCashSession(id)])
         } else {
           await Promise.all([fetchData(null), fetchWaiterCalls(null)])
         }
@@ -471,21 +442,16 @@ export default function CajeroDashboard() {
 
   useEffect(() => {
     if (!branchId) return
-    if (!selectedRegisterId) {
-      setCashSession(null)
-      setCashMovements([])
-      return
-    }
     void (async () => {
       setCashLoading(true)
       setCashError(null)
       try {
-        await fetchCurrentCashSession(branchId, selectedRegisterId)
+        await fetchCurrentCashSession(branchId)
       } finally {
         setCashLoading(false)
       }
     })()
-  }, [branchId, selectedRegisterId, fetchCurrentCashSession])
+  }, [branchId, fetchCurrentCashSession])
 
   useEffect(() => {
     void fetchCashMovements(cashSession?.id)
@@ -1227,15 +1193,12 @@ export default function CajeroDashboard() {
   const refreshData = () => {
     void fetchData(branchId)
     void fetchWaiterCalls(branchId)
-    void fetchCashRegisters(branchId)
-    if (selectedRegisterId) {
-      void fetchCurrentCashSession(branchId, selectedRegisterId)
-    }
+    void fetchCurrentCashSession(branchId)
   }
 
 
   const openCashSession = async () => {
-    if (!selectedRegisterId) return
+    if (!branchId || !sessionTitle.trim()) return
     try {
       setCashLoading(true)
       setCashError(null)
@@ -1247,7 +1210,8 @@ export default function CajeroDashboard() {
           ...authHeader,
         },
         body: JSON.stringify({
-          register_id: selectedRegisterId,
+          branch_id: branchId,
+          title: sessionTitle.trim(),
           opening_amount: Number(openingAmount || "0"),
         }),
       })
@@ -1255,7 +1219,9 @@ export default function CajeroDashboard() {
         const payload = await response.json().catch(() => ({}))
         throw new Error(payload?.error || t("cash.errors.openSession"))
       }
-      await fetchCurrentCashSession(branchId, selectedRegisterId)
+      setSessionTitle("")
+      setOpeningAmount("")
+      await fetchCurrentCashSession(branchId)
     } catch (error: any) {
       setCashError(error?.message || t("cash.errors.openSession"))
     } finally {
@@ -1294,7 +1260,7 @@ export default function CajeroDashboard() {
       setMovementAmount("")
       setMovementNote("")
       await Promise.all([
-        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCurrentCashSession(branchId),
         fetchCashMovements(cashSession.id),
       ])
     } catch (error: any) {
@@ -1326,7 +1292,7 @@ export default function CajeroDashboard() {
       }
       setClosingAmount("")
       await Promise.all([
-        fetchCurrentCashSession(branchId, selectedRegisterId),
+        fetchCurrentCashSession(branchId),
         fetchCashMovements(undefined),
       ])
     } catch (error: any) {
@@ -2122,20 +2088,7 @@ export default function CajeroDashboard() {
                                 </Button>
                               </div>
                             )}
-                            <Button
-                              onClick={() => {
-                                setSplitPaymentOrderId(order.id)
-                                setSplitPaymentOrderTotal(Number(order.total_amount || 0))
-                              }}
-                              variant={order.status === "PARTIALLY_PAID" ? "default" : "outline"}
-                              className={order.status === "PARTIALLY_PAID"
-                                ? "w-full bg-amber-600 hover:bg-amber-700 text-white"
-                                : "w-full"
-                              }
-                            >
-                              <Split className="w-4 h-4 mr-2" />
-                              {t("payments.splitAction")}
-                            </Button>
+                            {/* Split payment button hidden temporarily */}
                           </div>
                         </div>
                       </div>
@@ -2233,38 +2186,59 @@ export default function CajeroDashboard() {
 
           <TabsContent value="caja">
             <div className="space-y-4">
-              <div className="bg-white rounded-xl border border-border p-4 space-y-3">
-                <h3 className="font-semibold text-gray-900">{t("cash.registerTitle")}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <select
-                    className="border border-gray-300 rounded-md px-3 py-2"
-                    value={selectedRegisterId}
-                    onChange={(e) => setSelectedRegisterId(e.target.value)}
-                  >
-                    <option value="">{t("cash.selectRegister")}</option>
-                    {cashRegisters.map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              {cashError && <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{cashError}</p>}
 
+              {/* Refresh button */}
+              {cashSession && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={async () => {
+                      setCashLoading(true)
+                      try {
+                        if (branchId) await fetchCurrentCashSession(branchId)
+                        await fetchCashMovements(cashSession?.id)
+                      } finally {
+                        setCashLoading(false)
+                      }
+                    }}
+                    className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${cashLoading ? "animate-spin" : ""}`} />
+                    {t("cash.refresh")}
+                  </button>
+                </div>
+              )}
+
+              {/* Session card */}
               <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                 <h3 className="font-semibold text-gray-900">{t("cash.sessionTitle")}</h3>
                 {cashSession ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-700">
-                      {t("cash.sessionOpenId", { id: cashSession.id.slice(0, 8) })}
-                    </p>
-                    <p className="text-sm text-gray-700">
-                      {t("cash.expectedNow", { amount: Number(cashSession.expected_amount_live || 0).toFixed(2) })}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="space-y-3">
+                    {/* Session info */}
+                    <div className="space-y-1">
+                      <p className="text-base font-medium text-gray-900">{cashSession.title || t("cash.sessionOpenId", { id: cashSession.id.slice(0, 8) })}</p>
+                      <p className="text-sm text-gray-600">
+                        {t("cash.expectedNow", { amount: Number(cashSession.expected_amount_live || 0).toFixed(2) })}
+                      </p>
+                    </div>
+
+                    {cashSession.opened_at && (
+                      <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                        <span>{t("cash.actualOpen")}: {new Date(cashSession.opened_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">{t("cash.manualCloseNotice")}</p>
+
+                    {/* Actions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <input
                         value={closingAmount}
                         onChange={(e) => setClosingAmount(e.target.value)}
                         placeholder={t("cash.closingAmountPlaceholder")}
                         className="border border-gray-300 rounded-md px-3 py-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
                       />
                       <Button
                         onClick={closeCashSession}
@@ -2276,20 +2250,32 @@ export default function CajeroDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <input
-                      value={openingAmount}
-                      onChange={(e) => setOpeningAmount(e.target.value)}
-                      placeholder={t("cash.openingAmountPlaceholder")}
-                      className="border border-gray-300 rounded-md px-3 py-2"
-                    />
-                    <Button onClick={openCashSession} disabled={cashLoading || !selectedRegisterId}>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        value={sessionTitle}
+                        onChange={(e) => setSessionTitle(e.target.value)}
+                        placeholder={t("cash.titlePlaceholder")}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                      />
+                      <input
+                        value={openingAmount}
+                        onChange={(e) => setOpeningAmount(e.target.value)}
+                        placeholder={t("cash.openingAmountPlaceholder")}
+                        className="border border-gray-300 rounded-md px-3 py-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <Button onClick={openCashSession} disabled={cashLoading || !sessionTitle.trim()}>
                       {t("cash.openSession")}
                     </Button>
                   </div>
                 )}
               </div>
 
+              {/* Manual movements */}
               {cashSession && (
                 <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                   <h3 className="font-semibold text-gray-900">{t("cash.manualMovementTitle")}</h3>
@@ -2307,6 +2293,9 @@ export default function CajeroDashboard() {
                       onChange={(e) => setMovementAmount(e.target.value)}
                       placeholder={t("cash.movementAmountPlaceholder")}
                       className="border border-gray-300 rounded-md px-3 py-2"
+                      type="number"
+                      min="0"
+                      step="0.01"
                     />
                     <input
                       value={movementNote}
@@ -2321,24 +2310,32 @@ export default function CajeroDashboard() {
                 </div>
               )}
 
+              {/* Movements list */}
               <div className="bg-white rounded-xl border border-border p-4 space-y-3">
                 <h3 className="font-semibold text-gray-900">{t("cash.movementsTitle")}</h3>
-                {cashError && <p className="text-sm text-red-600">{cashError}</p>}
                 {cashLoading && <p className="text-sm text-gray-500">{t("cash.loading")}</p>}
                 {!cashLoading && cashMovements.length === 0 && (
                   <p className="text-sm text-gray-500">{t("cash.noMovements")}</p>
                 )}
                 {cashMovements.length > 0 && (
                   <div className="space-y-2">
-                    {cashMovements.map((m) => (
-                      <div key={m.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-md px-3 py-2">
-                        <span>{m.type}</span>
-                        <span className={m.direction === "IN" ? "text-green-700" : "text-red-700"}>
-                          {m.direction === "IN" ? "+" : "-"}${Number(m.amount || 0).toFixed(2)}
-                        </span>
-                        <span className="text-gray-500">{new Date(m.created_at).toLocaleTimeString()}</span>
-                      </div>
-                    ))}
+                    {cashMovements.map((m) => {
+                      const label = m.payment_method
+                        ? getPaymentMethodText(m.payment_method)
+                        : m.type === "SALE_IN" ? t("cash.movementSaleIn")
+                        : m.type === "MANUAL_IN" ? t("cash.movementManualIn")
+                        : m.type === "MANUAL_OUT" ? t("cash.movementManualOut")
+                        : m.type
+                      return (
+                        <div key={m.id} className="flex items-center justify-between text-sm border border-gray-100 rounded-md px-3 py-2">
+                          <span className="truncate max-w-[140px]" title={m.note || label}>{label}</span>
+                          <span className={m.direction === "IN" ? "text-green-700" : "text-red-700"}>
+                            {m.direction === "IN" ? "+" : "-"}${Number(m.amount || 0).toFixed(2)}
+                          </span>
+                          <span className="text-gray-500">{new Date(m.created_at).toLocaleTimeString()}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

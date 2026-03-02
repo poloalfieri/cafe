@@ -1052,55 +1052,77 @@
     },
     "cashMonitor": {
       "header": {
-        "title": "Cash monitor",
-        "lastUpdated": "Last updated: {time} · refreshes every {seconds}s",
-        "loading": "Loading..."
+        "title": "Monitor de caja",
+        "lastUpdated": "Ultima actualizacion: {time} · se refresca cada {seconds}s",
+        "loading": "Cargando..."
       },
       "filter": {
-        "all": "All sessions",
-        "open": "Open only",
-        "closed": "Closed only"
+        "all": "Todas las sesiones",
+        "open": "Solo abiertas",
+        "closed": "Solo cerradas"
       },
       "actions": {
-        "refresh": "Refresh"
+        "refresh": "Refrescar"
       },
-      "noBranchSelected": "Select a branch to view its cash sessions.",
+      "noBranchSelected": "Selecciona una sucursal para ver las sesiones de caja.",
       "empty": {
-        "noSessions": "No cash sessions recorded."
+        "noSessions": "No hay sesiones de caja registradas."
       },
       "status": {
-        "open": "OPEN",
-        "closed": "CLOSED"
+        "open": "ABIERTA",
+        "closed": "CERRADA"
       },
       "movements": {
-        "show": "View movements",
-        "hide": "Hide",
-        "cashIn": "Cash in:",
-        "cashOut": "Cash out:",
-        "empty": "No movements recorded.",
-        "notImpactsCash": "does not affect cash"
+        "show": "Ver movimientos",
+        "hide": "Ocultar",
+        "cashIn": "Ingreso efectivo:",
+        "cashOut": "Egreso efectivo:",
+        "empty": "Sin movimientos registrados.",
+        "notImpactsCash": "no afecta efectivo"
       },
       "session": {
-        "opening": "Opened",
-        "closing": "Closed",
-        "openingAmount": "Opening amount",
-        "expectedNow": "Expected now",
-        "expectedAtClose": "Expected at close",
-        "counted": "Counted",
-        "difference": "Difference"
+        "opening": "Apertura",
+        "closing": "Cierre",
+        "openingAmount": "Monto inicial",
+        "expectedNow": "Esperado ahora",
+        "expectedAtClose": "Esperado al cierre",
+        "expected": "Esperado",
+        "counted": "Contado",
+        "difference": "Diferencia"
       },
       "types": {
-        "SALE_IN": "Sale",
-        "REFUND_OUT": "Refund",
-        "EXPENSE_OUT": "Expense",
-        "MANUAL_IN": "Manual in",
-        "MANUAL_OUT": "Manual out",
-        "TIP_IN": "Tip"
+        "SALE_IN": "Venta",
+        "REFUND_OUT": "Reembolso",
+        "EXPENSE_OUT": "Gasto",
+        "MANUAL_IN": "Ingreso manual",
+        "MANUAL_OUT": "Egreso manual",
+        "TIP_IN": "Propina"
       },
       "errors": {
         "errorTitle": "Error",
-        "loadSessions": "Could not load cash sessions",
-        "loadMovements": "Could not load movements"
+        "loadSessions": "No se pudieron cargar las sesiones de caja",
+        "loadMovements": "No se pudieron cargar los movimientos"
+      }
+    },
+    "cashSchedule": {
+      "header": {
+        "title": "Horarios de caja",
+        "subtitle": "Configura los horarios esperados de apertura y cierre, y la tolerancia de autocierre."
+      },
+      "noBranchSelected": "Selecciona una sucursal para configurar los horarios.",
+      "form": {
+        "openTime": "Hora de apertura esperada",
+        "closeTime": "Hora de cierre esperada",
+        "graceMinutes": "Tolerancia de autocierre"
+      },
+      "actions": {
+        "save": "Guardar",
+        "saving": "Guardando..."
+      },
+      "toast": {
+        "saveSuccess": "Horarios guardados correctamente",
+        "saveError": "No se pudieron guardar los horarios",
+        "errorTitle": "Error"
       }
     }
   },
@@ -1131,47 +1153,48 @@
         "stockLine": "{current} / min {min}"
       },
       "tabs": {
-        "payments": "Pagos ({count})",
-        "tables": "Mesas y Pedidos ({count})",
+        "payments": "Pedidos ({count})",
+        "tables": "Mesas ({count})",
         "orders": "Pedidos a Realizar ({count})",
         "cash": "Cash Register"
       },
       "cash": {
-        "loading": "Loading cash register...",
-        "registerTitle": "Cash register",
-        "sessionTitle": "Active session",
-        "sessionOpenId": "Session #{id}",
-        "selectRegister": "Select register",
-        "newRegisterPlaceholder": "Register name",
-        "createRegister": "Create register",
-        "openSession": "Open register",
-        "closeSession": "Close register",
-        "addMovement": "Add movement",
-        "openingAmountPlaceholder": "Opening amount",
-        "closingAmountPlaceholder": "Counted amount at close",
-        "expectedNow": "Expected amount: ${amount}",
-        "movementsTitle": "Movements",
-        "noMovements": "No movements registered",
-        "manualMovementTitle": "New manual movement",
-        "manualIn": "Manual income",
-        "manualOut": "Manual expense",
-        "movementAmountPlaceholder": "Amount",
-        "movementNotePlaceholder": "Note (optional)",
+        "loading": "Cargando caja...",
+        "sessionTitle": "Sesion de caja",
+        "sessionOpenId": "Sesion #{id}",
+        "titlePlaceholder": "Titulo de la sesion (ej: Martes por la manana)",
+        "openSession": "Abrir caja",
+        "closeSession": "Cerrar caja",
+        "addMovement": "Agregar movimiento",
+        "openingAmountPlaceholder": "Monto inicial (opcional)",
+        "closingAmountPlaceholder": "Monto contado al cierre",
+        "expectedNow": "Esperado ahora: ${amount}",
+        "actualOpen": "Apertura real",
+        "manualCloseNotice": "El cierre de caja es manual y lo realiza el cajero.",
+        "movementsTitle": "Movimientos",
+        "noMovements": "Sin movimientos registrados",
+        "refresh": "Actualizar",
+        "movementSaleIn": "Venta",
+        "movementManualIn": "Ingreso manual",
+        "movementManualOut": "Egreso manual",
+        "manualMovementTitle": "Nuevo movimiento manual",
+        "manualIn": "Ingreso manual",
+        "manualOut": "Egreso manual",
+        "movementAmountPlaceholder": "Monto",
+        "movementNotePlaceholder": "Nota (opcional)",
         "errors": {
-          "loadRegisters": "Could not load registers",
-          "loadSession": "Could not load cash session",
-          "loadMovements": "Could not load movements",
-          "createRegister": "Could not create register",
-          "openSession": "Could not open register",
-          "closeSession": "Could not close register",
-          "createMovement": "Could not register movement"
+          "loadSession": "No se pudo cargar la sesion de caja",
+          "loadMovements": "No se pudieron cargar los movimientos",
+          "openSession": "No se pudo abrir la caja",
+          "closeSession": "No se pudo cerrar la caja",
+          "createMovement": "No se pudo registrar el movimiento"
         }
       },
       "payments": {
         "loading": "Cargando solicitudes...",
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
-        "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
+        "autoRefresh": "Cuando haya un pedido se actualiza automaticamente",
         "pendingOrdersTitle": "Pedidos pendientes ({count})",
         "waiterCallsTitle": "Table requests ({count})",
         "methodLabel": "Payment method",
