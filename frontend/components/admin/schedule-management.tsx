@@ -1,7 +1,8 @@
 "use client"
 
 import { getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -38,7 +39,6 @@ function getMesaLabel(mesaId: string) {
 
 export default function ScheduleManagement({ branchId }: ScheduleManagementProps) {
   const t = useTranslations("admin.schedule")
-  const [mesas, setMesas] = useState<Mesa[]>([])
   const [showCreateMesa, setShowCreateMesa] = useState(false)
   const [mesaIdInput, setMesaIdInput] = useState("")
   const [mesaActive, setMesaActive] = useState(true)
@@ -56,6 +56,24 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
   const [copiedMesaId, setCopiedMesaId] = useState<string | null>(null)
   const [deletingMesaId, setDeletingMesaId] = useState<string | null>(null)
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
+
+  const mesasQuery = useQuery<Mesa[]>({
+    queryKey: ["mesas", backendUrl, branchId || "all"],
+    queryFn: async () => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const query = branchId ? `?branch_id=${branchId}` : ""
+      const res = await fetch(`${backendUrl}/mesas${query}`, { headers: authHeader })
+      if (!res.ok) return []
+      const data = await res.json()
+      return data.mesas || []
+    },
+  })
+
+  const mesas = mesasQuery.data ?? []
+
+  const invalidateMesas = () =>
+    queryClient.invalidateQueries({ queryKey: ["mesas", backendUrl, branchId || "all"] })
 
   const parseCapacityInput = (value: string) => {
     const normalizedValue = value.trim()
@@ -66,34 +84,6 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       return { value: null as number | null, error: t("tables.capacityInvalid") }
     }
     return { value: parseInt(normalizedValue, 10), error: null as string | null }
-  }
-
-  useEffect(() => {
-    fetchData()
-  }, [branchId])
-
-  const fetchData = async () => {
-    try {
-      setCreateError(null)
-      setTableActionError(null)
-      const authHeader = await getClientAuthHeaderAsync()
-      const query = branchId ? `?branch_id=${branchId}` : ""
-
-      const mesasResponse = await fetch(`${backendUrl}/mesas${query}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (mesasResponse.ok) {
-        const mesasData = await mesasResponse.json()
-        setMesas(mesasData.mesas || [])
-      } else {
-        setMesas([])
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error)
-      setMesas([])
-    }
   }
 
   const handleCreateMesa = async () => {
@@ -139,7 +129,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       setMesaActive(true)
       setMesaCapacity("4")
       setShowCreateMesa(false)
-      await fetchData()
+      await invalidateMesas()
     } catch (error: any) {
       setCreateError(error?.message || t("tables.createError"))
     } finally {
@@ -200,7 +190,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
       }
       setShowEditMesa(false)
       setEditingMesa(null)
-      await fetchData()
+      await invalidateMesas()
     } catch (error: any) {
       setEditError(error?.message || t("tables.updateError"))
     } finally {
@@ -262,7 +252,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
         const data = await response.json().catch(() => ({}))
         throw new Error(data?.error || "Error al eliminar la mesa")
       }
-      setMesas((prev) => prev.filter((m) => m.id !== mesa.id))
+      await invalidateMesas()
     } catch (error: any) {
       setTableActionError(error?.message || "Error al eliminar la mesa")
     } finally {
@@ -393,7 +383,7 @@ export default function ScheduleManagement({ branchId }: ScheduleManagementProps
                 </div>
               </DialogContent>
             </Dialog>
-            <Button onClick={fetchData} className="bg-gray-900 hover:bg-gray-800 text-white">
+            <Button onClick={() => void invalidateMesas()} className="bg-gray-900 hover:bg-gray-800 text-white">
               {t("actions.refresh")}
             </Button>
           </div>

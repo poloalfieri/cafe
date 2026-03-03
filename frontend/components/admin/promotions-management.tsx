@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -42,8 +43,6 @@ interface PromotionsManagementProps {
 
 export default function PromotionsManagement({ branchId }: PromotionsManagementProps) {
   const t = useTranslations("admin.promotions")
-  const [promotions, setPromotions] = useState<Promotion[]>([])
-  const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null)
   const [formData, setFormData] = useState({
@@ -69,27 +68,18 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
   ]
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    fetchPromotions()
-  }, [branchId])
-
-  const fetchPromotions = async () => {
-    setLoading(true)
-    try {
+  const promotionsQuery = useQuery<Promotion[]>({
+    queryKey: ["promotions", backendUrl, branchId || "all"],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
-      const response = await fetch(`${backendUrl}/promotions${query}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar promociones")
-      }
+      const response = await fetch(`${backendUrl}/promotions${query}`, { headers: authHeader })
+      if (!response.ok) throw new Error("No se pudieron cargar promociones")
       const data = await response.json()
       const list = Array.isArray(data?.promotions) ? data.promotions : []
-      const normalized = list.map((p: any) => ({
+      return list.map((p: any) => ({
         id: p.id,
         name: p.name,
         type: p.type,
@@ -104,13 +94,14 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
         isManual: !!p.is_manual,
         appliesToAll: !!p.applies_to_all,
       }))
-      setPromotions(normalized)
-    } catch (error) {
-      console.error("Error fetching promotions:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+    },
+  })
+
+  const promotions = promotionsQuery.data ?? []
+  const loading = promotionsQuery.isLoading
+
+  const invalidatePromotions = () =>
+    queryClient.invalidateQueries({ queryKey: ["promotions", backendUrl, branchId || "all"] })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -175,7 +166,7 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
           throw new Error("No se pudo crear promoción")
         }
       }
-      await fetchPromotions()
+      await invalidatePromotions()
     } catch (e) {
       console.error("Error saving promotion:", e)
     }
@@ -217,7 +208,7 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
         if (!response.ok) {
           throw new Error("No se pudo eliminar promoción")
         }
-        setPromotions(promotions.filter(p => p.id !== promotionId))
+        await invalidatePromotions()
       } catch (e) {
         console.error("Error deleting promotion:", e)
       }
@@ -241,7 +232,7 @@ export default function PromotionsManagement({ branchId }: PromotionsManagementP
         if (!response.ok) {
           throw new Error("No se pudo actualizar promoción")
         }
-        await fetchPromotions()
+        await invalidatePromotions()
       } catch (e) {
         console.error("Error toggling promotion:", e)
       }

@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,14 +46,10 @@ interface ProductsManagementProps {
 
 export default function ProductsManagement({ branchId }: ProductsManagementProps) {
   const t = useTranslations("admin.products")
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
   const [categoryInput, setCategoryInput] = useState("")
-  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [importingCsv, setImportingCsv] = useState(false)
   const [showImportResult, setShowImportResult] = useState(false)
   const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null)
@@ -67,64 +64,42 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
   const [imageFile, setImageFile] = useState<File | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    fetchProducts()
-  }, [branchId])
-
-  useEffect(() => {
-    if (!branchId) {
-      setCategories([])
-      return
-    }
-    fetchCategories(branchId)
-  }, [branchId])
-
-  const fetchProducts = async () => {
-    setLoading(true)
-    try {
+  const productsQuery = useQuery<Product[]>({
+    queryKey: ["products", backendUrl, branchId || "all"],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const params = branchId ? `?branch_id=${branchId}` : ""
-      const response = await fetch(`${backendUrl}/menu${params}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      setProducts(data)
-    } catch (error) {
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadError"),
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+      const response = await fetch(`${backendUrl}/menu${params}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      return response.json()
+    },
+  })
 
-  const fetchCategories = async (currentBranchId: string) => {
-    setCategoriesLoading(true)
-    try {
+  const categoriesQuery = useQuery<Category[]>({
+    queryKey: ["categories", backendUrl, branchId || ""],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${currentBranchId}`, {
-        headers: { ...authHeader }
+      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${branchId}`, {
+        headers: authHeader,
       })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      const list = Array.isArray(data?.categories) ? data.categories : []
-      setCategories(list)
-    } catch (_) {
-      setCategories([])
-    } finally {
-      setCategoriesLoading(false)
-    }
-  }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const json = await response.json()
+      return Array.isArray(json?.categories) ? json.categories : []
+    },
+    enabled: Boolean(branchId),
+  })
+
+  const products = productsQuery.data ?? []
+  const loading = productsQuery.isLoading
+  const categories = categoriesQuery.data ?? []
+  const categoriesLoading = categoriesQuery.isLoading
+
+  const invalidateProducts = () =>
+    queryClient.invalidateQueries({ queryKey: ["products", backendUrl, branchId || "all"] })
+  const invalidateCategories = () =>
+    queryClient.invalidateQueries({ queryKey: ["categories", backendUrl, branchId || ""] })
 
   const handleCreateCategory = async () => {
     const name = categoryInput.trim()
@@ -152,7 +127,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
         throw new Error(data?.error || t("categories.createError"))
       }
       setCategoryInput("")
-      await fetchCategories(branchId)
+      await invalidateCategories()
       setFormData({ ...formData, category: data?.category?.name || name })
       toast({ title: t("toast.successTitle"), description: t("categories.created") })
     } catch (error: any) {
@@ -227,8 +202,8 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        const updatedProduct = await response.json()
-        setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p))
+        await response.json()
+        await invalidateProducts()
       } else {
         // Crear nuevo producto
         const authHeader = await getClientAuthHeaderAsync()
@@ -245,8 +220,8 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        const newProduct = await response.json()
-        setProducts([...products, newProduct])
+        await response.json()
+        await invalidateProducts()
       }
 
       resetForm()
@@ -295,7 +270,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        setProducts(products.filter(p => p.id !== productId))
+        await invalidateProducts()
         toast({
           title: t("toast.successTitle"),
           description: t("toast.deleted")
@@ -329,9 +304,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
       }
 
       const result = await response.json()
-      setProducts(products.map(p => 
-        p.id === product.id ? { ...p, available: result.available } : p
-      ))
+      await invalidateProducts()
       toast({
         title: t("toast.successTitle"),
         description: t(result.available ? "toast.activated" : "toast.deactivated")
@@ -418,7 +391,7 @@ export default function ProductsManagement({ branchId }: ProductsManagementProps
 
       setImportResult(json.data)
       setShowImportResult(true)
-      await fetchProducts()
+      await invalidateProducts()
     } catch (err: any) {
       toast({
         title: t("toast.errorTitle"),

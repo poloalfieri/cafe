@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Trash2, CheckCircle, Minus, UtensilsCrossed } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -34,8 +35,6 @@ function getMesaLabel(mesaId: string) {
 
 export default function MesasManagement({ branchId }: MesasManagementProps) {
   const { toast } = useToast()
-  const [mesas, setMesas] = useState<Mesa[]>([])
-  const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -45,26 +44,25 @@ export default function MesasManagement({ branchId }: MesasManagementProps) {
   const [mesaToDelete, setMesaToDelete] = useState<Mesa | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    fetchMesas()
-  }, [branchId])
-
-  const fetchMesas = async () => {
-    setLoading(true)
-    try {
+  const mesasQuery = useQuery<Mesa[]>({
+    queryKey: ["mesas", backendUrl, branchId || "all"],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const query = branchId ? `?branch_id=${branchId}` : ""
       const res = await fetch(`${backendUrl}/mesas${query}`, { headers: { ...authHeader } })
-      if (!res.ok) throw new Error()
+      if (!res.ok) throw new Error("Error al cargar mesas")
       const data = await res.json()
-      setMesas(data.mesas || [])
-    } catch {
-      toast({ title: "Error al cargar mesas", variant: "destructive" })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return data.mesas || []
+    },
+  })
+
+  const mesas = mesasQuery.data ?? []
+  const loading = mesasQuery.isLoading
+
+  const invalidateMesas = () =>
+    queryClient.invalidateQueries({ queryKey: ["mesas", backendUrl, branchId || "all"] })
 
   const handleCreate = async () => {
     if (!newMesaId.trim() || !branchId) return
@@ -80,7 +78,7 @@ export default function MesasManagement({ branchId }: MesasManagementProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || res.statusText)
-      setMesas(prev => [...prev, data.mesa])
+      await invalidateMesas()
       setShowCreateDialog(false)
       setNewMesaId("")
       setNewCapacity("")
@@ -103,7 +101,7 @@ export default function MesasManagement({ branchId }: MesasManagementProps) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || res.statusText)
-      setMesas(prev => prev.map(m => m.mesa_id === mesa.mesa_id ? { ...m, is_active: !m.is_active } : m))
+      await invalidateMesas()
     } catch (err: any) {
       toast({ title: "Error al actualizar mesa", description: err.message, variant: "destructive" })
     } finally {
@@ -122,7 +120,7 @@ export default function MesasManagement({ branchId }: MesasManagementProps) {
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || res.statusText)
-      setMesas(prev => prev.filter(m => m.mesa_id !== mesaToDelete.mesa_id))
+      await invalidateMesas()
       toast({ title: `${getMesaLabel(mesaToDelete.mesa_id)} eliminada` })
       setMesaToDelete(null)
     } catch (err: any) {

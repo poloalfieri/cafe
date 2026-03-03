@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Edit, Trash2, MapPin, Share, Building, Eye, ToggleLeft, ToggleRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,12 +31,10 @@ interface Branch {
 
 export default function BranchesManagement() {
   const t = useTranslations("admin.branches")
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [loading, setLoading] = useState(true)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null)
-  const [shareMenuGlobally, setShareMenuGlobally] = useState(true)
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
   // Estados para crear/editar sucursal
   const [branchForm, setBranchForm] = useState({
@@ -47,35 +46,23 @@ export default function BranchesManagement() {
     share_menu: true
   })
 
-  useEffect(() => {
-    fetchBranches()
-  }, [])
-
-  const fetchBranches = async () => {
-    setLoading(true)
-    try {
+  const branchesQuery = useQuery<Branch[]>({
+    queryKey: ["branches", backendUrl],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        throw new Error("No se pudieron cargar las sucursales")
-      }
+      const response = await fetch(`${backendUrl}/branches`, { headers: authHeader })
+      if (!response.ok) throw new Error("No se pudieron cargar las sucursales")
       const data = await response.json()
-      const list = Array.isArray(data?.branches) ? data.branches : []
-      setBranches(list)
-      if (list.length > 0) {
-        const allShared = list.every((b: Branch) => b.share_menu !== false)
-        setShareMenuGlobally(allShared)
-      }
-    } catch (error) {
-      console.error(t("errors.fetchBranches"), error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      return Array.isArray(data?.branches) ? data.branches : []
+    },
+  })
+
+  const branches = branchesQuery.data ?? []
+  const loading = branchesQuery.isLoading
+  const shareMenuGlobally = branches.length > 0 && branches.every((b) => b.share_menu !== false)
+
+  const invalidateBranches = () =>
+    queryClient.invalidateQueries({ queryKey: ["branches", backendUrl] })
 
   const handleCreateBranch = async () => {
     try {
@@ -95,8 +82,7 @@ export default function BranchesManagement() {
         throw new Error("No se pudo crear la sucursal")
       }
       const data = await response.json()
-      const newBranch: Branch = data.branch
-      setBranches([...branches, newBranch])
+      await invalidateBranches()
       setBranchForm({ name: "", address: "", phone: "", email: "", manager: "", share_menu: true })
       setShowCreateBranch(false)
     } catch (error) {
@@ -129,9 +115,7 @@ export default function BranchesManagement() {
         throw new Error("No se pudo actualizar la sucursal")
       }
       const data = await response.json()
-      setBranches(branches.map(branch => 
-        branch.id === editingBranch.id ? data.branch : branch
-      ))
+      await invalidateBranches()
       setEditingBranch(null)
     } catch (error) {
       console.error(t("errors.updateBranch"), error)
@@ -155,9 +139,7 @@ export default function BranchesManagement() {
         throw new Error("No se pudo actualizar estado")
       }
       const data = await response.json()
-      setBranches(branches.map(branch => 
-        branch.id === branchId ? data.branch : branch
-      ))
+      await invalidateBranches()
     } catch (error) {
       console.error(t("errors.toggleStatus"), error)
     }
@@ -180,9 +162,7 @@ export default function BranchesManagement() {
         throw new Error("No se pudo actualizar compartir carta")
       }
       const data = await response.json()
-      setBranches(branches.map(branch => 
-        branch.id === branchId ? data.branch : branch
-      ))
+      await invalidateBranches()
     } catch (error) {
       console.error(t("errors.toggleShare"), error)
     }
@@ -204,8 +184,7 @@ export default function BranchesManagement() {
           })
         )
       )
-      setShareMenuGlobally(target)
-      setBranches(branches.map(branch => ({ ...branch, share_menu: target })))
+      await invalidateBranches()
     } catch (error) {
       console.error(t("errors.toggleGlobalShare"), error)
     }

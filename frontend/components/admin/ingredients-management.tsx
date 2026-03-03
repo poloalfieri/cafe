@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -58,8 +59,7 @@ interface IngredientsManagementProps {
 export default function IngredientsManagement({ branchId }: IngredientsManagementProps) {
   const t = useTranslations("admin.ingredients")
   const backendUrl = getTenantApiBase()
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -73,39 +73,26 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
     trackStock: true
   })
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
   const [importingCsv, setImportingCsv] = useState(false)
   const [importResult, setImportResult] = useState<{ created: number; updated: number; errors: { row: number; message: string }[] } | null>(null)
   const [showImportResult, setShowImportResult] = useState(false)
 
-  const fetchIngredients = async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams({
-        page: String(page),
-        search: searchTerm
-      })
-      if (branchId) {
-        params.set('branch_id', branchId)
-      }
+  const ingredientsQuery = useQuery({
+    queryKey: ["ingredients", backendUrl, branchId || "all", page, searchTerm],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(page), search: searchTerm })
+      if (branchId) params.set('branch_id', branchId)
       const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
-      setIngredients(response.data.ingredients)
-      setTotalPages(response.data.pagination.totalPages)
-    } catch (error) {
-      console.error('Error fetching ingredients:', error)
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadError"),
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+      return response.data as { ingredients: Ingredient[]; pagination: { totalPages: number } }
+    },
+  })
 
-  useEffect(() => {
-    fetchIngredients()
-  }, [page, searchTerm, branchId])
+  const ingredients = ingredientsQuery.data?.ingredients ?? []
+  const loading = ingredientsQuery.isLoading
+  const totalPages = ingredientsQuery.data?.pagination?.totalPages ?? 1
+
+  const invalidateIngredients = () =>
+    queryClient.invalidateQueries({ queryKey: ["ingredients", backendUrl, branchId || "all"] })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,7 +120,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       setShowModal(false)
       setEditingId(null)
       setFormData({ name: '', unit: 'g', currentStock: 0, wastePercent: 0, unitCost: null, minStock: 0, trackStock: true })
-      fetchIngredients()
+      await invalidateIngredients()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -168,7 +155,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
         title: t("toast.successTitle"),
         description: t("toast.deleted")
       })
-      fetchIngredients()
+      await invalidateIngredients()
     } catch (error: any) {
       if (error.status === 409) {
         toast({
@@ -205,7 +192,7 @@ export default function IngredientsManagement({ branchId }: IngredientsManagemen
       if (!res.ok) throw new Error(json.error || "Error al importar")
       setImportResult(json.data)
       setShowImportResult(true)
-      void fetchIngredients()
+      void invalidateIngredients()
     } catch (err: any) {
       toast({ title: t("toast.errorTitle"), description: err.message || "Error al importar CSV", variant: "destructive" })
     } finally {

@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -74,8 +75,6 @@ export default function ProductOptionsManagement({
   branchId,
 }: ProductOptionsManagementProps) {
   const t = useTranslations("admin.productOptions")
-  const [groups, setGroups] = useState<OptionGroup[]>([])
-  const [loading, setLoading] = useState(false)
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // Group dialog
@@ -96,28 +95,30 @@ export default function ProductOptionsManagement({
   })
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
   // ── Data Fetching ──────────────────────────────────────
 
-  const fetchGroups = useCallback(async () => {
-    setLoading(true)
-    try {
+  const groupsQuery = useQuery<OptionGroup[]>({
+    queryKey: ["product-options", backendUrl, product.id],
+    queryFn: async () => {
       const response = await api.get(`${backendUrl}/product-options/groups?productId=${product.id}`)
-      const list = (response as any).data || []
-      setGroups(list)
-      const allIds = new Set(list.map((g: OptionGroup) => g.id))
-      setExpandedGroups(allIds)
-    } catch {
-      // Silently handle - empty options is not an error
-      setGroups([])
-    } finally {
-      setLoading(false)
-    }
-  }, [product.id, backendUrl])
+      return (response as any).data || []
+    },
+  })
 
+  const groups = groupsQuery.data ?? []
+  const loading = groupsQuery.isLoading
+
+  // Expand all groups when data loads
   useEffect(() => {
-    fetchGroups()
-  }, [fetchGroups])
+    if (groupsQuery.data) {
+      setExpandedGroups(new Set(groupsQuery.data.map((g) => g.id)))
+    }
+  }, [groupsQuery.data])
+
+  const invalidateOptions = () =>
+    queryClient.invalidateQueries({ queryKey: ["product-options", backendUrl, product.id] })
 
   // ── Group CRUD ─────────────────────────────────────────
 
@@ -157,7 +158,7 @@ export default function ProductOptionsManagement({
         toast({ title: t("toast.successTitle"), description: t("toast.groupCreated") })
       }
       setShowGroupDialog(false)
-      fetchGroups()
+      await invalidateOptions()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -172,7 +173,7 @@ export default function ProductOptionsManagement({
     try {
       await api.delete(`${backendUrl}/product-options/groups/${groupId}`)
       toast({ title: t("toast.successTitle"), description: t("toast.groupDeleted") })
-      fetchGroups()
+      await invalidateOptions()
     } catch {
       toast({
         title: t("toast.errorTitle"),
@@ -207,7 +208,7 @@ export default function ProductOptionsManagement({
       })
       toast({ title: t("toast.successTitle"), description: t("toast.itemAdded") })
       setShowItemDialog(false)
-      fetchGroups()
+      await invalidateOptions()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -221,7 +222,7 @@ export default function ProductOptionsManagement({
     try {
       await api.patch(`${backendUrl}/product-options/items/${itemId}`, { priceAddition })
       toast({ title: t("toast.successTitle"), description: t("toast.priceUpdated") })
-      fetchGroups()
+      await invalidateOptions()
     } catch {
       toast({
         title: t("toast.errorTitle"),
@@ -236,7 +237,7 @@ export default function ProductOptionsManagement({
     try {
       await api.delete(`${backendUrl}/product-options/items/${itemId}`)
       toast({ title: t("toast.successTitle"), description: t("toast.itemDeleted") })
-      fetchGroups()
+      await invalidateOptions()
     } catch {
       toast({
         title: t("toast.errorTitle"),

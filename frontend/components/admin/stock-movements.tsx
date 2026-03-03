@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getTenantApiBase } from "@/lib/apiClient"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { Button } from "@/components/ui/button"
@@ -53,18 +54,20 @@ export default function StockMovements({ branchId }: Props) {
   const t = useTranslations("admin.stockMovements")
   const backendUrl = getTenantApiBase()
 
-  const [movements, setMovements] = useState<Movement[]>([])
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 30, total: 0, totalPages: 1 })
-  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
   const [filterType, setFilterType] = useState("")
   const [filterIngredient, setFilterIngredient] = useState("")
   const [filterDateFrom, setFilterDateFrom] = useState("")
   const [filterDateTo, setFilterDateTo] = useState("")
   const [exportingCsv, setExportingCsv] = useState(false)
+  const queryClient = useQueryClient()
 
-  const fetchMovements = useCallback(async (page = 1) => {
-    setLoading(true)
-    try {
+  // Reset to page 1 when any filter or branch changes
+  useEffect(() => { setPage(1) }, [branchId, filterType, filterIngredient, filterDateFrom, filterDateTo])
+
+  const movementsQuery = useQuery({
+    queryKey: ["stock-movements", backendUrl, branchId || "all", page, filterType, filterIngredient, filterDateFrom, filterDateTo],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const params = new URLSearchParams({ page: String(page), pageSize: "30" })
       if (branchId) params.set("branch_id", branchId)
@@ -72,23 +75,22 @@ export default function StockMovements({ branchId }: Props) {
       if (filterIngredient) params.set("ingredient_id", filterIngredient)
       if (filterDateFrom) params.set("date_from", filterDateFrom)
       if (filterDateTo) params.set("date_to", filterDateTo)
-
       const res = await fetch(`${backendUrl}/stock-movements?${params}`, { headers: authHeader })
       if (!res.ok) throw new Error("Error al cargar movimientos")
       const json = await res.json()
-      setMovements(json.data?.movements || [])
-      if (json.data?.pagination) setPagination(json.data.pagination)
-    } catch (e) {
-      console.error("Error cargando stock movements:", e)
-      setMovements([])
-    } finally {
-      setLoading(false)
-    }
-  }, [backendUrl, branchId, filterType, filterIngredient, filterDateFrom, filterDateTo])
+      return {
+        movements: (json.data?.movements || []) as Movement[],
+        pagination: (json.data?.pagination || { page, pageSize: 30, total: 0, totalPages: 1 }) as Pagination,
+      }
+    },
+  })
 
-  useEffect(() => {
-    void fetchMovements(1)
-  }, [fetchMovements])
+  const movements = movementsQuery.data?.movements ?? []
+  const pagination = movementsQuery.data?.pagination ?? { page, pageSize: 30, total: 0, totalPages: 1 }
+  const loading = movementsQuery.isLoading || movementsQuery.isFetching
+
+  const invalidateMovements = () =>
+    queryClient.invalidateQueries({ queryKey: ["stock-movements", backendUrl, branchId || "all"] })
 
   const handleExportCsv = async () => {
     setExportingCsv(true)
@@ -157,7 +159,7 @@ export default function StockMovements({ branchId }: Props) {
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
           />
         </div>
-        <Button variant="outline" size="sm" onClick={() => fetchMovements(1)} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => { setPage(1); void invalidateMovements() }} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           {t("actions.refresh")}
         </Button>
@@ -226,7 +228,7 @@ export default function StockMovements({ branchId }: Props) {
                   variant="outline"
                   size="sm"
                   disabled={pagination.page <= 1}
-                  onClick={() => fetchMovements(pagination.page - 1)}
+                  onClick={() => setPage((p) => p - 1)}
                 >
                   {t("pagination.prev")}
                 </Button>
@@ -234,7 +236,7 @@ export default function StockMovements({ branchId }: Props) {
                   variant="outline"
                   size="sm"
                   disabled={pagination.page >= pagination.totalPages}
-                  onClick={() => fetchMovements(pagination.page + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                 >
                   {t("pagination.next")}
                 </Button>
