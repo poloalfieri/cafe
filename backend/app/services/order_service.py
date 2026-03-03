@@ -581,8 +581,8 @@ class OrderService:
             if not order:
                 return None
 
-            if order.get("status") == OrderStatus.DELIVERED.value:
-                raise ValueError("No se puede cancelar un pedido entregado")
+            if order.get("status") == OrderStatus.PAID.value:
+                raise ValueError("No se puede cancelar un pedido ya pagado")
 
             update_data = {
                 "status": OrderStatus.PAYMENT_REJECTED.value,
@@ -860,6 +860,8 @@ class OrderService:
                 OrderStatus.PAYMENT_REJECTED.value,
                 OrderStatus.PAID.value,
                 OrderStatus.PARTIALLY_PAID.value,
+                OrderStatus.IN_PREPARATION.value,
+                OrderStatus.READY.value,
                 OrderStatus.CANCELLED.value,
             ],
             OrderStatus.PARTIALLY_PAID.value: [
@@ -876,10 +878,20 @@ class OrderService:
                 OrderStatus.READY.value,
                 OrderStatus.DELIVERED.value,
             ],
-            OrderStatus.IN_PREPARATION.value: [OrderStatus.READY.value],
-            OrderStatus.READY.value: [OrderStatus.DELIVERED.value],
+            OrderStatus.IN_PREPARATION.value: [
+                OrderStatus.READY.value,
+                OrderStatus.CANCELLED.value,
+            ],
+            OrderStatus.READY.value: [
+                OrderStatus.DELIVERED.value,
+                OrderStatus.PAID.value,
+                OrderStatus.CANCELLED.value,
+            ],
             OrderStatus.PAYMENT_REJECTED.value: [],
-            OrderStatus.DELIVERED.value: [],
+            OrderStatus.DELIVERED.value: [
+                OrderStatus.PAID.value,
+                OrderStatus.CANCELLED.value,
+            ],
         }
 
         if current not in valid_transitions:

@@ -1196,6 +1196,12 @@
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
         "autoRefresh": "Cuando haya un pedido se actualiza automaticamente",
         "pendingOrdersTitle": "Pedidos pendientes ({count})",
+        "inPreparationTitle": "En Preparación ({count})",
+        "pendingPaymentTitle": "Pendientes de pago ({count})",
+        "readyAction": "Listo",
+        "readyingAction": "Marcando listo...",
+        "markPaidAction": "Cobrado",
+        "markingPaidAction": "Cobrando...",
         "waiterCallsTitle": "Table requests ({count})",
         "methodLabel": "Payment method",
         "methods": {
@@ -1216,8 +1222,7 @@
         "unknownPaymentMethod": "Unknown",
         "itemsLabel": "Items",
         "noItems": "No items",
-        "splitAction": "Cobrar Parcial",
-        "completeAllAction": "Cobrar Todo"
+        "emptySection": "Sin pedidos"
       },
       "splitPayment": {
         "title": "Cobro Parcial",

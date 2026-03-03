@@ -1,9 +1,10 @@
 "use client"
 
 import { getBackendBaseUrl, getRestaurantSlug, getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle, Split } from "lucide-react"
+import { RefreshCw, Users, CheckCircle, Clock, Minus, Bell, LogOut, Plus, Trash2, CreditCard, Banknote, QrCode, XCircle, ChefHat, DollarSign } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -24,7 +25,8 @@ import {
   type SelectedProductOption,
 } from "@/lib/product-options"
 import { toast } from "@/hooks/use-toast"
-import SplitPaymentModal from "@/components/split-payment-modal"
+// SplitPaymentModal temporarily disabled
+// import SplitPaymentModal from "@/components/split-payment-modal"
 
 interface Mesa {
   id: string
@@ -107,17 +109,11 @@ export default function CajeroDashboard() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [mesas, setMesas] = useState<Mesa[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [loggingOut, setLoggingOut] = useState(false)
   const [activeTab, setActiveTab] = useState<"pagos" | "mesas" | "caja">("mesas")
   const [selectedMesa, setSelectedMesa] = useState<Mesa | null>(null)
-  const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
   const [showLowStockDialog, setShowLowStockDialog] = useState(false)
-  const [branchName, setBranchName] = useState<string | null>(null)
-  const [branchId, setBranchId] = useState<string | null>(null)
   const [prebillDialogOpen, setPrebillDialogOpen] = useState(false)
   const [prebillStep, setPrebillStep] = useState<PrebillDialogStep>("ASK_PRINT")
   const [prebillOrder, setPrebillOrder] = useState<Order | null>(null)
@@ -142,8 +138,7 @@ export default function CajeroDashboard() {
   const [optionsDialogError, setOptionsDialogError] = useState<string | null>(null)
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null)
-  const [splitPaymentOrderId, setSplitPaymentOrderId] = useState<string | null>(null)
-  const [splitPaymentOrderTotal, setSplitPaymentOrderTotal] = useState<number>(0)
+  const [readyingOrderId, setReadyingOrderId] = useState<string | null>(null)
   const [cashSession, setCashSession] = useState<CashSession | null>(null)
   const [cashMovements, setCashMovements] = useState<CashMovement[]>([])
   const [cashLoading, setCashLoading] = useState(false)
@@ -160,10 +155,6 @@ export default function CajeroDashboard() {
   const backendUrl = getTenantApiBase()
   const socketBaseUrl = getBackendBaseUrl()
   const normalizePrice = (value: number): number => Math.round(value * 100) / 100
-  const pendingOrders = orders.filter((order) => {
-    const s = (order.status || "").toUpperCase()
-    return s !== "PAID" && s !== "CANCELLED"
-  })
 
   const getPaymentMethodIcon = (method?: string | null) => {
     const normalized = (method || "").toUpperCase()
@@ -206,6 +197,73 @@ export default function CajeroDashboard() {
         return name ? { name, qty } : null
       })
       .filter(Boolean) as Array<{ name: string; qty: number }>
+  }
+
+  const colorMap: Record<string, { bg: string; ring: string; badge: string; icon: string }> = {
+    orange: { bg: "bg-orange-500", ring: "ring-orange-50", badge: "bg-orange-50 text-orange-700", icon: "text-orange-500" },
+    blue: { bg: "bg-blue-500", ring: "ring-blue-50", badge: "bg-blue-50 text-blue-700", icon: "text-blue-500" },
+    purple: { bg: "bg-purple-500", ring: "ring-purple-50", badge: "bg-purple-50 text-purple-700", icon: "text-purple-500" },
+  }
+
+  const renderOrderCard = (order: Order, accent: string, actions: ReactNode) => {
+    const c = colorMap[accent] || colorMap.orange
+    const items = getOrderItems(order)
+    return (
+      <div key={order.id} className={`bg-white rounded-xl shadow-sm ring-1 ${c.ring} transition-shadow hover:shadow-md`}>
+        {/* Header: mesa + time + total */}
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.bg}`}>
+              <span className="text-white font-bold text-sm">
+                {String(order.mesa_id).replace("Mesa ", "")}
+              </span>
+            </div>
+            <span className="font-semibold text-gray-900 text-sm">
+              {getMesaLabel(String(order.mesa_id))}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-gray-500">
+              {getPaymentMethodIcon(order.payment_method)}
+            </div>
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${c.badge} text-[11px]`}>
+              <Clock className="w-3 h-3" />
+              {new Date(order.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
+          </div>
+        </div>
+        {/* Items + total */}
+        <div className="px-3 py-2 space-y-1">
+          <div className="text-xs text-gray-600 space-y-0.5">
+            {items.length === 0 ? (
+              <p className="text-gray-400">{t("payments.noItems")}</p>
+            ) : (
+              items.slice(0, 4).map((item, idx) => (
+                <div key={`${order.id}-${idx}`} className="flex justify-between">
+                  <span className="truncate mr-2">{item.qty > 1 ? `${item.qty}x ` : ""}{item.name}</span>
+                </div>
+              ))
+            )}
+            {items.length > 4 && (
+              <p className="text-gray-400 text-[11px]">+{items.length - 4} más</p>
+            )}
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-gray-50">
+            <span className="text-xs text-gray-400">{t("payments.totalLabel")}</span>
+            <span className="font-bold text-sm text-gray-900">
+              ${normalizePrice(Number(order.total_amount || 0)).toFixed(2)}
+            </span>
+          </div>
+        </div>
+        {/* Actions */}
+        <div className="px-3 pb-2">
+          {actions}
+        </div>
+      </div>
+    )
   }
 
   const getResolvedAuthHeader = useCallback(async (): Promise<Record<string, string>> => {
@@ -263,80 +321,102 @@ export default function CajeroDashboard() {
     })
   }
 
-  const fetchMesasOnly = useCallback(
-    async (currentBranchId?: string | null, authHeaderOverride?: Record<string, string>) => {
-      try {
-        const authHeader = authHeaderOverride || (await getResolvedAuthHeader())
-        const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
-        const mesasResponse = await fetchWithAuthRetry(`${backendUrl}/mesas${branchQuery}`, {
-          headers: authHeader,
-        })
-        if (mesasResponse.ok) {
-          const mesasData = await mesasResponse.json()
-          setMesas(mesasData.mesas || [])
-        } else {
-          console.error(t("errors.fetchData"), `mesas status ${mesasResponse.status}`)
-        }
-      } catch (error) {
-        console.error(t("errors.fetchData"), error)
-      }
-    },
-    [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t]
-  )
+  // --- React Query: branch, mesas, orders, waiterCalls, lowStock ---
 
-  const fetchOrdersOnly = useCallback(
-    async (
-      currentBranchId?: string | null,
-      authHeaderOverride?: Record<string, string>
-    ): Promise<Order[]> => {
-      try {
-        const authHeader = authHeaderOverride || (await getResolvedAuthHeader())
-        const branchQuery = currentBranchId ? `?branch_id=${currentBranchId}` : ""
-        const ordersResponse = await fetchWithAuthRetry(`${backendUrl}/orders${branchQuery}`, {
-          headers: authHeader,
-        })
-        if (!ordersResponse.ok) {
-          console.error(t("errors.fetchData"), `orders status ${ordersResponse.status}`)
-          return []
-        }
-        const ordersData = await ordersResponse.json()
-        const filtered = filterRecentOrders(ordersData || [])
-        setOrders(filtered)
-        return filtered
-      } catch (error) {
-        console.error(t("errors.fetchData"), error)
-        return []
-      }
+  const branchQuery = useQuery({
+    queryKey: ["cajero-branch", backendUrl],
+    queryFn: async () => {
+      const authHeader = await getResolvedAuthHeader()
+      const response = await fetchWithAuthRetry(`${backendUrl}/branches/me`, { headers: authHeader })
+      if (!response.ok) return null
+      const data = await response.json()
+      return (data?.branch as { id: string; name: string }) ?? null
     },
-    [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t]
-  )
+    retry: false,
+  })
+  const branchId = branchQuery.data?.id ?? null
+  const branchName = branchQuery.data?.name ?? null
 
-  const fetchWaiterCalls = useCallback(async (currentBranchId?: string | null) => {
-    try {
+  const mesasQuery = useQuery({
+    queryKey: ["cajero-mesas", backendUrl, branchId],
+    queryFn: async () => {
+      const authHeader = await getResolvedAuthHeader()
+      const bq = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetchWithAuthRetry(`${backendUrl}/mesas${bq}`, { headers: authHeader })
+      if (!response.ok) return []
+      const data = await response.json()
+      return (data.mesas || []) as Mesa[]
+    },
+    enabled: branchQuery.isSuccess,
+  })
+  const mesas = mesasQuery.data ?? []
+
+  const ordersQuery = useQuery({
+    queryKey: ["cajero-orders", backendUrl, branchId],
+    queryFn: async () => {
+      const authHeader = await getResolvedAuthHeader()
+      const bq = branchId ? `?branch_id=${branchId}` : ""
+      const response = await fetchWithAuthRetry(`${backendUrl}/orders${bq}`, { headers: authHeader })
+      if (!response.ok) return []
+      const data = await response.json()
+      return filterRecentOrders(data || [])
+    },
+    enabled: branchQuery.isSuccess,
+  })
+  const orders = ordersQuery.data ?? []
+
+  const waiterCallsQuery = useQuery({
+    queryKey: ["cajero-waiterCalls", backendUrl, branchId],
+    queryFn: async () => {
       const authHeader = await getResolvedAuthHeader()
       const params = new URLSearchParams({ status: "PENDING" })
-      if (currentBranchId) {
-        params.set("branch_id", currentBranchId)
+      if (branchId) params.set("branch_id", branchId)
+      const response = await fetchWithAuthRetry(`${backendUrl}/waiter/calls?${params}`, { headers: authHeader })
+      if (!response.ok) return []
+      const data = await response.json()
+      if (data.success && Array.isArray(data.calls)) {
+        return data.calls.filter(
+          (call: WaiterCall) => (call.message || "").trim().toLowerCase() !== "solicitud de pago (caja)"
+        )
       }
-      const response = await fetchWithAuthRetry(`${backendUrl}/waiter/calls?${params.toString()}`, {
-        headers: authHeader,
-      })
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && Array.isArray(data.calls)) {
-          const visibleCalls = data.calls.filter(
-            (call: WaiterCall) =>
-              (call.message || "").trim().toLowerCase() !== "solicitud de pago (caja)"
-          )
-          setWaiterCalls(visibleCalls)
-        }
-      } else {
-        console.error(t("errors.fetchWaiterCalls"), `waiter calls status ${response.status}`)
-      }
-    } catch (error) {
-      console.error(t("errors.fetchWaiterCalls"), error)
-    }
-  }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
+      return [] as WaiterCall[]
+    },
+    enabled: branchQuery.isSuccess,
+  })
+  const waiterCalls = waiterCallsQuery.data ?? []
+
+  const lowStockQuery = useQuery({
+    queryKey: ["cajero-lowStock", backendUrl],
+    queryFn: async () => {
+      const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
+      const list: any[] = json.data?.ingredients || []
+      return list
+        .filter((i) => i.trackStock && i.currentStock <= i.minStock)
+        .map((i) => ({ name: i.name as string, currentStock: i.currentStock as number, minStock: i.minStock as number }))
+    },
+  })
+  const lowStock = lowStockQuery.data ?? []
+
+  useEffect(() => {
+    if (lowStock.length > 0) setShowLowStockDialog(true)
+  }, [lowStock])
+
+  const loading = mesasQuery.isLoading || ordersQuery.isLoading
+
+  const fifoSort = (a: Order, b: Order) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+
+  const inPreparationOrders = orders
+    .filter((order) => {
+      const s = (order.status || "").toUpperCase()
+      return s === "PAYMENT_PENDING" || s === "IN_PREPARATION" || s === "PAYMENT_APPROVED" || s === "PARTIALLY_PAID"
+    })
+    .sort(fifoSort)
+  const readyOrders = orders
+    .filter((order) => (order.status || "").toUpperCase() === "READY")
+    .sort(fifoSort)
+  const pendingOrders = [...inPreparationOrders, ...readyOrders]
+
+  // --- Cash (kept as useState/useEffect) ---
 
   const fetchCurrentCashSession = useCallback(async (currentBranchId?: string | null) => {
     if (!currentBranchId) return
@@ -382,65 +462,6 @@ export default function CajeroDashboard() {
   }, [backendUrl, fetchWithAuthRetry, getResolvedAuthHeader, t])
 
   useEffect(() => {
-    fetchBranch()
-    ;(async () => {
-      try {
-        const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
-        const list = json.data?.ingredients || []
-        const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
-          .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
-        setLowStock(lows)
-        setShowLowStockDialog(lows.length > 0)
-      } catch (_) {}
-    })()
-  }, [])
-
-  const fetchData = useCallback(async (currentBranchId?: string | null): Promise<Order[]> => {
-    setLoading(true)
-    try {
-      const authHeader = await getResolvedAuthHeader()
-      const [, nextOrders] = await Promise.all([
-        fetchMesasOnly(currentBranchId, authHeader),
-        fetchOrdersOnly(currentBranchId, authHeader),
-      ])
-      return nextOrders
-    } catch (error) {
-      console.error(t("errors.fetchData"), error)
-      return []
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchMesasOnly, fetchOrdersOnly, getResolvedAuthHeader, t])
-
-  const fetchBranch = async () => {
-    try {
-      const authHeader = await getResolvedAuthHeader()
-      const response = await fetchWithAuthRetry(`${backendUrl}/branches/me`, {
-        headers: authHeader,
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const name = data?.branch?.name
-        const id = data?.branch?.id
-        if (name) {
-          setBranchName(name)
-        }
-        if (id) {
-          setBranchId(id)
-          await Promise.all([fetchData(id), fetchWaiterCalls(id), fetchCurrentCashSession(id)])
-        } else {
-          await Promise.all([fetchData(null), fetchWaiterCalls(null)])
-        }
-      } else {
-        await Promise.all([fetchData(null), fetchWaiterCalls(null)])
-      }
-    } catch (error) {
-      console.error(t("errors.fetchBranch"), error)
-      await Promise.all([fetchData(null), fetchWaiterCalls(null)])
-    }
-  }
-
-  useEffect(() => {
     if (!branchId) return
     void (async () => {
       setCashLoading(true)
@@ -456,6 +477,8 @@ export default function CajeroDashboard() {
   useEffect(() => {
     void fetchCashMovements(cashSession?.id)
   }, [cashSession?.id, fetchCashMovements])
+
+  // --- Socket.io: invalidate queries on real-time events ---
 
   useEffect(() => {
     const socket = io(socketBaseUrl || undefined, {
@@ -479,7 +502,7 @@ export default function CajeroDashboard() {
         skipNextWaiterCallsSocketRefreshRef.current -= 1
         return
       }
-      void fetchWaiterCalls(branchId)
+      queryClient.invalidateQueries({ queryKey: ["cajero-waiterCalls", backendUrl, branchId] })
     })
 
     socket.on("orders:updated", (payload: any) => {
@@ -490,13 +513,13 @@ export default function CajeroDashboard() {
         skipNextOrdersSocketRefreshRef.current -= 1
         return
       }
-      void fetchOrdersOnly(branchId)
+      queryClient.invalidateQueries({ queryKey: ["cajero-orders", backendUrl, branchId] })
     })
 
     return () => {
       socket.disconnect()
     }
-  }, [socketBaseUrl, branchId, fetchWaiterCalls, fetchOrdersOnly])
+  }, [socketBaseUrl, branchId, backendUrl, queryClient])
 
   const resolveMesaBranchId = (mesa: Mesa | null): string | null => {
     if (!mesa) return null
@@ -868,10 +891,9 @@ export default function CajeroDashboard() {
 
       if (createdOrder?.id) {
         skipNextOrdersSocketRefreshRef.current += 1
-        setOrders((prev) => {
-          if (prev.some((order) => order.id === createdOrder.id)) {
-            return prev
-          }
+        queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) => {
+          if (!prev) return [createdOrder as Order]
+          if (prev.some((order) => order.id === createdOrder.id)) return prev
           return [createdOrder as Order, ...prev]
         })
       }
@@ -895,13 +917,14 @@ export default function CajeroDashboard() {
     const mesaOrders = orders.filter(order => order.mesa_id === mesaId)
     if (mesaOrders.length === 0) return "disponible"
     
-    const activeOrder = mesaOrders.find(order => 
-      order.status === "PAYMENT_PENDING" || 
-      order.status === "PAID" || 
-      order.status === "IN_PREPARATION" || 
-      order.status === "READY"
+    const activeOrder = mesaOrders.find(order =>
+      order.status === "PAYMENT_PENDING" ||
+      order.status === "PAID" ||
+      order.status === "IN_PREPARATION" ||
+      order.status === "READY" ||
+      order.status === "DELIVERED"
     )
-    
+
     if (activeOrder) {
       switch (activeOrder.status) {
         case "PAYMENT_PENDING": return "esperando_pago"
@@ -909,6 +932,7 @@ export default function CajeroDashboard() {
         case "PAID": return "pagado"
         case "IN_PREPARATION": return "preparando"
         case "READY": return "listo"
+        case "DELIVERED": return "ocupada"
         default: return "ocupada"
       }
     }
@@ -1045,8 +1069,8 @@ export default function CajeroDashboard() {
       const printedAt = payload?.prebill_printed_at
 
       if (printedAt && prebillOrder?.id) {
-        setOrders((prev) =>
-          prev.map((order) =>
+        queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) =>
+          (prev || []).map((order) =>
             order.id === prebillOrder.id
               ? { ...order, prebill_printed_at: printedAt }
               : order
@@ -1095,7 +1119,9 @@ export default function CajeroDashboard() {
       })
 
       if (response.ok) {
-        setWaiterCalls(prev => prev.filter(call => call.id !== callId))
+        queryClient.setQueryData<WaiterCall[]>(["cajero-waiterCalls", backendUrl, branchId], (prev) =>
+          (prev || []).filter(call => call.id !== callId)
+        )
       } else {
         skipNextWaiterCallsSocketRefreshRef.current = Math.max(
           0,
@@ -1113,7 +1139,52 @@ export default function CajeroDashboard() {
     }
   }
 
-  const completePendingOrder = async (order: Order) => {
+  const markOrderReady = async (order: Order) => {
+    if (!order?.id || readyingOrderId) return
+    const isMercadoPagoApproved = (order.status || "").toUpperCase() === "PAYMENT_APPROVED"
+    const targetStatus = isMercadoPagoApproved ? "PAID" : "READY"
+    skipNextOrdersSocketRefreshRef.current += 1
+    try {
+      setReadyingOrderId(order.id)
+      const authHeader = await getClientAuthHeaderAsync()
+      const body: Record<string, any> = { status: targetStatus }
+      if (isMercadoPagoApproved && order.payment_method) {
+        body.payment_method = order.payment_method
+      }
+      const response = await fetch(`${backendUrl}/orders/${order.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeader },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) {
+        skipNextOrdersSocketRefreshRef.current = Math.max(0, skipNextOrdersSocketRefreshRef.current - 1)
+        const errorData = await response.json().catch(() => ({}))
+        console.error(t("payments.completeError"), errorData?.error)
+        return
+      }
+      if (isMercadoPagoApproved) {
+        // MercadoPago already paid — remove from list entirely
+        queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) =>
+          (prev || []).filter(o => o.id !== order.id)
+        )
+      } else {
+        queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) =>
+          (prev || []).map(o => o.id === order.id ? { ...o, status: "READY" } : o)
+        )
+      }
+      // Always open prebill dialog (as receipt for MercadoPago, as precuenta for others)
+      setPrebillOrder(order)
+      setPrebillStep("ASK_PRINT")
+      setPrebillDialogOpen(true)
+    } catch (error) {
+      skipNextOrdersSocketRefreshRef.current = Math.max(0, skipNextOrdersSocketRefreshRef.current - 1)
+      console.error(t("payments.completeError"), error)
+    } finally {
+      setReadyingOrderId(null)
+    }
+  }
+
+  const markOrderPaid = async (order: Order) => {
     if (!order?.id || completingOrderId) return
     skipNextOrdersSocketRefreshRef.current += 1
     try {
@@ -1137,19 +1208,21 @@ export default function CajeroDashboard() {
           skipNextOrdersSocketRefreshRef.current - 1
         )
         const errorData = await response.json().catch(() => ({}))
-        console.error(t("payments.completeError"), errorData?.error)
+        const msg = errorData?.error || t("payments.completeError")
+        console.error(t("payments.completeError"), msg)
+        toast({ title: t("payments.completeError"), description: msg, variant: "destructive" })
         return
       }
-      setOrders(prev => prev.filter(o => o.id !== order.id))
-      setPrebillOrder(order)
-      setPrebillStep("ASK_PRINT")
-      setPrebillDialogOpen(true)
+      queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) =>
+        (prev || []).filter(o => o.id !== order.id)
+      )
     } catch (error) {
       skipNextOrdersSocketRefreshRef.current = Math.max(
         0,
         skipNextOrdersSocketRefreshRef.current - 1
       )
       console.error(t("payments.completeError"), error)
+      toast({ title: t("payments.completeError"), description: String(error), variant: "destructive" })
     } finally {
       setCompletingOrderId(null)
     }
@@ -1178,7 +1251,9 @@ export default function CajeroDashboard() {
         console.error(t("payments.completeError"), errorData?.error)
         return
       }
-      setOrders(prev => prev.filter(o => o.id !== order.id))
+      queryClient.setQueryData<Order[]>(["cajero-orders", backendUrl, branchId], (prev) =>
+        (prev || []).filter(o => o.id !== order.id)
+      )
     } catch (error) {
       skipNextOrdersSocketRefreshRef.current = Math.max(
         0,
@@ -1191,8 +1266,9 @@ export default function CajeroDashboard() {
   }
 
   const refreshData = () => {
-    void fetchData(branchId)
-    void fetchWaiterCalls(branchId)
+    queryClient.invalidateQueries({ queryKey: ["cajero-mesas", backendUrl, branchId] })
+    queryClient.invalidateQueries({ queryKey: ["cajero-orders", backendUrl, branchId] })
+    queryClient.invalidateQueries({ queryKey: ["cajero-waiterCalls", backendUrl, branchId] })
     void fetchCurrentCashSession(branchId)
   }
 
@@ -1315,8 +1391,8 @@ export default function CajeroDashboard() {
       console.log(t("logs.changeMesaStatus", { mesaId, status: newStatus ? t("status.active") : t("status.inactive") }))
       
       // Actualizar localmente para demo
-      setMesas(prevMesas =>
-        prevMesas.map(mesa =>
+      queryClient.setQueryData<Mesa[]>(["cajero-mesas", backendUrl, branchId], (prev) =>
+        (prev || []).map(mesa =>
           mesa.mesa_id === mesaId
             ? { ...mesa, is_active: newStatus, updated_at: new Date().toISOString() }
             : mesa
@@ -1975,205 +2051,145 @@ export default function CajeroDashboard() {
                 <p className="text-gray-400 text-sm mt-2">{t("payments.autoRefresh")}</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <p className="text-sm text-gray-500">{t("payments.autoRefresh")}</p>
 
-                {pendingOrders.length > 0 && (
+                {/* 2-column responsive grid for order sections */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  {/* --- Section 1: En Preparación (orange) --- */}
                   <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-800">
-                      {t("payments.pendingOrdersTitle", { count: pendingOrders.length })}
-                    </h4>
-                    {pendingOrders.map((order) => (
-                      <div
-                        key={order.id}
-                        className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
-                      >
-                        <div className="p-4 border-b border-gray-200">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
-                                <span className="text-white font-bold text-lg">
-                                  {String(order.mesa_id).replace("Mesa ", "")}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                                  <Bell className="w-4 h-4 text-orange-500" />
-                                  {getMesaLabel(String(order.mesa_id))}
-                                </h3>
-                                <p className="text-xs text-gray-600">
-                                  #{String(order.id || "").slice(0, 8)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
-                              <Clock className="w-3 h-3" />
-                              <span className="text-xs font-medium">
-                                {new Date(order.created_at || Date.now()).toLocaleTimeString("es-ES", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
+                    <div className="flex items-center gap-2 px-1">
+                      <ChefHat className="w-4 h-4 text-orange-500" />
+                      <h4 className="text-sm font-semibold text-gray-800">
+                        {t("payments.inPreparationTitle", { count: inPreparationOrders.length })}
+                      </h4>
+                    </div>
+                    {inPreparationOrders.length === 0 ? (
+                      <p className="text-xs text-gray-400 px-1">{t("payments.emptySection")}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {inPreparationOrders.map((order) => renderOrderCard(order, "orange", (
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => markOrderReady(order)}
+                              size="sm"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                              disabled={readyingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                              {readyingOrderId === order.id
+                                ? t("payments.readyingAction")
+                                : t("payments.readyAction")}
+                            </Button>
+                            <Button
+                              onClick={() => cancelPendingOrder(order)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
+                              disabled={readyingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-gray-600">
-                            <span>
-                              {tWaiter("callTime", {
-                                time: new Date(order.created_at || Date.now()).toLocaleTimeString("es-ES", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }),
-                              })}
-                            </span>
-                            <Badge variant="outline">{getStatusText(order.status)}</Badge>
-                          </div>
-                        </div>
-
-                        <div className="p-4 space-y-4">
-                          <div className="p-3 bg-gray-50 rounded-lg">
-                            <div className="flex items-center gap-2 text-gray-900">
-                              {getPaymentMethodIcon(order.payment_method)}
-                              <p className="text-sm font-medium">
-                                {t("payments.paymentMethodLabel")}: {getPaymentMethodText(order.payment_method)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium text-gray-700">
-                              {t("payments.itemsLabel")}
-                            </p>
-                            <div className="space-y-1 text-sm text-gray-700">
-                              {getOrderItems(order).length === 0 ? (
-                                <p className="text-gray-500">{t("payments.noItems")}</p>
-                              ) : (
-                                getOrderItems(order).map((item, idx) => (
-                                  <div key={`${order.id}-${idx}`} className="flex items-center justify-between">
-                                    <span>{item.name}</span>
-                                    <span className="text-gray-500">x{item.qty}</span>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500">{t("payments.totalLabel")}</span>
-                            <span className="font-semibold">
-                              ${normalizePrice(Number(order.total_amount || 0)).toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="space-y-2 pt-2">
-                            {order.status !== "PARTIALLY_PAID" && (
-                              <div className="grid grid-cols-2 gap-2">
-                                <Button
-                                  onClick={() => completePendingOrder(order)}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  {completingOrderId === order.id
-                                    ? t("payments.completingAction")
-                                    : t("payments.completeAction")}
-                                </Button>
-                                <Button
-                                  onClick={() => cancelPendingOrder(order)}
-                                  variant="outline"
-                                  className="border-red-300 text-red-600 hover:bg-red-50"
-                                  disabled={completingOrderId === order.id || cancellingOrderId === order.id}
-                                >
-                                  <XCircle className="w-4 h-4 mr-2" />
-                                  {t("orders.cancel")}
-                                </Button>
-                              </div>
-                            )}
-                            {/* Split payment button hidden temporarily */}
-                          </div>
-                        </div>
+                        )))}
                       </div>
-                    ))}
+                    )}
                   </div>
-                )}
 
+                  {/* --- Section 2: Pendientes de pago (blue) --- */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <DollarSign className="w-4 h-4 text-blue-500" />
+                      <h4 className="text-sm font-semibold text-gray-800">
+                        {t("payments.pendingPaymentTitle", { count: readyOrders.length })}
+                      </h4>
+                    </div>
+                    {readyOrders.length === 0 ? (
+                      <p className="text-xs text-gray-400 px-1">{t("payments.emptySection")}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {readyOrders.map((order) => renderOrderCard(order, "blue", (
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => markOrderPaid(order)}
+                              size="sm"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <DollarSign className="w-3.5 h-3.5 mr-1" />
+                              {completingOrderId === order.id
+                                ? t("payments.markingPaidAction")
+                                : t("payments.markPaidAction")}
+                            </Button>
+                            <Button
+                              onClick={() => cancelPendingOrder(order)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2"
+                              disabled={completingOrderId === order.id || cancellingOrderId === order.id}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        )))}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* Waiter calls section (below the grid) */}
                 {waiterCalls.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-800">
+                    <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-orange-500" />
                       {t("payments.waiterCallsTitle", { count: waiterCalls.length })}
                     </h4>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {waiterCalls.map((call) => {
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {waiterCalls.map((call: WaiterCall) => {
                         const callId = typeof call.id === "string" ? call.id : String(call.id ?? "")
                         const mesaLabel = typeof call.mesa_id === "string" ? call.mesa_id : String(call.mesa_id ?? "")
                         return (
                           <div
                             key={call.id}
-                            className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 ring-1 ring-orange-50"
+                            className="bg-white rounded-xl shadow-sm ring-1 ring-orange-50 p-3 space-y-2"
                           >
-                            <div className="p-4 border-b border-gray-200">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-500">
-                                    <span className="text-white font-bold text-lg">
-                                      {mesaLabel.replace("Mesa ", "")}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                                      <Bell className="w-4 h-4 text-orange-500" />
-                                      {mesaLabel}
-                                    </h3>
-                                    <p className="text-xs text-gray-600">#{callId.slice(0, 8)}</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-50 text-orange-700">
-                                  <Clock className="w-3 h-3" />
-                                  <span className="text-xs font-medium">
-                                    {new Date(call.created_at || Date.now()).toLocaleTimeString("es-ES", {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-500">
+                                  <span className="text-white font-bold text-sm">
+                                    {mesaLabel.replace("Mesa ", "")}
                                   </span>
                                 </div>
+                                <span className="font-semibold text-gray-900 text-sm">{mesaLabel}</span>
                               </div>
-                              <div className="flex items-center justify-between text-xs text-gray-600">
-                                <span>
-                                  {tWaiter("callTime", {
-                                    time: new Date(call.created_at || Date.now()).toLocaleTimeString("es-ES", {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }),
-                                  })}
-                                </span>
+                              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[11px]">
+                                <Clock className="w-3 h-3" />
+                                {new Date(call.created_at || Date.now()).toLocaleTimeString("es-ES", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
                               </div>
                             </div>
-                            <div className="p-4 space-y-4">
-                              <div className="p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-2 text-gray-900">
-                                  {getPaymentMethodIcon(call.payment_method)}
-                                  <p className="text-sm font-medium">
-                                    {getPaymentMethodText(call.payment_method)}
-                                  </p>
-                                </div>
-                              </div>
-                              {call.message && (
-                                <div className="p-3 bg-gray-50 rounded-lg">
-                                  <p className="text-sm text-gray-900">
-                                    <span className="font-medium text-gray-600">{tWaiter("messageLabel")}</span> {call.message}
-                                  </p>
-                                </div>
-                              )}
-                              <div className="pt-2">
-                                <Button
-                                  onClick={() => updateCallStatus(callId, "COMPLETED")}
-                                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                  disabled={!callId}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  {tWaiter("actions.complete")}
-                                </Button>
-                              </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              {getPaymentMethodIcon(call.payment_method)}
+                              <span>{getPaymentMethodText(call.payment_method)}</span>
                             </div>
+                            {call.message && (
+                              <p className="text-xs text-gray-500 truncate" title={call.message}>
+                                {call.message}
+                              </p>
+                            )}
+                            <Button
+                              onClick={() => updateCallStatus(callId, "COMPLETED")}
+                              size="sm"
+                              className="w-full bg-green-600 hover:bg-green-700 text-white"
+                              disabled={!callId}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                              {tWaiter("actions.complete")}
+                            </Button>
                           </div>
                         )
                       })}
@@ -2441,16 +2457,6 @@ export default function CajeroDashboard() {
 
         </Tabs>
 
-        <SplitPaymentModal
-          isOpen={!!splitPaymentOrderId}
-          onClose={() => setSplitPaymentOrderId(null)}
-          orderId={splitPaymentOrderId || ""}
-          orderTotal={splitPaymentOrderTotal}
-          onPaymentComplete={() => {
-            setSplitPaymentOrderId(null)
-            fetchOrdersOnly(branchId)
-          }}
-        />
       </div>
     </div>
   )
