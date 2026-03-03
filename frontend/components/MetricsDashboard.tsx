@@ -1,7 +1,7 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/auth-context"
 import {
   LineChart,
@@ -52,13 +52,16 @@ interface MetricsData {
     }>
     period?: MetricsPeriod
   }
-  pickhours: { labels: string[]; values: number[] }
   peakHours: { labels: string[]; values: number[] }
 }
 
-
-function getApiBaseUrl() {
-  return getTenantApiBase()
+const EMPTY_METRICS: MetricsData = {
+  salesMonthly: { labels: [], values: [] },
+  ordersStatus: { labels: [], values: [] },
+  dailyRevenue: { labels: [], values: [] },
+  paymentMethods: { labels: [], values: [] },
+  topProducts: { items: [] },
+  peakHours: { labels: [], values: [] },
 }
 
 const COLORS = {
@@ -69,7 +72,8 @@ const COLORS = {
   success: "#00C49F",
   warning: "#FFBB28",
 }
-const AUTO_REFRESH_MS = 3 * 60 * 60 * 1000
+
+const STALE_TIME = 3 * 60 * 60 * 1000 // 3 hours
 
 interface MetricsDashboardProps {
   branchId?: string
@@ -77,41 +81,20 @@ interface MetricsDashboardProps {
 
 export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   const t = useTranslations("admin.metrics")
-  const [data, setData] = useState<MetricsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const { session } = useAuth()
-  const inFlightKeyRef = useRef<string | null>(null)
-  const completedKeyRef = useRef<string | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const queryClient = useQueryClient()
+  const backendUrl = getTenantApiBase()
+  const tzOffset = -new Date().getTimezoneOffset()
+  const token = session?.accessToken
 
-  const fetchMetricsData = useCallback(async (force = false) => {
-    if (!session?.accessToken) {
-      setError(t("errors.noSession"))
-      setLoading(false)
-      return
-    }
- 
-    const tzOffset = -new Date().getTimezoneOffset()
-    const requestKey = `${session.accessToken}|${branchId || "all"}|${tzOffset}`
-    if (!force && completedKeyRef.current === requestKey) {
-      return
-    }
-    if (inFlightKeyRef.current === requestKey) {
-      return
-    }
+  const metricsQuery = useQuery<MetricsData>({
+    queryKey: ["metrics-charts", backendUrl, branchId || "all", tzOffset],
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams()
+      if (branchId) params.set("branch_id", branchId)
+      params.set("tzOffset", String(tzOffset))
+      const query = params.toString() ? `?${params.toString()}` : ""
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-    inFlightKeyRef.current = requestKey
-
-    setLoading(true)
-    setError(null)
-
-    try {
       const endpoints = [
         "sales-monthly",
         "orders-status",
@@ -121,107 +104,64 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
         "peak-hours",
       ]
 
-      const params = new URLSearchParams()
-      if (branchId) params.set("branch_id", branchId)
-      params.set("tzOffset", String(tzOffset))
-      if (force) params.set("refresh", "1")
-      const query = params.toString() ? `?${params.toString()}` : ""
-
       const results = await Promise.all(
         endpoints.map((endpoint) =>
-          fetch(`${getApiBaseUrl()}/metrics/${endpoint}${query}`, {
+          fetch(`${backendUrl}/metrics/${endpoint}${query}`, {
             headers: {
-              Authorization: `Bearer ${session.accessToken}`,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-            signal: controller.signal,
+            signal,
           })
             .then((res) => {
-              if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`)
-              }
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
               return res.json()
             })
             .catch((err) => {
-              if (err?.name === "AbortError") {
-                throw err
-              }
-              return { labels: [], values: [] }
-            }),
-        ),
+              if (err?.name === "AbortError") throw err
+              return null
+            })
+        )
       )
 
-      // Validar que todos los resultados tengan la estructura correcta
-      const validatedResults = results.map((result, index) => {
+      const validate = (result: any, idx: number): any => {
         if (!result || typeof result !== "object") {
-          return index === 4 ? { items: [] } : { labels: [], values: [] }
+          return idx === 4 ? { items: [] } : { labels: [], values: [] }
         }
-        if (index === 4) {
-          return Array.isArray((result as any).items) ? result : { items: [] }
+        if (idx === 4) {
+          return Array.isArray(result.items) ? result : { items: [] }
         }
-        if (!Array.isArray((result as any).labels) || !Array.isArray((result as any).values)) {
+        if (!Array.isArray(result.labels) || !Array.isArray(result.values)) {
           return { labels: [], values: [] }
         }
         return result
-      })
+      }
 
-      setData({
-        salesMonthly: validatedResults[0],
-        ordersStatus: validatedResults[1],
-        dailyRevenue: validatedResults[2],
-        paymentMethods: validatedResults[3],
-        topProducts: validatedResults[4],
-        pickhours: validatedResults[5],
-        peakHours: validatedResults[5],
-      })
-      completedKeyRef.current = requestKey
-    } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        setError(t("errors.loadMetrics"))
-      }
-    } finally {
-      if (inFlightKeyRef.current === requestKey) {
-        inFlightKeyRef.current = null
-      }
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null
-      }
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-    }
-  }, [branchId, session?.accessToken, t])
+      const [salesMonthly, ordersStatus, dailyRevenue, paymentMethods, topProducts, peakHours] =
+        results.map(validate)
 
-  useEffect(() => {
-    void fetchMetricsData()
-  }, [fetchMetricsData])
+      return { salesMonthly, ordersStatus, dailyRevenue, paymentMethods, topProducts, peakHours }
+    },
+    enabled: Boolean(token),
+    staleTime: STALE_TIME,
+    retry: false,
+  })
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchMetricsData(true)
-    }, AUTO_REFRESH_MS)
-    return () => {
-      window.clearInterval(intervalId)
-    }
-  }, [fetchMetricsData])
-
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["metrics-charts", backendUrl, branchId || "all", tzOffset],
+    })
+  }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
     }).format(value)
   }
 
   const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('es-AR').format(value)
+    return new Intl.NumberFormat("es-AR").format(value)
   }
 
   const formatPeriodDate = (value?: string) => {
@@ -251,7 +191,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     return t("charts.periodRange", { days, from, to })
   }
 
-  if (loading) {
+  if (metricsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -262,15 +202,13 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     )
   }
 
-  if (error) {
+  if (metricsQuery.isError && !metricsQuery.data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              void fetchMetricsData(true)
-            }}
+          <p className="text-destructive mb-4">{t("errors.loadMetrics")}</p>
+          <button
+            onClick={handleRefresh}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             {t("actions.retry")}
@@ -280,35 +218,39 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     )
   }
 
-  if (!data) return null
+  const data = metricsQuery.data ?? EMPTY_METRICS
 
-  // Preparar datos para los gráficos con validación
-  const salesMonthlyData = data.salesMonthly?.labels?.map((label, index) => ({
-    month: label,
-    sales: data.salesMonthly?.values?.[index] || 0
-  })) || []
+  const salesMonthlyData =
+    data.salesMonthly?.labels?.map((label, index) => ({
+      month: label,
+      sales: data.salesMonthly?.values?.[index] || 0,
+    })) || []
 
-  const ordersStatusData = data.ordersStatus?.labels?.map((label, index) => ({
-    status: label,
-    count: data.ordersStatus?.values?.[index] || 0
-  })) || []
+  const ordersStatusData =
+    data.ordersStatus?.labels?.map((label, index) => ({
+      status: label,
+      count: data.ordersStatus?.values?.[index] || 0,
+    })) || []
 
-  const dailyRevenueData = data.dailyRevenue?.labels?.map((label, index) => ({
-    day: label,
-    revenue: data.dailyRevenue?.values?.[index] || 0
-  })) || []
+  const dailyRevenueData =
+    data.dailyRevenue?.labels?.map((label, index) => ({
+      day: label,
+      revenue: data.dailyRevenue?.values?.[index] || 0,
+    })) || []
 
-  const paymentMethodsData = data.paymentMethods?.labels?.map((label, index) => ({
-    method: label,
-    count: data.paymentMethods?.values?.[index] || 0
-  })) || []
+  const paymentMethodsData =
+    data.paymentMethods?.labels?.map((label, index) => ({
+      method: label,
+      count: data.paymentMethods?.values?.[index] || 0,
+    })) || []
 
   const topProducts = Array.isArray(data.topProducts?.items) ? data.topProducts.items : []
-  const peakHoursSource = data.pickhours || data.peakHours
-  const peakHoursData = peakHoursSource?.labels?.map((label, index) => ({
-    hour: label,
-    count: peakHoursSource?.values?.[index] || 0
-  })) || []
+  const peakHoursData =
+    data.peakHours?.labels?.map((label, index) => ({
+      hour: label,
+      count: data.peakHours?.values?.[index] || 0,
+    })) || []
+
   const topProductsPeriodLabel = buildPeriodLabel(data.topProducts?.period)
   const ordersStatusPeriodLabel = buildPeriodLabel(data.ordersStatus?.period)
   const paymentMethodsPeriodLabel = buildPeriodLabel(data.paymentMethods?.period)
@@ -318,12 +260,11 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
         <button
-          onClick={() => {
-            void fetchMetricsData(true)
-          }}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto"
+          onClick={handleRefresh}
+          disabled={metricsQuery.isFetching}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto disabled:opacity-50"
         >
-          <Loader2 className="h-4 w-4" />
+          <Loader2 className={`h-4 w-4 ${metricsQuery.isFetching ? "animate-spin" : ""}`} />
           {t("actions.refresh")}
         </button>
       </div>
@@ -415,15 +356,15 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatCurrency(value), t("charts.salesLegend")]}
                   labelFormatter={(label) => t("charts.monthLabel", { label })}
                 />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="sales" 
-                  stroke={COLORS.primary} 
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke={COLORS.primary}
                   strokeWidth={3}
                   dot={{ fill: COLORS.primary, strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
@@ -447,7 +388,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatCurrency(value), t("charts.revenueLegend")]}
                   labelFormatter={(label) => t("charts.dayLabel", { label })}
                 />
@@ -484,7 +425,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                     <Cell key={`cell-${index}`} fill={index === 0 ? COLORS.success : COLORS.danger} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatNumber(value), t("charts.ordersLegend")]}
                   labelFormatter={(label) => t("charts.statusLabel", { label })}
                 />
@@ -516,7 +457,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                   fill={COLORS.accent}
                   fillOpacity={0.6}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatNumber(value), t("charts.transactionsLegend")]}
                   labelFormatter={(label) => t("charts.methodLabel", { label })}
                 />
@@ -528,4 +469,4 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       </div>
     </div>
   )
-} 
+}

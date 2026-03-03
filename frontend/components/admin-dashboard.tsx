@@ -2,6 +2,7 @@
 
 import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,6 +61,17 @@ interface DashboardMetrics {
   }>
 }
 
+const EMPTY_METRICS: DashboardMetrics = {
+  dailySales: 0,
+  weeklySales: 0,
+  monthlySales: 0,
+  totalOrders: 0,
+  averageOrderValue: 0,
+  totalIngredients: 0,
+  lowStockItems: 0,
+  topProducts: [],
+}
+
 function formatCompact(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
   if (value >= 10_000) return `$${(value / 1_000).toFixed(1)}K`
@@ -72,97 +84,53 @@ export default function AdminDashboard() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null)
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    dailySales: 0,
-    weeklySales: 0,
-    monthlySales: 0,
-    totalOrders: 0,
-    averageOrderValue: 0,
-    totalIngredients: 0,
-    lowStockItems: 0,
-    topProducts: []
-  })
-  const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
-  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
-  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
-  const [branchesReady, setBranchesReady] = useState(false)
+  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
   const [lowStockBannerDismissed, setLowStockBannerDismissed] = useState(false)
   const [exportingCsv, setExportingCsv] = useState<"sales" | "stock" | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const tzOffset = -new Date().getTimezoneOffset()
+
+  const branchesQuery = useQuery({
+    queryKey: ["branches", backendUrl],
+    queryFn: async () => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, { headers: authHeader })
+      if (!response.ok) return []
+      const json = await response.json()
+      return (Array.isArray(json?.data) ? json.data : []) as Array<{ id: string; name: string }>
+    },
+    retry: false,
+  })
+
+  const branches = branchesQuery.data ?? []
+  const branchesReady = branchesQuery.isSuccess || branchesQuery.isError
+
+  useEffect(() => {
+    if (!selectedBranchId && branches.length > 0) {
+      setSelectedBranchId(branches[0].id)
+    }
+  }, [branches, selectedBranchId])
+
   const isMetricsScopeReady = branchesReady && (branches.length === 0 || Boolean(selectedBranchId))
 
-  useEffect(() => {
-    fetchBranches()
-    // Low stock check on each load
-    ;(async () => {
-      try {
-        const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
-        const list = json.data?.ingredients || []
-        const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
-          .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
-        setLowStock(lows)
-        setShowLowStockDialog(lows.length > 0)
-      } catch (_) {}
-    })()
-  }, [])
-
-  useEffect(() => {
-    if (!isMetricsScopeReady) {
-      return
-    }
-    void fetchDashboardData(selectedBranchId || undefined)
-  }, [isMetricsScopeReady, selectedBranchId])
-
-  const fetchBranches = async () => {
-    try {
+  const metricsQuery = useQuery({
+    queryKey: ["metrics", backendUrl, selectedBranchId, tzOffset],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        setBranches([])
-        return
-      }
-      const data = await response.json()
-      const list = Array.isArray(data?.branches) ? data.branches : []
-      setBranches(list)
-      if (!selectedBranchId && list.length > 0) {
-        setSelectedBranchId(list[0].id)
-      }
-    } catch (_) {
-      // ignore
-    } finally {
-      setBranchesReady(true)
-    }
-  }
-
-  const fetchDashboardData = async (branchId?: string, force = false) => {
-    setLoading(true)
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const tzOffset = -new Date().getTimezoneOffset()
       const params = new URLSearchParams()
-      if (branchId) params.set("branch_id", branchId)
+      if (selectedBranchId) params.set("branch_id", selectedBranchId)
       params.set("tzOffset", String(tzOffset))
-      if (force) params.set("refresh", "1")
       const query = params.toString() ? `?${params.toString()}` : ""
-      const summaryResponse = await fetch(`${backendUrl}/metrics/summary${query}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!summaryResponse.ok) {
-        throw new Error(`Summary error: ${summaryResponse.status}`)
-      }
-      const summary = await summaryResponse.json()
-      setMetrics({
+      const response = await fetch(`${backendUrl}/metrics/summary${query}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`Summary error: ${response.status}`)
+      const summary = await response.json()
+      return {
         dailySales: summary.dailySales || 0,
         weeklySales: summary.weeklySales || 0,
         monthlySales: summary.monthlySales || 0,
@@ -171,35 +139,34 @@ export default function AdminDashboard() {
         totalIngredients: summary.totalIngredients || 0,
         lowStockItems: summary.lowStockItems || 0,
         topProducts: Array.isArray(summary.topProducts) ? summary.topProducts : [],
-      })
-    } catch (error) {
-      console.error(t("errors.fetchDashboard"), error)
-      setMetrics({
-        dailySales: 0,
-        weeklySales: 0,
-        monthlySales: 0,
-        totalOrders: 0,
-        averageOrderValue: 0,
-        totalIngredients: 0,
-        lowStockItems: 0,
-        topProducts: []
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+      } as DashboardMetrics
+    },
+    enabled: isMetricsScopeReady,
+    staleTime: 3 * 60 * 60 * 1000,
+    retry: false,
+  })
+
+  const metrics = metricsQuery.data ?? EMPTY_METRICS
+  const loading = metricsQuery.isFetching
+
+  const lowStockQuery = useQuery({
+    queryKey: ["lowStock"],
+    queryFn: async () => {
+      const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
+      const list: any[] = json.data?.ingredients || []
+      return list
+        .filter((i) => i.trackStock && i.currentStock <= i.minStock)
+        .map((i) => ({ name: i.name as string, currentStock: i.currentStock as number, minStock: i.minStock as number }))
+    },
+  })
+
+  const lowStock = lowStockQuery.data ?? []
 
   useEffect(() => {
-    if (!isMetricsScopeReady) {
-      return
+    if (lowStock.length > 0) {
+      setShowLowStockDialog(true)
     }
-    const intervalId = window.setInterval(() => {
-      void fetchDashboardData(selectedBranchId || undefined, true)
-    }, 3 * 60 * 60 * 1000)
-    return () => {
-      window.clearInterval(intervalId)
-    }
-  }, [isMetricsScopeReady, selectedBranchId])
+  }, [lowStock])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -215,10 +182,8 @@ export default function AdminDashboard() {
   }, [pathname, router, searchParams])
 
   const refreshData = () => {
-    if (!isMetricsScopeReady) {
-      return
-    }
-    void fetchDashboardData(selectedBranchId || undefined, true)
+    if (!isMetricsScopeReady) return
+    queryClient.invalidateQueries({ queryKey: ["metrics", backendUrl, selectedBranchId] })
   }
 
   const handleExportCsv = async (type: "sales" | "stock") => {
@@ -516,4 +481,4 @@ export default function AdminDashboard() {
       </div>
     </div>
   )
-} 
+}

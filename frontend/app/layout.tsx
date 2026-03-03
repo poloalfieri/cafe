@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { CartProvider } from "@/contexts/cart-context"
 import { AuthProvider } from "@/contexts/auth-context"
+import { QueryProvider } from "@/components/query-provider"
 import { NextIntlClientProvider } from "next-intl"
 import { getLocale, getMessages } from "next-intl/server"
 import { Toaster } from "@/components/ui/toaster"
@@ -27,12 +28,14 @@ export default async function RootLayout({
     <html lang={locale}>
       <body className={inter.className}>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <AuthProvider>
-            <CartProvider>
-              {children}
-              <Toaster />
-            </CartProvider>
-          </AuthProvider>
+          <QueryProvider>
+            <AuthProvider>
+              <CartProvider>
+                {children}
+                <Toaster />
+              </CartProvider>
+            </AuthProvider>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>

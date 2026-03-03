@@ -484,14 +484,14 @@ export default function BranchesManagement() {
                 <Label htmlFor="edit-manager">{t("form.manager")}</Label>
                 <Input
                   id="edit-manager"
-                  value={editingBranch.manager}
+                  value={editingBranch.manager ?? ""}
                   onChange={(e) => setEditingBranch({...editingBranch, manager: e.target.value})}
                 />
               </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="edit-share-menu"
-                  checked={editingBranch.share_menu}
+                  checked={editingBranch.share_menu ?? false}
                   onCheckedChange={(checked) => setEditingBranch({...editingBranch, share_menu: checked})}
                 />
                 <Label htmlFor="edit-share-menu">{t("form.shareMenuShort")}</Label>
