@@ -1,7 +1,7 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, Edit, Trash2, MapPin, Share, Building, Eye, ToggleLeft, ToggleRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -59,7 +59,16 @@ export default function BranchesManagement() {
 
   const branches = branchesQuery.data ?? []
   const loading = branchesQuery.isLoading
-  const shareMenuGlobally = branches.length > 0 && branches.every((b) => b.share_menu !== false)
+  const shareMenuFromData = branches.length > 0 && branches.every((b) => b.share_menu !== false)
+  const [independentMenuLocal, setIndependentMenuLocal] = useState<boolean | null>(null)
+  const independentMenu = independentMenuLocal ?? !shareMenuFromData
+
+  // Sync local toggle when data changes
+  useEffect(() => {
+    if (branchesQuery.data) {
+      setIndependentMenuLocal(null)
+    }
+  }, [branchesQuery.data])
 
   const invalidateBranches = () =>
     queryClient.invalidateQueries({ queryKey: ["branches", backendUrl] })
@@ -168,9 +177,11 @@ export default function BranchesManagement() {
     }
   }
 
-  const handleGlobalMenuShare = async () => {
+  const handleGlobalMenuShare = async (checked: boolean) => {
+    // checked = true means "Cartas independientes" ON → share_menu = false
+    setIndependentMenuLocal(checked)
     try {
-      const target = !shareMenuGlobally
+      const shareMenu = !checked
       const authHeader = await getClientAuthHeaderAsync()
       await Promise.all(
         branches.map(branch =>
@@ -180,13 +191,14 @@ export default function BranchesManagement() {
               "Content-Type": "application/json",
               ...authHeader,
             },
-            body: JSON.stringify({ share_menu: target }),
+            body: JSON.stringify({ share_menu: shareMenu }),
           })
         )
       )
       await invalidateBranches()
     } catch (error) {
       console.error(t("errors.toggleGlobalShare"), error)
+      setIndependentMenuLocal(null) // revert to server state
     }
   }
 
@@ -298,11 +310,11 @@ export default function BranchesManagement() {
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <Label htmlFor="global-share" className="text-xs sm:text-sm text-blue-900">
-                {shareMenuGlobally ? t("globalMenu.shared") : t("globalMenu.independent")}
+                {t("globalMenu.independent")}
               </Label>
               <Switch
                 id="global-share"
-                checked={shareMenuGlobally}
+                checked={independentMenu}
                 onCheckedChange={handleGlobalMenuShare}
               />
             </div>

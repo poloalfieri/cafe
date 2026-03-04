@@ -76,7 +76,7 @@ def verify_token(token):
                 'id': user.id,
                 'email': user.email,
                 'role': role,
-                'org_id': app_metadata.get('org_id'),
+                'org_id': app_metadata.get('org_id') or app_metadata.get('restaurant_id'),
                 'branch_id': app_metadata.get('branch_id')
             }
             _cache_verified_user(token, verified_user)
