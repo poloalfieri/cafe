@@ -24,8 +24,12 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard, Clock } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard, Clock, Sparkles, AlertTriangle } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 
 type MetricsPeriod = { type?: string; days?: number; from?: string; to?: string }
 
@@ -74,6 +78,67 @@ const COLORS = {
 }
 
 const STALE_TIME = 3 * 60 * 60 * 1000 // 3 hours
+
+/**
+ * Renderizador mínimo de Markdown que soporta:
+ * ## Heading, ### Subheading, **bold**, - bullet list, y texto plano.
+ */
+function SimpleMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n")
+  const elements: React.ReactNode[] = []
+  const listItems: string[] = []
+
+  const flushList = (key: number) => {
+    if (listItems.length === 0) return
+    elements.push(
+      <ul key={`ul-${key}`} className="list-disc pl-5 my-2 space-y-1">
+        {listItems.map((item, i) => (
+          <li key={i} className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: renderInline(item) }} />
+        ))}
+      </ul>
+    )
+    listItems.length = 0
+  }
+
+  const renderInline = (line: string) =>
+    line.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+
+  lines.forEach((rawLine, idx) => {
+    const line = rawLine.trimEnd()
+
+    if (line.startsWith("## ")) {
+      flushList(idx)
+      elements.push(
+        <h3 key={idx} className="font-bold text-base mt-5 mb-1.5 text-gray-900">
+          {line.slice(3)}
+        </h3>
+      )
+    } else if (line.startsWith("### ")) {
+      flushList(idx)
+      elements.push(
+        <h4 key={idx} className="font-semibold text-sm mt-3 mb-1 text-gray-800">
+          {line.slice(4)}
+        </h4>
+      )
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
+      listItems.push(line.slice(2))
+    } else if (line.trim() === "" || line === "---") {
+      flushList(idx)
+    } else {
+      flushList(idx)
+      elements.push(
+        <p
+          key={idx}
+          className="text-sm my-1 text-gray-700"
+          dangerouslySetInnerHTML={{ __html: renderInline(line) }}
+        />
+      )
+    }
+  })
+  flushList(lines.length)
+
+  return <div>{elements}</div>
+}
 
 interface MetricsDashboardProps {
   branchId?: string
@@ -147,6 +212,47 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     retry: false,
   })
 
+  // --- AI Insights query ---
+  interface AIInsightsData {
+    insights: string
+    generated_at: string
+    model: string
+    error?: string
+    unavailable?: boolean
+  }
+
+  const aiQuery = useQuery<AIInsightsData>({
+    queryKey: ["ai-insights", backendUrl, branchId || "all"],
+    queryFn: async ({ signal }) => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const query = branchId ? `?branch_id=${branchId}` : ""
+      const res = await fetch(`${backendUrl}/metrics/ai-insights${query}`, {
+        headers: { ...authHeader },
+        signal,
+      })
+      if (!res.ok) {
+        try {
+          const errData = await res.json()
+          return { ...errData, insights: "" } as AIInsightsData
+        } catch {
+          return {
+            error: `HTTP ${res.status}`,
+            insights: "",
+            unavailable: res.status === 503,
+          } as AIInsightsData
+        }
+      }
+      return res.json() as Promise<AIInsightsData>
+    },
+    enabled: Boolean(token),
+    staleTime: STALE_TIME,
+    retry: 1,
+  })
+
+  const handleRefreshAI = () => {
+    void queryClient.invalidateQueries({ queryKey: ["ai-insights", backendUrl, branchId || "all"] })
+  }
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({
       queryKey: ["metrics-charts", backendUrl, branchId || "all", tzOffset],
@@ -189,6 +295,20 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     const to = formatPeriodDate(period?.to)
     if (!from || !to) return t("charts.periodFallback", { days })
     return t("charts.periodRange", { days, from, to })
+  }
+
+  const formatGeneratedAt = (isoString?: string) => {
+    if (!isoString) return ""
+    try {
+      const dt = new Date(isoString)
+      const diffMinutes = Math.floor((Date.now() - dt.getTime()) / 60000)
+      if (diffMinutes < 1) return `${t("ai.generatedAt")}: ahora`
+      if (diffMinutes < 60) return `${t("ai.generatedAt")}: hace ${diffMinutes} min`
+      const diffHours = Math.floor(diffMinutes / 60)
+      return `${t("ai.generatedAt")}: hace ${diffHours} h`
+    } catch {
+      return ""
+    }
   }
 
   if (metricsQuery.isLoading) {
@@ -464,6 +584,69 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                 <Legend />
               </RadarChart>
             </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Análisis IA */}
+        <Card className="md:col-span-2 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                  {t("ai.title")}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">{t("ai.subtitle")}</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshAI}
+                disabled={aiQuery.isFetching}
+                className="shrink-0"
+              >
+                <Loader2 className={`h-3.5 w-3.5 mr-1.5 ${aiQuery.isFetching ? "animate-spin" : "hidden"}`} />
+                {aiQuery.isFetching ? t("ai.regenerating") : t("ai.regenerate")}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {aiQuery.isLoading ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("ai.loading")}
+                </div>
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            ) : aiQuery.data?.unavailable ? (
+              <Alert variant="destructive" className="bg-orange-50 border-orange-200">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-700 text-sm">
+                  {t("ai.unavailable")}
+                </AlertDescription>
+              </Alert>
+            ) : aiQuery.isError || (aiQuery.data?.error && !aiQuery.data?.insights) ? (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-sm">{t("ai.error")}</AlertDescription>
+              </Alert>
+            ) : aiQuery.data?.insights ? (
+              <div>
+                <SimpleMarkdown text={aiQuery.data.insights} />
+                {aiQuery.data.generated_at && (
+                  <p className="text-xs text-muted-foreground mt-4 pt-3 border-t">
+                    {formatGeneratedAt(aiQuery.data.generated_at)}
+                    {" · "}
+                    {aiQuery.data.model}
+                  </p>
+                )}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

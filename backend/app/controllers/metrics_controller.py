@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, g
 from ..services.metrics_service import MetricsService
+from ..services.ai_insights_service import AIInsightsService
 from ..utils.logger import setup_logger
 from ..middleware.auth import require_auth, require_roles
 from ..services.metrics_access_service import metrics_access_service
@@ -211,3 +212,33 @@ def get_peak_hours():
     except Exception as e:
         logger.error(f"Error obteniendo picos por horario: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@metrics_bp.route("/ai-insights", methods=["GET"])
+@require_auth
+@require_roles('desarrollador', 'admin')
+def get_ai_insights():
+    """Genera un análisis IA del negocio en lenguaje natural usando Claude."""
+    logger.info("Iniciando petición para obtener análisis IA")
+    try:
+        branch_id = request.args.get("branch_id")
+        tz_offset_minutes = _parse_tz_offset_minutes()
+        force_refresh = _is_force_refresh_requested()
+        restaurant_id = metrics_access_service.get_restaurant_id(g.user_id)
+        if not restaurant_id:
+            return jsonify({"error": "Restaurante no encontrado"}), 404
+        data = AIInsightsService.get_insights(
+            restaurant_id,
+            branch_id,
+            tz_offset_minutes,
+            force_refresh=force_refresh,
+        )
+        logger.info("Análisis IA obtenido exitosamente")
+        return jsonify(data)
+    except RuntimeError as e:
+        # API key no configurada o paquete no instalado
+        logger.warning(f"AI insights no disponible: {str(e)}")
+        return jsonify({"error": str(e), "unavailable": True}), 503
+    except Exception as e:
+        logger.error(f"Error obteniendo análisis IA: {str(e)}")
+        return jsonify({"error": "Error al generar el análisis"}), 502

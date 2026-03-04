@@ -979,8 +979,17 @@
         "statusLabel": "Estado: {label}",
         "transactionsLegend": "Transacciones",
         "methodLabel": "Método: {label}"
+      },
+      "ai": {
+        "title": "Análisis IA del negocio",
+        "subtitle": "Generado con Claude · Se actualiza cada 3 horas",
+        "loading": "Analizando datos del negocio...",
+        "error": "No se pudo generar el análisis. Verificá la configuración de la API de IA.",
+        "unavailable": "Consultoría IA no disponible. Configurá ANTHROPIC_API_KEY en el servidor.",
+        "regenerate": "Regenerar análisis",
+        "regenerating": "Generando...",
+        "generatedAt": "Generado"
       }
-      
     },
     "stockMovements": {
       "filters": {

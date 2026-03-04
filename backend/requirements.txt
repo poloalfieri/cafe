@@ -13,3 +13,4 @@ mercadopago
 gunicorn
 flask-socketio
 eventlet
+anthropic
