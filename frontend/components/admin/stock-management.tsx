@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -73,19 +74,12 @@ interface StockManagementProps {
 
 export default function StockManagement({ branchId }: StockManagementProps) {
   const t = useTranslations("admin.stock")
-  const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [loading, setLoading] = useState(true)
-  const [productsLoading, setProductsLoading] = useState(false)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
   const [selectedIngredientId, setSelectedIngredientId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [productSearch, setProductSearch] = useState('')
-  const [categories, setCategories] = useState<Category[]>([])
-  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [newProductForm, setNewProductForm] = useState<NewProductForm>({
     name: '',
     category: '',
@@ -94,27 +88,17 @@ export default function StockManagement({ branchId }: StockManagementProps) {
   })
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
-  const fetchProducts = async () => {
-    try {
-      setProductsLoading(true)
-      // Use the same direct backend call as the working products management
+  const productsQuery = useQuery<Product[]>({
+    queryKey: ["products", backendUrl, branchId || "all"],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const params = branchId ? `?branch_id=${branchId}` : ""
-      const response = await fetch(`${backendUrl}/menu${params}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
+      const response = await fetch(`${backendUrl}/menu${params}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
-      
-      // Transform the backend data to match our expected format
-      const products = Array.isArray(data) ? data.map((item: any) => ({
+      return Array.isArray(data) ? data.map((item: any) => ({
         id: item.id.toString(),
         name: item.name,
         category: item.category,
@@ -122,89 +106,55 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         description: item.description || null,
         available: item.available ?? true
       })) : []
-      
-      setProducts(products)
-    } catch (error) {
-      // Error ya manejado
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadProductsError"),
-        variant: "destructive"
-      })
-      // Set empty array to show the error
-      setProducts([])
-    } finally {
-      setProductsLoading(false)
-    }
-  }
+    },
+  })
 
-  const fetchIngredients = async () => {
-    try {
+  const ingredientsQuery = useQuery<Ingredient[]>({
+    queryKey: ["ingredients", backendUrl, branchId || "all", "bulk"],
+    queryFn: async () => {
       const params = new URLSearchParams({ pageSize: '1000' })
-      if (branchId) {
-        params.set('branch_id', branchId)
-      }
+      if (branchId) params.set('branch_id', branchId)
       const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
-      setIngredients(response.data.ingredients)
-    } catch (error) {
-      // Error ya manejado
-    }
-  }
+      return (response as any).data?.ingredients ?? []
+    },
+  })
 
-  const fetchRecipes = async (productId: string) => {
-    try {
-      const response = await api.get(`${backendUrl}/recipes?productId=${productId}`)
-      setRecipes(response.data)
-    } catch (error) {
-      // Error ya manejado
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadRecipesError"),
-        variant: "destructive"
-      })
-    }
-  }
+  const recipesQuery = useQuery<Recipe[]>({
+    queryKey: ["recipes", backendUrl, selectedProduct?.id ?? ""],
+    queryFn: async () => {
+      const response = await api.get(`${backendUrl}/recipes?productId=${selectedProduct!.id}`)
+      return (response as any).data ?? []
+    },
+    enabled: Boolean(selectedProduct),
+  })
 
-  const fetchCategories = async (currentBranchId: string) => {
-    setCategoriesLoading(true)
-    try {
+  const categoriesQuery = useQuery<Category[]>({
+    queryKey: ["categories", backendUrl, branchId || ""],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${currentBranchId}`, {
-        headers: { ...authHeader }
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      const list = Array.isArray(data?.categories) ? data.categories : []
-      setCategories(list)
-    } catch (_) {
-      setCategories([])
-    } finally {
-      setCategoriesLoading(false)
-    }
-  }
+      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${branchId}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const json = await response.json()
+      return Array.isArray(json?.categories) ? json.categories : []
+    },
+    enabled: Boolean(branchId),
+  })
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      await Promise.all([fetchProducts(), fetchIngredients()])
-      setLoading(false)
-    }
-    loadData()
-  }, [branchId])
+  const products = productsQuery.data ?? []
+  const loading = productsQuery.isLoading || ingredientsQuery.isLoading
+  const productsLoading = productsQuery.isFetching
+  const ingredients = ingredientsQuery.data ?? []
+  const categories = categoriesQuery.data ?? []
+  const categoriesLoading = categoriesQuery.isLoading
+  const recipes = recipesQuery.data ?? []
 
-  useEffect(() => {
-    if (!branchId) {
-      setCategories([])
-      return
-    }
-    fetchCategories(branchId)
-  }, [branchId])
+  const invalidateProducts = () =>
+    queryClient.invalidateQueries({ queryKey: ["products", backendUrl, branchId || "all"] })
+  const invalidateRecipes = () =>
+    queryClient.invalidateQueries({ queryKey: ["recipes", backendUrl, selectedProduct?.id ?? ""] })
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
-    fetchRecipes(product.id)
   }
 
   const handleCreateProduct = async (e: React.FormEvent) => {
@@ -258,16 +208,10 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         description: t("toast.productCreated")
       })
       
-      // Add the new product to the list
-      setProducts(prev => [...prev, product])
-      
-      // Reset form and close modal
+      await invalidateProducts()
       setNewProductForm({ name: '', category: '', price: 0, description: '' })
       setShowProductModal(false)
-      
-      // Auto-select the new product to start configuring its recipe
       setSelectedProduct(product)
-      setRecipes([]) // Start with empty recipe
       
       toast({
         title: t("toast.productSelectedTitle"),
@@ -302,7 +246,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
       setSelectedIngredientId('')
       setQuantity('')
       setShowRecipeModal(false)
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -327,7 +271,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         description: t("toast.quantityUpdated")
       })
       
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -351,7 +295,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         description: t("toast.ingredientDeleted")
       })
       
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -404,7 +348,7 @@ export default function StockManagement({ branchId }: StockManagementProps) {
         <div className="flex gap-2">
           <Button 
             variant="outline" 
-            onClick={fetchProducts}
+            onClick={() => void invalidateProducts()}
             disabled={productsLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${productsLoading ? 'animate-spin' : ''}`} />

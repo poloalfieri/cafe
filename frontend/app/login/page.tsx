@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState } from "react"
+import React, { Suspense, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/auth/supabase-browser"
 
@@ -12,6 +12,13 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get("next")
+  const errorParam = searchParams.get("error")
+  const bannerMessage = useMemo(() => {
+    if (errorParam === "forbidden") {
+      return "No tienes permisos para acceder a esa sección."
+    }
+    return null
+  }, [errorParam])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,6 +51,16 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-4">
         <h1 className="text-2xl font-semibold text-center">Iniciar sesión</h1>
+        {bannerMessage && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {bannerMessage}
+          </div>
+        )}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="email"

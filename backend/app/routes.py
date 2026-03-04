@@ -10,6 +10,13 @@ from .controllers.menu_categories_controller import menu_categories_bp
 from .controllers.ingredients_controller import ingredients_bp
 from .controllers.recipes_controller import recipes_bp
 from .controllers.product_options_controller import product_options_bp
+from .controllers.restaurants_controller import restaurants_bp
+from .controllers.cash_controller import cash_bp
+from .controllers.reports_controller import reports_bp
+from .controllers.stock_movements_controller import stock_movements_bp
+from .controllers.discounts_controller import discounts_bp
+from .controllers.import_controller import import_bp
+from .controllers.split_payment_controller import split_payment_bp
 from .controllers.afip_controller import afip_bp
 
 def register_routes(app):
@@ -25,4 +32,11 @@ def register_routes(app):
     app.register_blueprint(ingredients_bp)
     app.register_blueprint(recipes_bp)
     app.register_blueprint(product_options_bp)
+    app.register_blueprint(restaurants_bp)
+    app.register_blueprint(cash_bp)
+    app.register_blueprint(reports_bp)
+    app.register_blueprint(stock_movements_bp)
+    app.register_blueprint(discounts_bp)
+    app.register_blueprint(import_bp)
+    app.register_blueprint(split_payment_bp)
     app.register_blueprint(afip_bp)

@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -13,18 +14,20 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { api, getClientAuthHeaderAsync } from '@/lib/fetcher'
+import { downloadCsv } from "@/lib/csv"
 import { useTranslations } from "next-intl"
-import { 
-  ChefHat, 
-  Package, 
-  Plus, 
-  Trash2, 
+import {
+  ChefHat,
+  Package,
+  Plus,
+  Trash2,
   DollarSign,
   TrendingUp,
   Calculator,
   Search,
   RefreshCw,
-  ListChecks
+  ListChecks,
+  Download
 } from 'lucide-react'
 import ProductOptionsManagement from './product-options-management'
 
@@ -72,19 +75,13 @@ interface RecipiesManagementProps {
 
 export default function RecipiesManagement({ branchId }: RecipiesManagementProps) {
   const t = useTranslations("admin.recipes")
-  const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [loading, setLoading] = useState(true)
-  const [productsLoading, setProductsLoading] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [showProductModal, setShowProductModal] = useState(false)
   const [selectedIngredientId, setSelectedIngredientId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [productSearch, setProductSearch] = useState('')
-  const [categories, setCategories] = useState<Category[]>([])
-  const [categoriesLoading, setCategoriesLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'recipe' | 'options'>('recipe')
   const [newProductForm, setNewProductForm] = useState<NewProductForm>({
     name: '',
@@ -94,22 +91,17 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
   })
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
 
-  const fetchProducts = async () => {
-    try {
-      setProductsLoading(true)
+  const productsQuery = useQuery<Product[]>({
+    queryKey: ["products", backendUrl, branchId || "all"],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
       const params = branchId ? `?branch_id=${branchId}` : ""
-      const response = await fetch(`${backendUrl}/menu${params}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+      const response = await fetch(`${backendUrl}/menu${params}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
       const data = await response.json()
-      const products = Array.isArray(data) ? data.map((item: any) => ({
+      return Array.isArray(data) ? data.map((item: any) => ({
         id: item.id.toString(),
         name: item.name,
         category: item.category,
@@ -117,83 +109,56 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
         description: item.description || null,
         available: item.available ?? true
       })) : []
-      setProducts(products)
-    } catch (error) {
-      // Error ya manejado
-      toast({ title: t("toast.errorTitle"), description: t("toast.loadProductsError"), variant: "destructive" })
-      setProducts([])
-    } finally {
-      setProductsLoading(false)
-    }
-  }
+    },
+  })
 
-  const fetchIngredients = async () => {
-    try {
+  const ingredientsQuery = useQuery<Ingredient[]>({
+    queryKey: ["ingredients", backendUrl, branchId || "all", "bulk"],
+    queryFn: async () => {
       const params = new URLSearchParams({ pageSize: '1000' })
-      if (branchId) {
-        params.set('branch_id', branchId)
-      }
+      if (branchId) params.set('branch_id', branchId)
       const response = await api.get(`${backendUrl}/ingredients?${params.toString()}`)
-      // API shape: { data: { ingredients: [...] } }
-      const list = (response as any).data?.ingredients || []
-      setIngredients(list)
-    } catch (error) {
-      // Error ya manejado
-    }
-  }
+      return (response as any).data?.ingredients ?? []
+    },
+  })
 
-  const fetchRecipes = async (productId: string) => {
-    try {
-      const response = await api.get(`${backendUrl}/recipes?productId=${productId}`)
-      const data = (response as any).data || []
-      setRecipes(data)
-    } catch (error) {
-      // Error ya manejado
-      toast({ title: t("toast.errorTitle"), description: t("toast.loadRecipesError"), variant: "destructive" })
-    }
-  }
+  const recipesQuery = useQuery<Recipe[]>({
+    queryKey: ["recipes", backendUrl, selectedProduct?.id ?? ""],
+    queryFn: async () => {
+      const response = await api.get(`${backendUrl}/recipes?productId=${selectedProduct!.id}`)
+      return (response as any).data ?? []
+    },
+    enabled: Boolean(selectedProduct),
+  })
 
-  const fetchCategories = async (currentBranchId: string) => {
-    setCategoriesLoading(true)
-    try {
+  const categoriesQuery = useQuery<Category[]>({
+    queryKey: ["categories", backendUrl, branchId || ""],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${currentBranchId}`, {
-        headers: { ...authHeader }
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      const list = Array.isArray(data?.categories) ? data.categories : []
-      setCategories(list)
-    } catch (_) {
-      setCategories([])
-    } finally {
-      setCategoriesLoading(false)
-    }
-  }
+      const response = await fetch(`${backendUrl}/menu-categories?branch_id=${branchId}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
+      const json = await response.json()
+      return Array.isArray(json?.categories) ? json.categories : []
+    },
+    enabled: Boolean(branchId),
+  })
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      await Promise.all([fetchProducts(), fetchIngredients()])
-      setLoading(false)
-    }
-    loadData()
-  }, [branchId])
+  const products = productsQuery.data ?? []
+  const loading = productsQuery.isLoading || ingredientsQuery.isLoading
+  const productsLoading = productsQuery.isFetching
+  const ingredients = ingredientsQuery.data ?? []
+  const categories = categoriesQuery.data ?? []
+  const categoriesLoading = categoriesQuery.isLoading
+  const recipes = recipesQuery.data ?? []
 
-  useEffect(() => {
-    if (!branchId) {
-      setCategories([])
-      return
-    }
-    fetchCategories(branchId)
-  }, [branchId])
+  const invalidateProducts = () =>
+    queryClient.invalidateQueries({ queryKey: ["products", backendUrl, branchId || "all"] })
+  const invalidateRecipes = () =>
+    queryClient.invalidateQueries({ queryKey: ["recipes", backendUrl, selectedProduct?.id ?? ""] })
 
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product)
     setActiveTab('recipe')
-    fetchRecipes(product.id)
   }
 
   const handleCreateProduct = async (e: React.FormEvent) => {
@@ -213,7 +178,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
       }
       const response = await fetch(`${backendUrl}/menu`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           ...await getClientAuthHeaderAsync(),
         },
@@ -232,11 +197,10 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
         available: newProduct.available ?? true
       }
       toast({ title: t("toast.successTitle"), description: t("toast.productCreated") })
-      setProducts(prev => [...prev, product])
+      await invalidateProducts()
       setNewProductForm({ name: '', category: '', price: 0, description: '' })
       setShowProductModal(false)
       setSelectedProduct(product)
-      setRecipes([])
       toast({ title: t("toast.productSelectedTitle"), description: t("toast.productSelectedDescription") })
     } catch (error: any) {
       toast({ title: t("toast.errorTitle"), description: error.message || t("toast.createProductError"), variant: "destructive" })
@@ -256,7 +220,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
       setSelectedIngredientId('')
       setQuantity('')
       setShowRecipeModal(false)
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({ title: t("toast.errorTitle"), description: (error as any).data?.error || t("toast.addIngredientError"), variant: "destructive" })
     }
@@ -271,7 +235,7 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
         quantity: newQuantity
       })
       toast({ title: t("toast.successTitle"), description: t("toast.quantityUpdated") })
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({ title: t("toast.errorTitle"), description: (error as any).data?.error || t("toast.updateRecipeError"), variant: "destructive" })
     }
@@ -282,9 +246,94 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
     try {
       await api.delete(`${backendUrl}/recipes`, { productId: selectedProduct.id, ingredientId })
       toast({ title: t("toast.successTitle"), description: t("toast.ingredientDeleted") })
-      fetchRecipes(selectedProduct.id)
+      await invalidateRecipes()
     } catch (error: any) {
       toast({ title: t("toast.errorTitle"), description: (error as any).data?.error || t("toast.deleteIngredientError"), variant: "destructive" })
+    }
+  }
+
+  const handleExportCsv = async () => {
+    try {
+      if (products.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay productos para exportar recetas",
+          variant: "destructive"
+        })
+        return
+      }
+
+      setExportingCsv(true)
+
+      const responses = await Promise.all(
+        products.map(async (product) => {
+          try {
+            const response = await api.get(`${backendUrl}/recipes?productId=${product.id}`)
+            const data = (response as any).data || []
+            return { product, recipes: data as Recipe[], error: false }
+          } catch {
+            return { product, recipes: [] as Recipe[], error: true }
+          }
+        })
+      )
+
+      const rows: Array<Array<string>> = []
+      for (const item of responses) {
+        const totalCost = item.recipes.reduce((sum, recipe) => {
+          if (recipe.unitCost == null) return sum
+          return sum + (recipe.quantity * recipe.unitCost)
+        }, 0)
+        const margin = item.product.price > 0
+          ? ((item.product.price - totalCost) / item.product.price) * 100
+          : 0
+
+        for (const recipe of item.recipes) {
+          rows.push([
+            item.product.name,
+            item.product.category,
+            recipe.name,
+            recipe.unit,
+            recipe.quantity.toFixed(4),
+            recipe.unitCost != null ? recipe.unitCost.toFixed(4) : "",
+            recipe.unitCost != null ? (recipe.quantity * recipe.unitCost).toFixed(4) : "",
+            item.product.price.toFixed(2),
+            totalCost.toFixed(4),
+            margin.toFixed(2),
+          ])
+        }
+      }
+
+      if (rows.length === 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: "No hay recetas para exportar",
+          variant: "destructive"
+        })
+        return
+      }
+
+      downloadCsv(
+        `recetas_${new Date().toISOString().slice(0, 10)}.csv`,
+        ["producto", "categoria", "ingrediente", "unidad", "cantidad", "costo_unitario", "costo_total_ingrediente", "precio_venta", "costo_total_receta", "margen_pct"],
+        rows
+      )
+
+      const failedProducts = responses.filter((item) => item.error).length
+      if (failedProducts > 0) {
+        toast({
+          title: t("toast.errorTitle"),
+          description: `Se exportó parcialmente. ${failedProducts} producto(s) no pudieron consultarse.`,
+          variant: "destructive"
+        })
+      }
+    } catch {
+      toast({
+        title: t("toast.errorTitle"),
+        description: "No se pudo exportar el CSV",
+        variant: "destructive"
+      })
+    } finally {
+      setExportingCsv(false)
     }
   }
 
@@ -329,9 +378,17 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
           <p className="text-gray-600">{t("header.subtitle")}</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={fetchProducts}
+          <Button
+            variant="outline"
+            onClick={() => void handleExportCsv()}
+            disabled={exportingCsv || loading || productsLoading}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {exportingCsv ? "..." : t("actions.exportCsv")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void invalidateProducts()}
             disabled={productsLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${productsLoading ? 'animate-spin' : ''}`} />
@@ -700,11 +757,11 @@ export default function RecipiesManagement({ branchId }: RecipiesManagementProps
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 sm:gap-3">
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  getMarginPercentage() > 60 ? 'bg-green-100' : 
+                  getMarginPercentage() > 60 ? 'bg-green-100' :
                   getMarginPercentage() > 30 ? 'bg-yellow-100' : 'bg-red-100'
                 }`}>
                   <TrendingUp className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                    getMarginPercentage() > 60 ? 'text-green-600' : 
+                    getMarginPercentage() > 60 ? 'text-green-600' :
                     getMarginPercentage() > 30 ? 'text-yellow-600' : 'text-red-600'
                   }`} />
                 </div>

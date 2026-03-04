@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
  *   scope: "branch"|"restaurant",
  *   source_mode: "self"|"restaurant"|"branch",
  *   source_branch_id?: string,          // when source_mode === "branch"
- *   mercadopago?: { enabled, access_token, public_key, webhook_url, webhook_secret }
+ *   mercadopago?: { enabled, access_token, public_key, webhook_secret }
  * }
  *
  * When source_mode === "branch":
@@ -408,6 +408,12 @@ export async function POST(req: NextRequest) {
     webhookSecret = existingConfig.webhook_secret;
   }
 
+  // Keep existing webhook_url unless explicitly provided by older clients.
+  const webhookUrl =
+    typeof mercadopago.webhook_url === "string"
+      ? mercadopago.webhook_url.trim()
+      : existingConfig?.webhook_url || "";
+
   const now = new Date().toISOString();
 
   if (existingConfig) {
@@ -418,7 +424,7 @@ export async function POST(req: NextRequest) {
         enabled: mercadopago.enabled ?? false,
         access_token: accessToken,
         public_key: mercadopago.public_key || "",
-        webhook_url: mercadopago.webhook_url || "",
+        webhook_url: webhookUrl,
         webhook_secret: webhookSecret,
         updated_at: now,
       })
@@ -441,7 +447,7 @@ export async function POST(req: NextRequest) {
         enabled: mercadopago.enabled ?? false,
         access_token: accessToken,
         public_key: mercadopago.public_key || "",
-        webhook_url: mercadopago.webhook_url || "",
+        webhook_url: webhookUrl,
         webhook_secret: webhookSecret,
         created_at: now,
         updated_at: now,

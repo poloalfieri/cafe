@@ -30,6 +30,16 @@ export async function proxyToBackend(
       headers['X-Internal-Key'] = INTERNAL_PROXY_KEY
     }
 
+    const requestContentType = request.headers.get('content-type')
+    if (requestContentType) {
+      headers['Content-Type'] = requestContentType
+    }
+
+    const accept = request.headers.get('accept')
+    if (accept) {
+      headers['Accept'] = accept
+    }
+
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
     if (authHeader) {
       headers['Authorization'] = authHeader
@@ -59,22 +69,30 @@ export async function proxyToBackend(
       }
     }
 
-    const response = await fetch(url.toString(), fetchOptions)
+    const response = await fetchWithRetry(
+      url.toString(),
+      fetchOptions,
+      request.method
+    )
 
-    const contentType = response.headers.get('content-type')
-    let data
-    
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json()
-    } else {
-      data = await response.text()
+    const responseContentType = response.headers.get('content-type') || ''
+
+    if (responseContentType.includes('application/json')) {
+      const data = await response.json()
+      return NextResponse.json(data, { status: response.status })
     }
 
-    return NextResponse.json(data, {
+    const passthroughHeaders = new Headers()
+    if (responseContentType) passthroughHeaders.set('Content-Type', responseContentType)
+    const disposition = response.headers.get('content-disposition')
+    if (disposition) passthroughHeaders.set('Content-Disposition', disposition)
+    const cacheControl = response.headers.get('cache-control')
+    if (cacheControl) passthroughHeaders.set('Cache-Control', cacheControl)
+
+    const body = await response.arrayBuffer()
+    return new NextResponse(body, {
       status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: passthroughHeaders,
     })
   } catch (error) {
     console.error('Proxy error:', error)
@@ -83,4 +101,50 @@ export async function proxyToBackend(
       { status: 500 }
     )
   }
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  method: string
+): Promise<Response> {
+  const isSafeMethod = method === 'GET' || method === 'HEAD'
+  const maxAttempts = isSafeMethod ? 2 : 1
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fetch(url, options)
+    } catch (error) {
+      lastError = error
+      if (attempt >= maxAttempts || !isTransientProxyError(error)) {
+        throw error
+      }
+      await delay(100 * attempt)
+    }
+  }
+
+  throw lastError ?? new Error('Unexpected proxy fetch error')
+}
+
+function isTransientProxyError(error: unknown): boolean {
+  const text = String(error ?? '').toLowerCase()
+  const cause = (error as { cause?: { code?: string } })?.cause
+  const code = String(cause?.code ?? '').toUpperCase()
+
+  if (code === 'UND_ERR_SOCKET') return true
+  if (code === 'ECONNRESET') return true
+  if (code === 'EPIPE') return true
+  if (code === 'ETIMEDOUT') return true
+  if (code === 'ECONNREFUSED') return true
+
+  return (
+    text.includes('other side closed') ||
+    text.includes('socket hang up') ||
+    text.includes('fetch failed')
+  )
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }

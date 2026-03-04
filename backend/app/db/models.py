@@ -10,9 +10,11 @@ class OrderStatus(enum.Enum):
     PAYMENT_APPROVED = "PAYMENT_APPROVED"
     PAYMENT_REJECTED = "PAYMENT_REJECTED"
     PAID = "PAID"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
     IN_PREPARATION = "IN_PREPARATION"
     READY = "READY"
     DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 class PaymentStatus(enum.Enum):
     PENDING = "pending"
@@ -82,6 +84,7 @@ class Mesa(Base):
     id = Column(Integer, primary_key=True)
     mesa_id = Column(String(50), unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    capacity = Column(Integer, nullable=False, default=4)
     current_token = Column(String(255), nullable=True)
     token_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,7 +1,8 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, KeyRound, Users, UserCheck, Mail, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -32,9 +33,6 @@ interface CashierManagementProps {
 export default function CashierManagement({ branchId }: CashierManagementProps) {
   const t = useTranslations("admin.cashiers")
   const { toast } = useToast()
-  const [cashiers, setCashiers] = useState<Cashier[]>([])
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [loading, setLoading] = useState(true)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [passwordCashierId, setPasswordCashierId] = useState<string | null>(null)
   const [emailEditCashier, setEmailEditCashier] = useState<Cashier | null>(null)
@@ -45,6 +43,36 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
   const [deleting, setDeleting] = useState(false)
 
   const backendUrl = getTenantApiBase()
+  const queryClient = useQueryClient()
+
+  const branchesQuery = useQuery<Branch[]>({
+    queryKey: ["branches", backendUrl],
+    queryFn: async () => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, { headers: authHeader })
+      if (!response.ok) return []
+      const data = await response.json()
+      return Array.isArray(data?.branches) ? data.branches : []
+    },
+  })
+
+  const cashiersQuery = useQuery<Cashier[]>({
+    queryKey: ["cashiers", backendUrl],
+    queryFn: async () => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch("/api/admin/list-cashiers", { headers: authHeader })
+      if (!response.ok) throw new Error("Failed to load cashiers")
+      const data = await response.json()
+      return data.cashiers || []
+    },
+  })
+
+  const branches = branchesQuery.data ?? []
+  const cashiers = cashiersQuery.data ?? []
+  const loading = cashiersQuery.isLoading
+
+  const invalidateCashiers = () =>
+    queryClient.invalidateQueries({ queryKey: ["cashiers", backendUrl] })
 
   const [createForm, setCreateForm] = useState({
     email: "",
@@ -54,50 +82,6 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
 
   const [newPassword, setNewPassword] = useState("")
   const [newEmail, setNewEmail] = useState("")
-
-  useEffect(() => {
-    fetchBranches()
-    fetchCashiers()
-  }, [])
-
-  const fetchBranches = async () => {
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches`, {
-        headers: { ...authHeader },
-      })
-      if (!response.ok) return
-      const data = await response.json()
-      const list = Array.isArray(data?.branches) ? data.branches : []
-      setBranches(list)
-    } catch (_) {
-      // ignore
-    }
-  }
-
-  const fetchCashiers = async () => {
-    setLoading(true)
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch("/api/admin/list-cashiers", {
-        headers: { ...authHeader },
-      })
-      if (!response.ok) {
-        throw new Error("Failed to load cashiers")
-      }
-      const data = await response.json()
-      setCashiers(data.cashiers || [])
-    } catch (error) {
-      console.error(t("errors.fetchCashiers"), error)
-      toast({
-        title: t("toast.errorTitle"),
-        description: t("toast.loadError"),
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCreate = async () => {
     if (!createForm.email || !createForm.password || !createForm.branchId) return
@@ -126,7 +110,7 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
       })
       setCreateForm({ email: "", password: "", branchId: "" })
       setShowCreateDialog(false)
-      fetchCashiers()
+      await invalidateCashiers()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -201,7 +185,7 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
       })
       setNewEmail("")
       setEmailEditCashier(null)
-      fetchCashiers()
+      await invalidateCashiers()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),
@@ -237,7 +221,7 @@ export default function CashierManagement({ branchId }: CashierManagementProps) 
         description: t("toast.deleted"),
       })
       setDeleteCashier(null)
-      fetchCashiers()
+      await invalidateCashiers()
     } catch (error: any) {
       toast({
         title: t("toast.errorTitle"),

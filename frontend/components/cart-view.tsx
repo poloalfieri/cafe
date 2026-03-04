@@ -2,8 +2,8 @@
 
 import React from "react"
 import { getRestaurantSlug } from "@/lib/apiClient"
-import { useState } from "react"
-import { ArrowLeft, Minus, Plus, Trash2, Bell } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ArrowLeft, Minus, Plus, Trash2, Bell, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/cart-context"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -12,7 +12,7 @@ import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
 import { formatSelectedOptionLabel } from "@/lib/product-options"
-import { getMesaSession as resolveMesaSession } from "@/lib/mesa-session"
+import { getMesaSession as resolveMesaSession, refreshMesaSessionToken } from "@/lib/mesa-session"
 
 export default function CartView() {
   const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
@@ -24,12 +24,35 @@ export default function CartView() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [activePromos, setActivePromos] = useState<Array<{ id: string; name: string; type: string; value: number; description: string }>>([])
+  const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[] | null>(null)
   const t = useTranslations("usuario.cart")
   const searchParams = useSearchParams()
   const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
   const branch_id = searchParams.get("branch_id")
+
+  useEffect(() => {
+    if (!branch_id) return
+    const { getTenantApiBase } = require("@/lib/apiClient")
+    const backendUrl = getTenantApiBase()
+    fetch(`${backendUrl}/promotions/public?branch_id=${branch_id}`)
+      .then((r) => r.json())
+      .then((json) => setActivePromos(Array.isArray(json) ? json : []))
+      .catch(() => {})
+  }, [branch_id])
+
+  useEffect(() => {
+    if (!mesa_id || !branch_id) return
+    const fetchMesaInfo = async () => {
+      const session = await refreshMesaSessionToken({ mesa_id, token, branch_id })
+      if (session.allowed_payment_methods) {
+        setAllowedPaymentMethods(session.allowed_payment_methods)
+      }
+    }
+    fetchMesaInfo()
+  }, [mesa_id, branch_id, token])
 
   const getMesaSession = () => resolveMesaSession({ mesa_id, token, branch_id })
   const mesaSession = getMesaSession()
@@ -55,23 +78,57 @@ export default function CartView() {
 
   const handleConfirmCallWaiter = async (data: { message?: string }): Promise<void> => {
     try {
-      const session = getMesaSession()
+      const { apiFetchTenant } = await import('@/lib/apiClient')
+      const sendWaiterCall = async (session: { mesa_id: string; branch_id: string; token: string }) => {
+        await apiFetchTenant('/waiter/calls', {
+          method: "POST",
+          body: JSON.stringify({
+            mesa_id: session.mesa_id,
+            branch_id: session.branch_id,
+            token: session.token,
+            payment_method: "ASSISTANCE",
+            message: data.message || ""
+          }),
+        })
+      }
+
+      let session = await refreshMesaSessionToken({ mesa_id, token, branch_id })
       if (!session.mesa_id || !session.token || !session.branch_id) {
         setShowCallWaiterModal(false)
         return
       }
-      
-      const { apiFetchTenant } = await import('@/lib/apiClient')
-      await apiFetchTenant('/waiter/calls', {
-        method: "POST",
-        body: JSON.stringify({
+
+      try {
+        await sendWaiterCall({
           mesa_id: session.mesa_id,
           branch_id: session.branch_id,
           token: session.token,
-          payment_method: "ASSISTANCE",
-          message: data.message || ""
-        }),
-      })
+        })
+      } catch (error) {
+        const status =
+          typeof error === "object" &&
+          error !== null &&
+          "status" in error
+            ? Number((error as { status?: unknown }).status)
+            : null
+        if (status !== 401) {
+          throw error
+        }
+
+        session = await refreshMesaSessionToken(
+          { mesa_id, token, branch_id },
+          { force: true }
+        )
+        if (!session.mesa_id || !session.token || !session.branch_id) {
+          throw error
+        }
+
+        await sendWaiterCall({
+          mesa_id: session.mesa_id,
+          branch_id: session.branch_id,
+          token: session.token,
+        })
+      }
     } catch (error) {
       // Error already handled silently
     } finally {
@@ -259,6 +316,19 @@ export default function CartView() {
       {/* Footer fijo con total del pedido - solo visible cuando hay productos */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg z-50">
         <div className="container mx-auto px-4 py-4">
+          {/* Banner de promociones activas */}
+          {activePromos.length > 0 && (
+            <div className="mb-3 space-y-1">
+              {activePromos.map((promo) => (
+                <div key={promo.id} className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs text-green-700">
+                  <Tag className="w-3 h-3 flex-shrink-0" />
+                  <span className="font-medium">{promo.name}</span>
+                  {promo.description && <span className="text-green-600">— {promo.description}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Resumen del pedido */}
           <div className="space-y-3 mb-4">
             <div className="flex justify-between">
@@ -318,6 +388,7 @@ export default function CartView() {
         branchId={mesaSession.branch_id || ''}
         mesaToken={mesaSession.token || ''}
         totalAmount={state.total}
+        allowedPaymentMethods={allowedPaymentMethods ?? undefined}
         items={state.items.map((item) => ({
           id: item.id,
           lineId: item.lineId,

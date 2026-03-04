@@ -121,7 +121,12 @@
       "secure": "100% secure",
       "allCards": "All cards accepted",
       "installments": "Installments",
-      "waiterNotifyError": "Error notifying the waiter"
+      "waiterNotifyError": "Error notifying the waiter",
+      "deliveryInfo": "Datos de envío",
+      "customerPhone": "Teléfono",
+      "customerPhonePlaceholder": "Ej: 1155443322",
+      "deliveryAddress": "Dirección de envío",
+      "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA"
     },
     "instructions": {
       "title": "How to use the app?",
@@ -155,7 +160,8 @@
       "actions": {
         "refresh": "Actualizar",
         "logout": "Salir",
-        "loggingOut": "Saliendo..."
+        "loggingOut": "Saliendo...",
+        "exportSales": "Exportar Ventas"
       },
       "metrics": {
         "dailySales": "Ventas del Día",
@@ -169,7 +175,9 @@
       "lowStock": {
         "title": "Stock mínimo alcanzado",
         "description": "Los siguientes ingredientes están en mínimo. Reponer stock y revisar productos.",
-        "stockLine": "{current} / min {min}"
+        "stockLine": "{current} / min {min}",
+        "bannerTitle": "{count} ingrediente(s) con stock crítico",
+        "seeAll": "Ver todos"
       },
       "tabs": {
         "dashboard": "Dashboard",
@@ -181,7 +189,8 @@
         "branches": "Sucursales",
         "analytics": "Analytics",
         "banking": "Cuenta Bancaria",
-        "cashiers": "Cashiers"
+        "cashiers": "Cashiers",
+        "movements": "Movimientos"
       },
       "analytics": {
         "title": "Estadísticas Avanzadas"
@@ -245,6 +254,8 @@
         "cancel": "Cancelar",
         "update": "Actualizar",
         "create": "Crear",
+        "exportCsv": "Exportar CSV",
+        "importCsv": "Importar CSV",
         "activate": "Activar",
         "deactivate": "Desactivar"
       },
@@ -280,6 +291,12 @@
       "empty": {
         "search": "No se encontraron productos",
         "default": "No hay productos registrados"
+      },
+      "importResult": {
+        "title": "Resultado de importación",
+        "summary": "{created} productos creados, {updated} actualizados",
+        "errors": "{count} error(es) encontrado(s)",
+        "errorRow": "Fila {row}"
       }
     },
     "ingredients": {
@@ -309,7 +326,10 @@
         "new": "Nuevo Ingrediente",
         "cancel": "Cancelar",
         "update": "Actualizar",
-        "create": "Crear"
+        "create": "Crear",
+        "exportCsv": "Exportar CSV",
+        "importCsv": "Importar CSV",
+        "downloadTemplate": "Descargar plantilla"
       },
       "dialog": {
         "editTitle": "Editar Ingrediente",
@@ -322,6 +342,8 @@
         "namePlaceholder": "Ej: Café en grano, Leche, Azúcar...",
         "unit": "Unidad de Medida",
         "currentStock": "Stock Actual",
+        "wastePercent": "Porcentaje de desecho (%)",
+        "wastePercentHelp": "Opcional. Si no se carga, se usa 0%.",
         "unitCost": "Costo por Unidad (opcional)",
         "minStock": "Stock Mínimo",
         "trackStock": "Monitorear stock"
@@ -339,6 +361,7 @@
         "name": "Nombre",
         "unit": "Unidad",
         "currentStock": "Stock Actual",
+        "wastePercent": "Desecho %",
         "min": "Mínimo",
         "status": "Estado",
         "unitCost": "Costo Unitario",
@@ -350,6 +373,13 @@
         "prev": "Anterior",
         "next": "Siguiente",
         "status": "Página {page} de {totalPages}"
+      },
+      "importResult": {
+        "title": "Resultado de importación",
+        "summary": "{created} ingredientes creados, {updated} actualizados",
+        "errors": "{count} error(es) encontrado(s)",
+        "errorRow": "Fila {row}",
+        "close": "Cerrar"
       }
     },
     "recipes": {
@@ -383,6 +413,7 @@
         "newProduct": "Nuevo Producto",
         "cancel": "Cancelar",
         "createProduct": "Crear Producto",
+        "exportCsv": "Exportar CSV",
         "addIngredient": "Agregar Ingrediente",
         "add": "Agregar"
       },
@@ -648,7 +679,9 @@
         "endDate": "Fecha de Fin",
         "startTime": "Hora de Inicio",
         "endTime": "Hora de Fin",
-        "allDay": "Promoción todo el día"
+        "allDay": "Promoción todo el día",
+        "isManual": "Aplicar manualmente (solo cajero)",
+        "appliesToAll": "Visible para todos los clientes"
       },
       "status": {
         "active": "🟢 Activa",
@@ -670,18 +703,29 @@
         "subtitle": "Mesas sincronizadas desde la base de datos",
         "add": "Agregar mesa",
         "addTitle": "Nueva mesa",
+        "edit": "Editar mesa",
+        "editTitle": "Editar mesa",
         "mesaId": "Número de mesa",
         "mesaIdPlaceholder": "Ej: 12",
         "activeLabel": "Mesa activa",
+        "capacityLabel": "Capacity (people)",
+        "capacityPlaceholder": "E.g.: 4",
         "create": "Crear mesa",
         "creating": "Creando...",
+        "update": "Guardar cambios",
+        "updating": "Guardando...",
         "branchRequired": "Selecciona una sucursal para crear mesas.",
         "mesaIdRequired": "Ingresa un número de mesa.",
+        "mesaIdInvalid": "El número de mesa debe ser un entero positivo.",
+        "capacityRequired": "Enter the number of people.",
+        "capacityInvalid": "The number of people must be a positive integer.",
         "createError": "No se pudo crear la mesa.",
+        "updateError": "No se pudo actualizar la mesa.",
         "active": "Activa",
         "inactive": "Inactiva",
         "idLabel": "ID: {id}",
         "lastUpdate": "Última actualización: {value}",
+        "capacityValue": "Capacity: {count} people",
         "qrCopy": "Copiar URL QR",
         "qrCopied": "URL copiada",
         "qrMissingData": "Falta branch_id para generar la URL QR de esta mesa.",
@@ -916,6 +960,16 @@
         "dailyRevenue": "Ingresos Diarios (Última Semana)",
         "orderStatus": "Estado de Pedidos",
         "paymentMethods": "Métodos de Pago Más Usados",
+        "topProducts": "Productos más vendidos",
+        "topProductsEmpty": "No hay productos vendidos en este período.",
+        "topProductsQty": "{count} vendidos",
+        "peakHours": "Picos por horario (últimos 30 días)",
+        "topProductsQtyUnits": "{count} unidades",
+        "topProductsQtyOrders": "{count} pedidos",
+        "periodRange": "Últimos {days} días ({from} - {to})",
+        "periodFallback": "Últimos {days} días",
+        "periodAllTime": "Histórico total",
+        "periodAllTimeSince": "Histórico total (desde {from})",
         "usage": "Uso",
         "salesLegend": "Ventas",
         "monthLabel": "Mes: {label}",
@@ -925,6 +979,150 @@
         "statusLabel": "Estado: {label}",
         "transactionsLegend": "Transacciones",
         "methodLabel": "Método: {label}"
+      }
+    },
+    "stockMovements": {
+      "filters": {
+        "type": "Tipo",
+        "allTypes": "Todos los tipos",
+        "dateFrom": "Desde",
+        "dateTo": "Hasta"
+      },
+      "actions": {
+        "refresh": "Actualizar",
+        "exportCsv": "Exportar CSV"
+      },
+      "columns": {
+        "date": "Fecha",
+        "ingredient": "Ingrediente",
+        "type": "Tipo",
+        "qty": "Cantidad",
+        "reason": "Motivo",
+        "source": "Origen"
+      },
+      "empty": "No hay movimientos de stock registrados.",
+      "pagination": {
+        "showing": "Mostrando {from}–{to} de {total}",
+        "prev": "Anterior",
+        "next": "Siguiente"
+      }
+    },
+    "cashRegisters": {
+      "header": {
+        "title": "Cash registers",
+        "subtitle": "Create registers and assign cashiers. A cashier must be assigned to a register to open it."
+      },
+      "noBranchSelected": "Select a branch to manage its registers.",
+      "form": {
+        "nameLabel": "Register name",
+        "namePlaceholder": "E.g. Register 1, Main Register..."
+      },
+      "actions": {
+        "create": "Create register",
+        "creating": "Creating...",
+        "assign": "Assign"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "assigned": {
+        "title": "Assigned cashiers",
+        "placeholder": "Assign cashier..."
+      },
+      "empty": {
+        "noRegisters": "No registers found for this branch.",
+        "noCashiersAvailable": "No cashiers available to assign.",
+        "noCashiersCreated": "First create cashiers in the section above."
+      },
+      "toast": {
+        "successTitle": "Success",
+        "errorTitle": "Error",
+        "createSuccess": "Register created",
+        "createSuccessDescription": "\"{name}\" created successfully.",
+        "createError": "Could not create register",
+        "assignSuccess": "Cashier assigned",
+        "assignSuccessDescription": "{email} assigned to register successfully.",
+        "assignError": "Could not assign cashier",
+        "unassignSuccess": "Assignment removed",
+        "unassignError": "Could not remove assignment",
+        "loadRegistersError": "Could not load cash registers",
+        "loadCashiersError": "Could not load cashiers"
+      }
+    },
+    "cashMonitor": {
+      "header": {
+        "title": "Monitor de caja",
+        "lastUpdated": "Ultima actualizacion: {time} · se refresca cada {seconds}s",
+        "loading": "Cargando..."
+      },
+      "filter": {
+        "all": "Todas las sesiones",
+        "open": "Solo abiertas",
+        "closed": "Solo cerradas"
+      },
+      "actions": {
+        "refresh": "Refrescar"
+      },
+      "noBranchSelected": "Selecciona una sucursal para ver las sesiones de caja.",
+      "empty": {
+        "noSessions": "No hay sesiones de caja registradas."
+      },
+      "status": {
+        "open": "ABIERTA",
+        "closed": "CERRADA"
+      },
+      "movements": {
+        "show": "Ver movimientos",
+        "hide": "Ocultar",
+        "cashIn": "Ingreso efectivo:",
+        "cashOut": "Egreso efectivo:",
+        "empty": "Sin movimientos registrados.",
+        "notImpactsCash": "no afecta efectivo"
+      },
+      "session": {
+        "opening": "Apertura",
+        "closing": "Cierre",
+        "openingAmount": "Monto inicial",
+        "expectedNow": "Esperado ahora",
+        "expectedAtClose": "Esperado al cierre",
+        "expected": "Esperado",
+        "counted": "Contado",
+        "difference": "Diferencia"
+      },
+      "types": {
+        "SALE_IN": "Venta",
+        "REFUND_OUT": "Reembolso",
+        "EXPENSE_OUT": "Gasto",
+        "MANUAL_IN": "Ingreso manual",
+        "MANUAL_OUT": "Egreso manual",
+        "TIP_IN": "Propina"
+      },
+      "errors": {
+        "errorTitle": "Error",
+        "loadSessions": "No se pudieron cargar las sesiones de caja",
+        "loadMovements": "No se pudieron cargar los movimientos"
+      }
+    },
+    "cashSchedule": {
+      "header": {
+        "title": "Horarios de caja",
+        "subtitle": "Configura los horarios esperados de apertura y cierre, y la tolerancia de autocierre."
+      },
+      "noBranchSelected": "Selecciona una sucursal para configurar los horarios.",
+      "form": {
+        "openTime": "Hora de apertura esperada",
+        "closeTime": "Hora de cierre esperada",
+        "graceMinutes": "Tolerancia de autocierre"
+      },
+      "actions": {
+        "save": "Guardar",
+        "saving": "Guardando..."
+      },
+      "toast": {
+        "saveSuccess": "Horarios guardados correctamente",
+        "saveError": "No se pudieron guardar los horarios",
+        "errorTitle": "Error"
       }
     }
   },
@@ -955,16 +1153,55 @@
         "stockLine": "{current} / min {min}"
       },
       "tabs": {
-        "payments": "Pagos ({count})",
+        "payments": "Pedidos ({count})",
         "tables": "Mesas ({count})",
-        "orders": "Pedidos a Realizar ({count})"
+        "orders": "Pedidos a Realizar ({count})",
+        "cash": "Cash Register"
+      },
+      "cash": {
+        "loading": "Cargando caja...",
+        "sessionTitle": "Sesion de caja",
+        "sessionOpenId": "Sesion #{id}",
+        "titlePlaceholder": "Titulo de la sesion (ej: Martes por la manana)",
+        "openSession": "Abrir caja",
+        "closeSession": "Cerrar caja",
+        "addMovement": "Agregar movimiento",
+        "openingAmountPlaceholder": "Monto inicial (opcional)",
+        "closingAmountPlaceholder": "Monto contado al cierre",
+        "expectedNow": "Esperado ahora: ${amount}",
+        "actualOpen": "Apertura real",
+        "manualCloseNotice": "El cierre de caja es manual y lo realiza el cajero.",
+        "movementsTitle": "Movimientos",
+        "noMovements": "Sin movimientos registrados",
+        "refresh": "Actualizar",
+        "movementSaleIn": "Venta",
+        "movementManualIn": "Ingreso manual",
+        "movementManualOut": "Egreso manual",
+        "manualMovementTitle": "Nuevo movimiento manual",
+        "manualIn": "Ingreso manual",
+        "manualOut": "Egreso manual",
+        "movementAmountPlaceholder": "Monto",
+        "movementNotePlaceholder": "Nota (opcional)",
+        "errors": {
+          "loadSession": "No se pudo cargar la sesion de caja",
+          "loadMovements": "No se pudieron cargar los movimientos",
+          "openSession": "No se pudo abrir la caja",
+          "closeSession": "No se pudo cerrar la caja",
+          "createMovement": "No se pudo registrar el movimiento"
+        }
       },
       "payments": {
         "loading": "Cargando solicitudes...",
         "emptyTitle": "No hay solicitudes pendientes",
         "emptySubtitle": "Todas las solicitudes de pago fueron atendidas",
-        "autoRefresh": "Se actualiza automaticamente cada 5 segundos",
+        "autoRefresh": "Cuando haya un pedido se actualiza automaticamente",
         "pendingOrdersTitle": "Pedidos pendientes ({count})",
+        "inPreparationTitle": "En Preparación ({count})",
+        "pendingPaymentTitle": "Pendientes de pago ({count})",
+        "readyAction": "Listo",
+        "readyingAction": "Marcando listo...",
+        "markPaidAction": "Cobrado",
+        "markingPaidAction": "Cobrando...",
         "waiterCallsTitle": "Table requests ({count})",
         "methodLabel": "Payment method",
         "methods": {
@@ -984,7 +1221,25 @@
         "paymentMethodLabel": "Payment method",
         "unknownPaymentMethod": "Unknown",
         "itemsLabel": "Items",
-        "noItems": "No items"
+        "noItems": "No items",
+        "emptySection": "Sin pedidos"
+      },
+      "splitPayment": {
+        "title": "Cobro Parcial",
+        "subtitle": "Selecciona los items a cobrar",
+        "pendingLabel": "Pendiente",
+        "paidLabel": "Pagado",
+        "totalLabel": "Total",
+        "quantityLabel": "Cantidad a cobrar",
+        "selectAll": "Seleccionar Todo",
+        "deselectAll": "Deseleccionar",
+        "paymentMethod": "Medio de Pago",
+        "chargeButton": "Cobrar",
+        "previousPayments": "Pagos Anteriores",
+        "allPaid": "Todos los items fueron cobrados",
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "qr": "QR"
       },
       "tables": {
         "loading": "Cargando mesas...",
@@ -1000,7 +1255,12 @@
         "createOrder": "Crear pedido",
         "statusLabel": "Estado:",
         "active": "Activa",
-        "inactive": "Inactiva"
+        "inactive": "Inactiva",
+        "delete": "Borrar",
+        "deleting": "Borrando...",
+        "confirmDelete": "¿Confirmar borrado de {id}? Esta acción no se puede deshacer.",
+        "deleteSuccess": "{id} eliminada",
+        "deleteError": "No se pudo eliminar la mesa"
       },
       "orders": {
         "loading": "Cargando pedidos...",
@@ -1027,6 +1287,11 @@
           "card": "Card",
           "qr": "QR"
         },
+        "deliveryInfo": "Datos de envío",
+        "customerPhone": "Teléfono del cliente",
+        "customerPhonePlaceholder": "Ej: 1155443322",
+        "deliveryAddress": "Dirección de envío",
+        "deliveryAddressPlaceholder": "Ej: Av. Corrientes 1234, CABA",
         "cancel": "Cancelar",
         "createAction": "Crear pedido",
         "creating": "Creando...",
@@ -1055,11 +1320,15 @@
         "optionsConfirm": "Agregar producto",
         "optionsRequiredNoStock": "El grupo obligatorio \"{group}\" no tiene opciones con stock.",
         "optionsRequiredMissing": "Selecciona al menos una opción en \"{group}\".",
-        "optionsMaxReached": "En \"{group}\" puedes seleccionar hasta {count} opciones."
+        "optionsMaxReached": "En \"{group}\" puedes seleccionar hasta {count} opciones.",
+        "discountLabel": "Descuento del cajero (opcional)",
+        "noDiscount": "Sin descuento",
+        "discountSaving": "Ahorro: ${amount}"
       },
       "status": {
         "available": "Disponible",
         "waitingPayment": "Esperando Pago",
+        "partiallyPaid": "Parcialmente Pagado",
         "paid": "Pagado",
         "preparing": "Preparando",
         "readyToDeliver": "Listo para Entregar",
@@ -1069,6 +1338,7 @@
         "inPreparation": "En Preparación",
         "ready": "Listo",
         "delivered": "Entregado",
+        "cancelled": "Cancelled",
         "unknown": "Desconocido",
         "active": "activa",
         "inactive": "inactiva"
@@ -1089,24 +1359,24 @@
         "changeMesaStatus": "Cambiando estado de mesa {mesaId} a {status}"
       },
       "prebill": {
-        "printedBadge": "Precuenta impresa",
-        "printedAt": "Precuenta impresa: {date}",
+        "printedBadge": "Pre-bill printed",
+        "printedAt": "Pre-bill printed: {date}",
         "dialog": {
-          "completedTitle": "Pedido completado",
-          "askPrint": "¿Querés imprimir la precuenta?",
-          "confirmTitle": "Confirmar impresión",
-          "confirmPrinted": "¿Salió el ticket?",
-          "orderRef": "Pedido #{id}"
+          "completedTitle": "Order completed",
+          "askPrint": "Do you want to print the pre-bill?",
+          "confirmTitle": "Confirm printing",
+          "confirmPrinted": "Did the ticket come out?",
+          "orderRef": "Order #{id}"
         },
         "actions": {
-          "print": "Imprimir precuenta",
-          "skip": "No imprimir",
-          "fiscalPlaceholder": "Imprimir comprobante fiscal (próximamente)",
-          "confirmPrinted": "Sí, salió",
-          "marking": "Marcando...",
-          "retry": "No / Reintentar",
-          "close": "Cerrar",
-          "reprint": "Reimprimir"
+          "print": "Print pre-bill",
+          "skip": "Don't print",
+          "fiscalPlaceholder": "Print fiscal receipt (coming soon)",
+          "confirmPrinted": "Yes, it came out",
+          "marking": "Marking...",
+          "retry": "No / Retry",
+          "close": "Close",
+          "reprint": "Reprint"
         }
       }
     },

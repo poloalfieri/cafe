@@ -1,7 +1,7 @@
 "use client"
 
 import { getTenantApiBase } from "@/lib/apiClient"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useAuth } from "@/contexts/auth-context"
 import {
   LineChart,
@@ -24,18 +24,44 @@ import {
   Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard } from "lucide-react"
+import { Loader2, TrendingUp, DollarSign, ShoppingCart, CreditCard, Clock } from "lucide-react"
 import { useTranslations } from "next-intl"
+
+type MetricsPeriod = { type?: string; days?: number; from?: string; to?: string }
 
 interface MetricsData {
   salesMonthly: { labels: string[]; values: number[] }
-  ordersStatus: { labels: string[]; values: number[] }
+  ordersStatus: {
+    labels: string[]
+    values: number[]
+    period?: MetricsPeriod
+  }
   dailyRevenue: { labels: string[]; values: number[] }
-  paymentMethods: { labels: string[]; values: number[] }
+  paymentMethods: {
+    labels: string[]
+    values: number[]
+    period?: MetricsPeriod
+  }
+  topProducts: {
+    items: Array<{
+      product_id?: string | number
+      name: string
+      quantity: number
+      orders_count?: number
+      image_url?: string | null
+    }>
+    period?: MetricsPeriod
+  }
+  peakHours: { labels: string[]; values: number[] }
 }
 
-function getApiBaseUrl() {
-  return getTenantApiBase()
+const EMPTY_METRICS: MetricsData = {
+  salesMonthly: { labels: [], values: [] },
+  ordersStatus: { labels: [], values: [] },
+  dailyRevenue: { labels: [], values: [] },
+  paymentMethods: { labels: [], values: [] },
+  topProducts: { items: [] },
+  peakHours: { labels: [], values: [] },
 }
 
 const COLORS = {
@@ -47,142 +73,125 @@ const COLORS = {
   warning: "#FFBB28",
 }
 
+const STALE_TIME = 3 * 60 * 60 * 1000 // 3 hours
+
 interface MetricsDashboardProps {
   branchId?: string
 }
 
 export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
   const t = useTranslations("admin.metrics")
-  const [data, setData] = useState<MetricsData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const { session } = useAuth()
-  const inFlightKeyRef = useRef<string | null>(null)
-  const completedKeyRef = useRef<string | null>(null)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const queryClient = useQueryClient()
+  const backendUrl = getTenantApiBase()
+  const tzOffset = -new Date().getTimezoneOffset()
+  const token = session?.accessToken
 
-  const fetchMetricsData = useCallback(async (force = false) => {
-    if (!session?.accessToken) {
-      setError(t("errors.noSession"))
-      setLoading(false)
-      return
-    }
- 
-    const tzOffset = -new Date().getTimezoneOffset()
-    const requestKey = `${session.accessToken}|${branchId || "all"}|${tzOffset}`
-    if (!force && completedKeyRef.current === requestKey) {
-      return
-    }
-    if (inFlightKeyRef.current === requestKey) {
-      return
-    }
-
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    const controller = new AbortController()
-    abortControllerRef.current = controller
-    inFlightKeyRef.current = requestKey
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const endpoints = [
-        "sales-monthly",
-        "orders-status",
-        "daily-revenue",
-        "payment-methods",
-      ]
-
+  const metricsQuery = useQuery<MetricsData>({
+    queryKey: ["metrics-charts", backendUrl, branchId || "all", tzOffset],
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams()
       if (branchId) params.set("branch_id", branchId)
       params.set("tzOffset", String(tzOffset))
       const query = params.toString() ? `?${params.toString()}` : ""
 
+      const endpoints = [
+        "sales-monthly",
+        "orders-status",
+        "daily-revenue",
+        "payment-methods",
+        "top-products",
+        "peak-hours",
+      ]
+
       const results = await Promise.all(
         endpoints.map((endpoint) =>
-          fetch(`${getApiBaseUrl()}/metrics/${endpoint}${query}`, {
+          fetch(`${backendUrl}/metrics/${endpoint}${query}`, {
             headers: {
-              Authorization: `Bearer ${session.accessToken}`,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
-            signal: controller.signal,
+            signal,
           })
             .then((res) => {
-              if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`)
-              }
+              if (!res.ok) throw new Error(`HTTP ${res.status}`)
               return res.json()
             })
             .catch((err) => {
-              if (err?.name === "AbortError") {
-                throw err
-              }
-              return { labels: [], values: [] }
-            }),
-        ),
+              if (err?.name === "AbortError") throw err
+              return null
+            })
+        )
       )
 
-      // Validar que todos los resultados tengan la estructura correcta
-      const validatedResults = results.map((result) => {
+      const validate = (result: any, idx: number): any => {
         if (!result || typeof result !== "object") {
-          return { labels: [], values: [] }
+          return idx === 4 ? { items: [] } : { labels: [], values: [] }
+        }
+        if (idx === 4) {
+          return Array.isArray(result.items) ? result : { items: [] }
         }
         if (!Array.isArray(result.labels) || !Array.isArray(result.values)) {
           return { labels: [], values: [] }
         }
         return result
-      })
+      }
 
-      setData({
-        salesMonthly: validatedResults[0],
-        ordersStatus: validatedResults[1],
-        dailyRevenue: validatedResults[2],
-        paymentMethods: validatedResults[3],
-      })
-      completedKeyRef.current = requestKey
-    } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        setError(t("errors.loadMetrics"))
-      }
-    } finally {
-      if (inFlightKeyRef.current === requestKey) {
-        inFlightKeyRef.current = null
-      }
-      if (abortControllerRef.current === controller) {
-        abortControllerRef.current = null
-      }
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-    }
-  }, [branchId, session?.accessToken, t])
+      const [salesMonthly, ordersStatus, dailyRevenue, paymentMethods, topProducts, peakHours] =
+        results.map(validate)
 
-  useEffect(() => {
-    void fetchMetricsData()
-  }, [fetchMetricsData])
+      return { salesMonthly, ordersStatus, dailyRevenue, paymentMethods, topProducts, peakHours }
+    },
+    enabled: Boolean(token),
+    staleTime: STALE_TIME,
+    retry: false,
+  })
 
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-    }
-  }, [])
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({
+      queryKey: ["metrics-charts", backendUrl, branchId || "all", tzOffset],
+    })
+  }
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS'
+    return new Intl.NumberFormat("es-AR", {
+      style: "currency",
+      currency: "ARS",
     }).format(value)
   }
 
   const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('es-AR').format(value)
+    return new Intl.NumberFormat("es-AR").format(value)
   }
 
-  if (loading) {
+  const formatPeriodDate = (value?: string) => {
+    if (!value) return ""
+    const dt = new Date(`${value}T00:00:00`)
+    if (Number.isNaN(dt.getTime())) {
+      return value
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(dt)
+  }
+
+  const buildPeriodLabel = (period?: MetricsPeriod) => {
+    const from = formatPeriodDate(period?.from)
+    if (period?.type === "all_time") {
+      if (from) {
+        return t("charts.periodAllTimeSince", { from })
+      }
+      return t("charts.periodAllTime")
+    }
+    const days = period?.days || 30
+    const to = formatPeriodDate(period?.to)
+    if (!from || !to) return t("charts.periodFallback", { days })
+    return t("charts.periodRange", { days, from, to })
+  }
+
+  if (metricsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -193,15 +202,13 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     )
   }
 
-  if (error) {
+  if (metricsQuery.isError && !metricsQuery.data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-destructive mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              void fetchMetricsData(true)
-            }}
+          <p className="text-destructive mb-4">{t("errors.loadMetrics")}</p>
+          <button
+            onClick={handleRefresh}
             className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
           >
             {t("actions.retry")}
@@ -211,45 +218,130 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
     )
   }
 
-  if (!data) return null
+  const data = metricsQuery.data ?? EMPTY_METRICS
 
-  // Preparar datos para los gráficos con validación
-  const salesMonthlyData = data.salesMonthly?.labels?.map((label, index) => ({
-    month: label,
-    sales: data.salesMonthly?.values?.[index] || 0
-  })) || []
+  const salesMonthlyData =
+    data.salesMonthly?.labels?.map((label, index) => ({
+      month: label,
+      sales: data.salesMonthly?.values?.[index] || 0,
+    })) || []
 
-  const ordersStatusData = data.ordersStatus?.labels?.map((label, index) => ({
-    status: label,
-    count: data.ordersStatus?.values?.[index] || 0
-  })) || []
+  const ordersStatusData =
+    data.ordersStatus?.labels?.map((label, index) => ({
+      status: label,
+      count: data.ordersStatus?.values?.[index] || 0,
+    })) || []
 
-  const dailyRevenueData = data.dailyRevenue?.labels?.map((label, index) => ({
-    day: label,
-    revenue: data.dailyRevenue?.values?.[index] || 0
-  })) || []
+  const dailyRevenueData =
+    data.dailyRevenue?.labels?.map((label, index) => ({
+      day: label,
+      revenue: data.dailyRevenue?.values?.[index] || 0,
+    })) || []
 
-  const paymentMethodsData = data.paymentMethods?.labels?.map((label, index) => ({
-    method: label,
-    count: data.paymentMethods?.values?.[index] || 0
-  })) || []
+  const paymentMethodsData =
+    data.paymentMethods?.labels?.map((label, index) => ({
+      method: label,
+      count: data.paymentMethods?.values?.[index] || 0,
+    })) || []
+
+  const topProducts = Array.isArray(data.topProducts?.items) ? data.topProducts.items : []
+  const peakHoursData =
+    data.peakHours?.labels?.map((label, index) => ({
+      hour: label,
+      count: data.peakHours?.values?.[index] || 0,
+    })) || []
+
+  const topProductsPeriodLabel = buildPeriodLabel(data.topProducts?.period)
+  const ordersStatusPeriodLabel = buildPeriodLabel(data.ordersStatus?.period)
+  const paymentMethodsPeriodLabel = buildPeriodLabel(data.paymentMethods?.period)
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">{t("header.title")}</h2>
         <button
-          onClick={() => {
-            void fetchMetricsData(true)
-          }}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto"
+          onClick={handleRefresh}
+          disabled={metricsQuery.isFetching}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2 self-start sm:self-auto disabled:opacity-50"
         >
-          <Loader2 className="h-4 w-4" />
+          <Loader2 className={`h-4 w-4 ${metricsQuery.isFetching ? "animate-spin" : ""}`} />
           {t("actions.refresh")}
         </button>
       </div>
 
       <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+        {/* Picos por horario */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              {t("charts.peakHours")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={peakHoursData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip
+                  formatter={(value: number) => [formatNumber(value), t("charts.ordersLegend")]}
+                />
+                <Legend />
+                <Bar dataKey="count" fill={COLORS.warning} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Productos más vendidos */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              {t("charts.topProducts")}
+            </CardTitle>
+            <p className="text-xs text-gray-500">{topProductsPeriodLabel}</p>
+          </CardHeader>
+          <CardContent>
+            {topProducts.length === 0 ? (
+              <p className="text-sm text-gray-500">{t("charts.topProductsEmpty")}</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {topProducts.map((item, index) => (
+                  <div
+                    key={`${item.product_id ?? item.name}-${index}`}
+                    className="flex flex-col items-center text-center gap-2"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center">
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl">🍽️</span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-medium text-gray-800 truncate max-w-[120px]">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        {t("charts.topProductsQtyUnits", { count: Math.round(item.quantity || 0) })}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {t("charts.topProductsQtyOrders", { count: Math.round(item.orders_count || 0) })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Ventas Mensuales - LineChart */}
         <Card className="md:col-span-2">
           <CardHeader>
@@ -264,15 +356,15 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatCurrency(value), t("charts.salesLegend")]}
                   labelFormatter={(label) => t("charts.monthLabel", { label })}
                 />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="sales" 
-                  stroke={COLORS.primary} 
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke={COLORS.primary}
                   strokeWidth={3}
                   dot={{ fill: COLORS.primary, strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6 }}
@@ -296,7 +388,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatCurrency(value), t("charts.revenueLegend")]}
                   labelFormatter={(label) => t("charts.dayLabel", { label })}
                 />
@@ -314,6 +406,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
               <ShoppingCart className="h-5 w-5" />
               {t("charts.orderStatus")}
             </CardTitle>
+            <p className="text-xs text-gray-500">{ordersStatusPeriodLabel}</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -332,7 +425,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                     <Cell key={`cell-${index}`} fill={index === 0 ? COLORS.success : COLORS.danger} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatNumber(value), t("charts.ordersLegend")]}
                   labelFormatter={(label) => t("charts.statusLabel", { label })}
                 />
@@ -349,6 +442,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
               <CreditCard className="h-5 w-5" />
               {t("charts.paymentMethods")}
             </CardTitle>
+            <p className="text-xs text-gray-500">{paymentMethodsPeriodLabel}</p>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -363,7 +457,7 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
                   fill={COLORS.accent}
                   fillOpacity={0.6}
                 />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: number) => [formatNumber(value), t("charts.transactionsLegend")]}
                   labelFormatter={(label) => t("charts.methodLabel", { label })}
                 />
@@ -375,4 +469,4 @@ export default function MetricsDashboard({ branchId }: MetricsDashboardProps) {
       </div>
     </div>
   )
-} 
+}

@@ -53,6 +53,22 @@ def create_ingredient():
         return jsonify({"error": "Error al crear ingrediente"}), 500
 
 
+@ingredients_bp.route("/low-stock", methods=["GET"])
+@require_auth
+@require_roles("desarrollador", "admin")
+def list_low_stock():
+    """Ingredientes con stock <= mínimo, ordenados por mayor déficit primero."""
+    try:
+        branch_id = request.args.get("branch_id")
+        restaurant_id = getattr(g, "restaurant_id", None) or ingredients_service.resolve_restaurant_id(g.user_id)
+        data = ingredients_service.get_low_stock(restaurant_id=restaurant_id, branch_id=branch_id)
+        return jsonify({"data": data}), 200
+    except Exception as e:
+        logger.error(f"Error obteniendo low-stock: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "Error al obtener ingredientes críticos"}), 500
+
+
 @ingredients_bp.route("/<ingredient_id>", methods=["PATCH"])
 @require_auth
 @require_roles("desarrollador", "admin")

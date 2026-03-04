@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 from ..db.supabase_client import supabase
+from ..services.menu_service import menu_service
 from ..utils.retry import execute_with_retry
 from ..utils.units import to_display_unit
 
@@ -71,7 +72,8 @@ class RecipesService:
         # Check if recipe already exists
         existing = (
             supabase.table("recipes")
-            .select("id")
+            .select("product_id, ingredient_id")
+            .eq("restaurant_id", restaurant_id)
             .eq("product_id", product_id)
             .eq("ingredient_id", ingredient_id)
             .limit(1)
@@ -90,6 +92,13 @@ class RecipesService:
         row = (response.data or [None])[0]
         if not row:
             raise Exception("No se pudo agregar el ingrediente a la receta")
+        try:
+            menu_service.sync_unavailable_from_stock(
+                restaurant_id=restaurant_id,
+                product_ids=[int(product_id)],
+            )
+        except Exception:
+            pass
         return row
 
     def update_recipe(self, restaurant_id: str, payload: Dict) -> Dict:
@@ -113,6 +122,13 @@ class RecipesService:
         row = (response.data or [None])[0]
         if not row:
             raise LookupError("Receta no encontrada")
+        try:
+            menu_service.sync_unavailable_from_stock(
+                restaurant_id=restaurant_id,
+                product_ids=[int(product_id)],
+            )
+        except Exception:
+            pass
         return row
 
     def delete_recipe(self, restaurant_id: str, payload: Dict) -> None:
@@ -132,6 +148,13 @@ class RecipesService:
         )
         if not response.data:
             raise LookupError("Receta no encontrada")
+        try:
+            menu_service.sync_unavailable_from_stock(
+                restaurant_id=restaurant_id,
+                product_ids=[int(product_id)],
+            )
+        except Exception:
+            pass
 
 
 recipes_service = RecipesService()

@@ -31,6 +31,7 @@ interface PaymentModalProps {
   branchId: string
   mesaToken: string
   totalAmount: number
+  allowedPaymentMethods?: string[]
   items: Array<{
     id?: string
     lineId?: string
@@ -56,21 +57,32 @@ interface PaymentMethodOption {
   features: string[]
 }
 
-export default function PaymentModal({ 
-  isOpen, 
-  onClose, 
-  onWaiterCalled, 
-  mesaId, 
+const PAYMENT_METHOD_MAP: Record<string, PaymentMethod> = {
+  MERCADOPAGO: 'billetera',
+  CARD: 'tarjeta',
+  CASH: 'efectivo',
+  QR: 'qr',
+}
+
+export default function PaymentModal({
+  isOpen,
+  onClose,
+  onWaiterCalled,
+  mesaId,
   branchId,
-  mesaToken, 
-  totalAmount, 
-  items 
+  mesaToken,
+  totalAmount,
+  allowedPaymentMethods,
+  items
 }: PaymentModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const t = useTranslations('usuario.payment')
+  const isDelivery = mesaId === 'Delivery'
   
   // Detectar si los parámetros de mesa son inválidos
   const hasInvalidParams = !mesaId || !mesaToken || !branchId ||
@@ -190,34 +202,22 @@ export default function PaymentModal({
             selectedOptions: item.selectedOptions || [],
           })),
           token: mesaToken,
-        }),
-      })
-
-      const data = await apiFetchTenant('/waiter/calls', {
-        method: 'POST',
-        body: JSON.stringify({
-          mesa_id: mesaId,
-          branch_id: branchId,
-          token: mesaToken,
           payment_method: paymentMethod,
-          message: `Solicitud de pago - ${paymentMethod}`
+          ...(customerPhone ? { customer_phone: customerPhone } : {}),
+          ...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
         }),
       })
       
-      if (data.success) {
-        const message = t('successWaiter')
-        toast({
-          title: t('waiterCalledTitle'),
-          description: message
-        })
-        if (onWaiterCalled) {
-          onWaiterCalled(message)
-          handleClose()
-        } else {
-          setSuccessMessage(message)
-        }
+      const message = t('successWaiter')
+      toast({
+        title: t('waiterCalledTitle'),
+        description: message
+      })
+      if (onWaiterCalled) {
+        onWaiterCalled(message)
+        handleClose()
       } else {
-        throw new Error(data.error || t('waiterNotifyError'))
+        setSuccessMessage(message)
       }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : t('unknownError'))
@@ -272,6 +272,13 @@ export default function PaymentModal({
     }
   ]
 
+  const filteredPaymentMethods = allowedPaymentMethods
+    ? paymentMethods.filter((m) => {
+        const allowedIds = allowedPaymentMethods.map((key) => PAYMENT_METHOD_MAP[key]).filter(Boolean)
+        return allowedIds.includes(m.id)
+      })
+    : paymentMethods
+
   const handleMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method)
     setSuccessMessage(null)
@@ -290,6 +297,8 @@ export default function PaymentModal({
     setSelectedMethod(null)
     setSuccessMessage(null)
     setErrorMessage(null)
+    setCustomerPhone('')
+    setDeliveryAddress('')
     onClose()
   }
 
@@ -398,13 +407,40 @@ export default function PaymentModal({
             </div>
           )}
 
+          {/* Datos de delivery */}
+          {isDelivery && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+              <h3 className="font-semibold text-blue-900 text-sm">{t('deliveryInfo')}</h3>
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">{t('customerPhone')}</label>
+                <input
+                  type="tel"
+                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                  placeholder={t('customerPhonePlaceholder')}
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600 mb-1 block">{t('deliveryAddress')}</label>
+                <input
+                  type="text"
+                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                  placeholder={t('deliveryAddressPlaceholder')}
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Opciones de pago con iconos más visibles */}
           <div className="space-y-3">
             <h3 className="font-semibold text-gray-900 text-base mb-3">
               {t('howPay')}
             </h3>
             
-            {paymentMethods.map((method) => (
+            {filteredPaymentMethods.map((method) => (
               <Card 
                 key={method.id}
                 className={`transition-all duration-200 border ${

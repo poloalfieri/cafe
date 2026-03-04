@@ -2,14 +2,15 @@
 
 import { getTenantApiBase } from "@/lib/apiClient"
 import { useState, useEffect, useCallback } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { 
-  TrendingUp, 
-  DollarSign, 
-  ShoppingCart, 
-  Users, 
-  Settings, 
+import {
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  Settings,
   Package,
   Clock,
   BarChart3,
@@ -21,6 +22,11 @@ import {
   Archive,
   ChefHat,
   UserPlus,
+  AlertTriangle,
+  Download,
+  X,
+  Activity,
+  UtensilsCrossed,
   FileText,
   History,
 } from "lucide-react"
@@ -35,6 +41,8 @@ import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
 import AfipManagement from "./admin/afip-management"
 import InvoiceHistory from "./admin/invoice-history"
+import CashMonitor from "./admin/cash-monitor"
+import StockMovements from "./admin/stock-movements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
@@ -57,6 +65,17 @@ interface DashboardMetrics {
   }>
 }
 
+const EMPTY_METRICS: DashboardMetrics = {
+  dailySales: 0,
+  weeklySales: 0,
+  monthlySales: 0,
+  totalOrders: 0,
+  averageOrderValue: 0,
+  totalIngredients: 0,
+  lowStockItems: 0,
+  topProducts: [],
+}
+
 function formatCompact(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
   if (value >= 10_000) return `$${(value / 1_000).toFixed(1)}K`
@@ -69,94 +88,53 @@ export default function AdminDashboard() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
+
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null)
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    dailySales: 0,
-    weeklySales: 0,
-    monthlySales: 0,
-    totalOrders: 0,
-    averageOrderValue: 0,
-    totalIngredients: 0,
-    lowStockItems: 0,
-    topProducts: []
-  })
-  const [loading, setLoading] = useState(true)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [lowStock, setLowStock] = useState<Array<{ name: string; currentStock: number; minStock: number }>>([])
-  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
-  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
   const [selectedBranchId, setSelectedBranchId] = useState<string>("")
-  const [branchesReady, setBranchesReady] = useState(false)
+  const [showLowStockDialog, setShowLowStockDialog] = useState(false)
+  const [lowStockBannerDismissed, setLowStockBannerDismissed] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState<"sales" | "stock" | null>(null)
 
   const backendUrl = getTenantApiBase()
+  const tzOffset = -new Date().getTimezoneOffset()
+
+  const branchesQuery = useQuery({
+    queryKey: ["branches", backendUrl],
+    queryFn: async () => {
+      const authHeader = await getClientAuthHeaderAsync()
+      const response = await fetch(`${backendUrl}/branches`, { headers: authHeader })
+      if (!response.ok) return []
+      const json = await response.json()
+      return (Array.isArray(json?.data) ? json.data : []) as Array<{ id: string; name: string }>
+    },
+    retry: false,
+  })
+
+  const branches = branchesQuery.data ?? []
+  const branchesReady = branchesQuery.isSuccess || branchesQuery.isError
+
+  useEffect(() => {
+    if (!selectedBranchId && branches.length > 0) {
+      setSelectedBranchId(branches[0].id)
+    }
+  }, [branches, selectedBranchId])
+
   const isMetricsScopeReady = branchesReady && (branches.length === 0 || Boolean(selectedBranchId))
 
-  useEffect(() => {
-    fetchBranches()
-    // Low stock check on each load
-    ;(async () => {
-      try {
-        const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
-        const list = json.data?.ingredients || []
-        const lows = list.filter((i: any) => i.trackStock && i.currentStock <= i.minStock)
-          .map((i: any) => ({ name: i.name, currentStock: i.currentStock, minStock: i.minStock }))
-        setLowStock(lows)
-        setShowLowStockDialog(lows.length > 0)
-      } catch (_) {}
-    })()
-  }, [])
-
-  useEffect(() => {
-    if (!isMetricsScopeReady) {
-      return
-    }
-    void fetchDashboardData(selectedBranchId || undefined)
-  }, [isMetricsScopeReady, selectedBranchId])
-
-  const fetchBranches = async () => {
-    try {
+  const metricsQuery = useQuery({
+    queryKey: ["metrics", backendUrl, selectedBranchId, tzOffset],
+    queryFn: async () => {
       const authHeader = await getClientAuthHeaderAsync()
-      const response = await fetch(`${backendUrl}/branches`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!response.ok) {
-        setBranches([])
-        return
-      }
-      const data = await response.json()
-      const list = Array.isArray(data?.branches) ? data.branches : []
-      setBranches(list)
-      if (!selectedBranchId && list.length > 0) {
-        setSelectedBranchId(list[0].id)
-      }
-    } catch (_) {
-      // ignore
-    } finally {
-      setBranchesReady(true)
-    }
-  }
-
-  const fetchDashboardData = async (branchId?: string) => {
-    setLoading(true)
-    try {
-      const authHeader = await getClientAuthHeaderAsync()
-      const tzOffset = -new Date().getTimezoneOffset()
       const params = new URLSearchParams()
-      if (branchId) params.set("branch_id", branchId)
+      if (selectedBranchId) params.set("branch_id", selectedBranchId)
       params.set("tzOffset", String(tzOffset))
       const query = params.toString() ? `?${params.toString()}` : ""
-      const summaryResponse = await fetch(`${backendUrl}/metrics/summary${query}`, {
-        headers: {
-          ...authHeader,
-        },
-      })
-      if (!summaryResponse.ok) {
-        throw new Error(`Summary error: ${summaryResponse.status}`)
-      }
-      const summary = await summaryResponse.json()
-      setMetrics({
+      const response = await fetch(`${backendUrl}/metrics/summary${query}`, { headers: authHeader })
+      if (!response.ok) throw new Error(`Summary error: ${response.status}`)
+      const summary = await response.json()
+      return {
         dailySales: summary.dailySales || 0,
         weeklySales: summary.weeklySales || 0,
         monthlySales: summary.monthlySales || 0,
@@ -165,23 +143,34 @@ export default function AdminDashboard() {
         totalIngredients: summary.totalIngredients || 0,
         lowStockItems: summary.lowStockItems || 0,
         topProducts: Array.isArray(summary.topProducts) ? summary.topProducts : [],
-      })
-    } catch (error) {
-      console.error(t("errors.fetchDashboard"), error)
-      setMetrics({
-        dailySales: 0,
-        weeklySales: 0,
-        monthlySales: 0,
-        totalOrders: 0,
-        averageOrderValue: 0,
-        totalIngredients: 0,
-        lowStockItems: 0,
-        topProducts: []
-      })
-    } finally {
-      setLoading(false)
+      } as DashboardMetrics
+    },
+    enabled: isMetricsScopeReady,
+    staleTime: 3 * 60 * 60 * 1000,
+    retry: false,
+  })
+
+  const metrics = metricsQuery.data ?? EMPTY_METRICS
+  const loading = metricsQuery.isFetching
+
+  const lowStockQuery = useQuery({
+    queryKey: ["lowStock"],
+    queryFn: async () => {
+      const json = await api.get(`${backendUrl}/ingredients?page=1&pageSize=1000`)
+      const list: any[] = json.data?.ingredients || []
+      return list
+        .filter((i) => i.trackStock && i.currentStock <= i.minStock)
+        .map((i) => ({ name: i.name as string, currentStock: i.currentStock as number, minStock: i.minStock as number }))
+    },
+  })
+
+  const lowStock = lowStockQuery.data ?? []
+
+  useEffect(() => {
+    if (lowStock.length > 0) {
+      setShowLowStockDialog(true)
     }
-  }
+  }, [lowStock])
 
   const handleLogout = useCallback(async () => {
     try {
@@ -197,10 +186,31 @@ export default function AdminDashboard() {
   }, [pathname, router, searchParams])
 
   const refreshData = () => {
-    if (!isMetricsScopeReady) {
-      return
+    if (!isMetricsScopeReady) return
+    queryClient.invalidateQueries({ queryKey: ["metrics", backendUrl, selectedBranchId] })
+  }
+
+  const handleExportCsv = async (type: "sales" | "stock") => {
+    try {
+      setExportingCsv(type)
+      const authHeader = await getClientAuthHeaderAsync()
+      const params = new URLSearchParams()
+      if (selectedBranchId) params.set("branch_id", selectedBranchId)
+      const path = type === "sales" ? "reports/sales.csv" : "reports/stock.csv"
+      const url = `${backendUrl}/${path}${params.toString() ? "?" + params.toString() : ""}`
+      const res = await fetch(url, { headers: authHeader })
+      if (!res.ok) throw new Error("Error al exportar")
+      const blob = await res.blob()
+      const a = document.createElement("a")
+      a.href = URL.createObjectURL(blob)
+      a.download = `${type}_${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch {
+      // silent fail — el usuario verá que no se descargó nada
+    } finally {
+      setExportingCsv(null)
     }
-    void fetchDashboardData(selectedBranchId || undefined)
   }
 
   return (
@@ -238,6 +248,15 @@ export default function AdminDashboard() {
                 </div>
               )}
               <Button
+                variant="outline"
+                onClick={() => handleExportCsv("sales")}
+                disabled={exportingCsv === "sales"}
+                className="px-3 sm:px-4 py-2 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">{exportingCsv === "sales" ? "..." : t("actions.exportSales")}</span>
+              </Button>
+              <Button
                 onClick={refreshData}
                 disabled={loading || !isMetricsScopeReady}
                 className="bg-primary hover:bg-primary-hover text-white px-3 sm:px-4 py-2 flex items-center gap-2"
@@ -258,15 +277,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* Métricas principales */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
             {([
               { key: "daily", icon: DollarSign, value: metrics.dailySales, isCurrency: true, label: t("metrics.dailySales") },
               { key: "weekly", icon: TrendingUp, value: metrics.weeklySales, isCurrency: true, label: t("metrics.weeklySales") },
               { key: "monthly", icon: BarChart3, value: metrics.monthlySales, isCurrency: true, label: t("metrics.monthlySales") },
-              { key: "orders", icon: ShoppingCart, value: metrics.totalOrders, isCurrency: false, label: t("metrics.totalOrders") },
               { key: "avg", icon: Users, value: metrics.averageOrderValue, isCurrency: true, label: t("metrics.averageTicket") },
-              { key: "ingredients", icon: Archive, value: metrics.totalIngredients, isCurrency: false, label: t("metrics.ingredients") },
-              { key: "lowStock", icon: Package, value: metrics.lowStockItems, isCurrency: false, label: t("metrics.lowStock") },
             ] as const).map((metric) => {
               const Icon = metric.icon
               const fullValue = metric.isCurrency ? `$${metric.value.toFixed(2)}` : metric.value.toString()
@@ -297,8 +313,8 @@ export default function AdminDashboard() {
                         <Icon className="w-5 h-5 text-text" />
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-text">{fullValue}</p>
-                        <p className="text-xs text-muted-foreground">{metric.label}</p>
+                        <p className="text-2xl font-bold text-text truncate">{fullValue}</p>
+                        <p className="text-xs text-muted-foreground truncate">{metric.label}</p>
                       </div>
                     </div>
                   </div>
@@ -308,6 +324,37 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Banner de stock bajo */}
+      {lowStock.length > 0 && !lowStockBannerDismissed && (
+        <div className="bg-red-50 border-b border-red-200">
+          <div className="container mx-auto px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-800">
+                {t("lowStock.bannerTitle", { count: lowStock.length })}
+              </p>
+              <p className="text-xs text-red-700 mt-0.5 truncate">
+                {lowStock.slice(0, 3).map(i => i.name).join(", ")}
+                {lowStock.length > 3 ? ` y ${lowStock.length - 3} más` : ""}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowLowStockDialog(true)}
+              className="text-xs text-red-700 underline whitespace-nowrap flex-shrink-0"
+            >
+              {t("lowStock.seeAll")}
+            </button>
+            <button
+              onClick={() => setLowStockBannerDismissed(true)}
+              className="text-red-500 flex-shrink-0 ml-1"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contenido principal */}
       <div className="container mx-auto px-4 py-6">
@@ -336,48 +383,56 @@ export default function AdminDashboard() {
         </Dialog>
         <Tabs defaultValue="dashboard" className="w-full">
           <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 mb-6">
-            <TabsList className="inline-flex w-auto min-w-full lg:grid lg:w-full lg:grid-cols-10 bg-card border border-border">
-              <TabsTrigger value="dashboard" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+            <TabsList className="flex flex-wrap w-full bg-card border border-border">
+              <TabsTrigger value="dashboard" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <BarChart3 className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.dashboard")}</span>
               </TabsTrigger>
-              <TabsTrigger value="products" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="products" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Package className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.products")}</span>
               </TabsTrigger>
-              <TabsTrigger value="stock" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="stock" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Archive className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.stock")}</span>
               </TabsTrigger>
-              <TabsTrigger value="recipes" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="recipes" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <ChefHat className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.recipes")}</span>
               </TabsTrigger>
-              <TabsTrigger value="promotions" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="promotions" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <TrendingUp className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.promotions")}</span>
               </TabsTrigger>
-              <TabsTrigger value="schedule" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="schedule" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Clock className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.schedule")}</span>
               </TabsTrigger>
-              <TabsTrigger value="branches" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="branches" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <Building className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.branches")}</span>
               </TabsTrigger>
-              <TabsTrigger value="banking" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="banking" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.banking")}</span>
               </TabsTrigger>
-              <TabsTrigger value="cashiers" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="cashiers" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <UserPlus className="w-4 h-4" />
                 <span className="hidden sm:inline">{t("tabs.cashiers")}</span>
               </TabsTrigger>
-              <TabsTrigger value="afip" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="movements" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                <Activity className="w-4 h-4" />
+                <span className="hidden sm:inline">{t("tabs.movements")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="cash-monitor" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                <DollarSign className="w-4 h-4" />
+                <span className="hidden sm:inline">Caja</span>
+              </TabsTrigger>
+              <TabsTrigger value="afip" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">AFIP/ARCA</span>
               </TabsTrigger>
-              <TabsTrigger value="invoices" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+              <TabsTrigger value="invoices" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                 <History className="w-4 h-4" />
                 <span className="hidden sm:inline">Facturas</span>
               </TabsTrigger>
@@ -426,6 +481,14 @@ export default function AdminDashboard() {
             <CashierManagement branchId={selectedBranchId || undefined} />
           </TabsContent>
 
+          <TabsContent value="movements">
+            <StockMovements branchId={selectedBranchId || undefined} />
+          </TabsContent>
+
+          <TabsContent value="cash-monitor">
+            <CashMonitor branchId={selectedBranchId || undefined} />
+          </TabsContent>
+
           <TabsContent value="afip">
             <AfipManagement />
           </TabsContent>
@@ -433,8 +496,9 @@ export default function AdminDashboard() {
           <TabsContent value="invoices">
             <InvoiceHistory />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
   )
-} 
+}
