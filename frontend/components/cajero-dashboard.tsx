@@ -75,7 +75,7 @@ interface DraftOrderItem {
   quantity: number
 }
 
-type PrebillDialogStep = "ASK_PRINT" | "CONFIRM_PRINTED"
+type PrebillDialogStep = "ASK_PRINT" | "INVOICE_CUSTOMER" | "CONFIRM_PRINTED"
 
 const PREBILL_TEXT = {
   printedBadge: "Precuenta impresa",
@@ -143,6 +143,8 @@ export default function CajeroDashboard() {
   const [loadingAfipStatus, setLoadingAfipStatus] = useState(false)
   const [authorizingInvoice, setAuthorizingInvoice] = useState(false)
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [invoiceCustomerCuit, setInvoiceCustomerCuit] = useState("")
+  const [invoiceCustomerIva, setInvoiceCustomerIva] = useState<"CF" | "RI">("CF")
   const [createOrderMesa, setCreateOrderMesa] = useState<Mesa | null>(null)
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [menuLoading, setMenuLoading] = useState(false)
@@ -920,6 +922,8 @@ export default function CajeroDashboard() {
     setMarkingPrebill(false)
     setInvoiceError(null)
     setAuthorizingInvoice(false)
+    setInvoiceCustomerCuit("")
+    setInvoiceCustomerIva("CF")
   }
 
   const startPrebillPrinting = () => {
@@ -953,9 +957,9 @@ export default function CajeroDashboard() {
             total: prebillOrder.total_amount,
           },
           requested_cbte_kind: "auto",
-          customer: {
-            consumidor_final: true,
-          },
+          customer: invoiceCustomerIva === "RI"
+            ? { iva_condition: "RI", cuit: invoiceCustomerCuit }
+            : { consumidor_final: true },
           items: Array.isArray(prebillOrder.items) ? prebillOrder.items : [],
         }),
       })
@@ -1634,12 +1638,16 @@ export default function CajeroDashboard() {
               <DialogTitle>
                 {prebillStep === "ASK_PRINT"
                   ? PREBILL_TEXT.completedTitle
-                  : PREBILL_TEXT.confirmTitle}
+                  : prebillStep === "INVOICE_CUSTOMER"
+                    ? "Datos del cliente"
+                    : PREBILL_TEXT.confirmTitle}
               </DialogTitle>
               <DialogDescription>
                 {prebillStep === "ASK_PRINT"
                   ? PREBILL_TEXT.askPrint
-                  : PREBILL_TEXT.confirmPrinted}
+                  : prebillStep === "INVOICE_CUSTOMER"
+                    ? "Seleccioná el tipo de cliente para la factura."
+                    : PREBILL_TEXT.confirmPrinted}
               </DialogDescription>
             </DialogHeader>
             {prebillOrder ? (
@@ -1655,11 +1663,11 @@ export default function CajeroDashboard() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={authorizeInvoiceAndPrint}
+                  onClick={() => setPrebillStep("INVOICE_CUSTOMER")}
                   className="w-full"
-                  disabled={!afipReady || authorizingInvoice || loadingAfipStatus}
+                  disabled={!afipReady || loadingAfipStatus}
                 >
-                  {authorizingInvoice ? "Autorizando..." : PREBILL_TEXT.invoiceAction}
+                  {PREBILL_TEXT.invoiceAction}
                 </Button>
                 <p className={`text-xs ${afipReady ? "text-emerald-700" : "text-amber-700"}`}>
                   {loadingAfipStatus ? "Verificando AFIP..." : afipStatusMessage}
@@ -1672,6 +1680,70 @@ export default function CajeroDashboard() {
                 <Button type="button" variant="secondary" onClick={resetPrebillDialog} className="w-full">
                   {PREBILL_TEXT.skip}
                 </Button>
+              </div>
+            ) : prebillStep === "INVOICE_CUSTOMER" ? (
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={invoiceCustomerIva === "CF" ? "default" : "outline"}
+                    onClick={() => { setInvoiceCustomerIva("CF"); setInvoiceCustomerCuit("") }}
+                    className="flex-1"
+                  >
+                    Consumidor Final
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={invoiceCustomerIva === "RI" ? "default" : "outline"}
+                    onClick={() => setInvoiceCustomerIva("RI")}
+                    className="flex-1"
+                  >
+                    Resp. Inscripto
+                  </Button>
+                </div>
+                {invoiceCustomerIva === "RI" && (
+                  <div className="space-y-1">
+                    <label htmlFor="invoice-cuit" className="text-sm font-medium">
+                      CUIT del cliente
+                    </label>
+                    <input
+                      id="invoice-cuit"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Ej: 20345678901"
+                      maxLength={11}
+                      value={invoiceCustomerCuit}
+                      onChange={(e) => setInvoiceCustomerCuit(e.target.value.replace(/\D/g, ""))}
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    {invoiceCustomerCuit.length > 0 && invoiceCustomerCuit.length !== 11 && (
+                      <p className="text-xs text-amber-700">El CUIT debe tener 11 dígitos</p>
+                    )}
+                  </div>
+                )}
+                {invoiceError ? (
+                  <div className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">
+                    {invoiceError}
+                  </div>
+                ) : null}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => { setPrebillStep("ASK_PRINT"); setInvoiceError(null) }}
+                    className="flex-1"
+                  >
+                    Volver
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={authorizeInvoiceAndPrint}
+                    disabled={authorizingInvoice || (invoiceCustomerIva === "RI" && invoiceCustomerCuit.length !== 11)}
+                    className="flex-1"
+                  >
+                    {authorizingInvoice ? "Autorizando..." : "Emitir factura"}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2 pt-2">

@@ -26,6 +26,7 @@ interface AfipConfig {
   environment: "homo" | "prod"
   has_certificate: boolean
   has_private_key: boolean
+  cert_not_after: string | null
   ready: boolean
   branches: AfipBranch[]
 }
@@ -43,6 +44,7 @@ const EMPTY_CONFIG: AfipConfig = {
   environment: "homo",
   has_certificate: false,
   has_private_key: false,
+  cert_not_after: null,
   ready: false,
   branches: [],
 }
@@ -387,7 +389,29 @@ export default function AfipManagement() {
             </p>
             <p>Certificado cargado: {config.has_certificate ? "Sí" : "No"}</p>
             <p>Clave cargada: {config.has_private_key ? "Sí" : "No"}</p>
+            {config.cert_not_after && (
+              <p>Certificado vence: {new Date(config.cert_not_after).toLocaleDateString("es-AR")}</p>
+            )}
           </div>
+          {(() => {
+            if (!config.cert_not_after) return null
+            const daysLeft = Math.ceil((new Date(config.cert_not_after).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+            if (daysLeft <= 0) {
+              return (
+                <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 font-medium">
+                  El certificado AFIP expiró hace {Math.abs(daysLeft)} día(s). Renovalo para seguir facturando.
+                </div>
+              )
+            }
+            if (daysLeft <= 30) {
+              return (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 font-medium">
+                  El certificado AFIP vence en {daysLeft} día(s). Renovalo pronto para evitar interrupciones.
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {error ? (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>

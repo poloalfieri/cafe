@@ -21,7 +21,8 @@ import {
   Archive,
   ChefHat,
   UserPlus,
-  FileText
+  FileText,
+  History,
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -33,6 +34,7 @@ import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
 import AfipManagement from "./admin/afip-management"
+import InvoiceHistory from "./admin/invoice-history"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useTranslations } from "next-intl"
@@ -375,6 +377,10 @@ export default function AdminDashboard() {
                 <FileText className="w-4 h-4" />
                 <span className="hidden sm:inline">AFIP/ARCA</span>
               </TabsTrigger>
+              <TabsTrigger value="invoices" className="flex items-center gap-2 whitespace-nowrap data-[state=active]:bg-primary data-[state=active]:text-white">
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">Facturas</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -422,6 +428,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="afip">
             <AfipManagement />
+          </TabsContent>
+
+          <TabsContent value="invoices">
+            <InvoiceHistory />
           </TabsContent>
         </Tabs>
       </div>

@@ -141,6 +141,55 @@ def update_branch_afip_pto_vta(branch_id):
         return jsonify({"error": "No se pudo actualizar configuración AFIP de sucursal"}), 500
 
 
+@afip_bp.route("/api/invoices", methods=["GET"])
+@require_auth
+@require_roles("desarrollador", "admin")
+def list_invoices():
+    try:
+        restaurant_id, auth_error = _resolve_authorized_restaurant()
+        if auth_error:
+            return auth_error
+
+        result = afip_service.list_invoices(
+            restaurant_id=restaurant_id,
+            branch_id=request.args.get("branch_id"),
+            status=request.args.get("status"),
+            cbte_tipo=int(request.args["cbte_tipo"]) if request.args.get("cbte_tipo") else None,
+            date_from=request.args.get("date_from"),
+            date_to=request.args.get("date_to"),
+            limit=min(int(request.args.get("limit", 50)), 200),
+            offset=int(request.args.get("offset", 0)),
+        )
+        return jsonify(result), 200
+    except AfipError as exc:
+        return _afip_error_response(exc)
+    except Exception as exc:
+        logger.error(f"Error listando facturas: {str(exc)}")
+        return jsonify({"error": "No se pudo listar facturas"}), 500
+
+
+@afip_bp.route("/api/invoices/credit-note", methods=["POST"])
+@require_auth
+@require_roles("desarrollador", "admin")
+def authorize_credit_note():
+    try:
+        restaurant_id, auth_error = _resolve_authorized_restaurant()
+        if auth_error:
+            return auth_error
+
+        payload = request.get_json(silent=True) or {}
+        result = afip_service.authorize_credit_note(
+            restaurant_id=restaurant_id,
+            payload=payload,
+        )
+        return jsonify(result), 200
+    except AfipError as exc:
+        return _afip_error_response(exc)
+    except Exception as exc:
+        logger.error(f"Error emitiendo nota de crédito AFIP: {str(exc)}")
+        return jsonify({"error": "No se pudo emitir nota de crédito"}), 500
+
+
 @afip_bp.route("/api/invoices/authorize", methods=["POST"])
 @require_auth
 @require_roles("desarrollador", "admin", "caja")

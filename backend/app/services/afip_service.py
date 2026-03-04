@@ -19,6 +19,7 @@ from .afip import (
     AfipRejectedError,
     build_qr_image_b64,
     build_qr_url,
+    decrypt_str,
     encrypt_str,
 )
 from .afip.wsaa import get_token_sign
@@ -31,6 +32,9 @@ _SIX_DECIMALS = Decimal("0.000001")
 _IVA_ALLOWED = {"MONOTRIBUTO", "RI"}
 _CBTE_KIND_TO_TIPO = {"A": 1, "B": 6, "C": 11}
 _CBTE_TIPO_TO_KIND = {1: "A", 6: "B", 11: "C"}
+_NC_KIND_TO_TIPO = {"A": 3, "B": 8, "C": 13}
+_NC_TIPO_TO_KIND = {3: "A", 8: "B", 13: "C"}
+_ALL_CBTE_TIPO_TO_KIND = {**_CBTE_TIPO_TO_KIND, **_NC_TIPO_TO_KIND}
 _DEFAULT_MON_ID = "PES"
 _DEFAULT_MON_COTIZ = Decimal("1")
 _AR_TZ = ZoneInfo("America/Buenos_Aires")
@@ -329,6 +333,15 @@ class AfipService:
         enabled = bool(config and config.get("enabled"))
         has_any_branch_pto = any(bool(branch.get("effective_afip_pto_vta")) for branch in serialized_branches)
 
+        cert_not_after = None
+        if has_cert:
+            try:
+                cert_pem = decrypt_str(config["cert_pem_enc"])
+                cert_obj = x509.load_pem_x509_certificate(cert_pem.encode("utf-8"))
+                cert_not_after = cert_obj.not_valid_after_utc.isoformat()
+            except Exception:
+                pass
+
         return {
             "configured": bool(config),
             "enabled": enabled,
@@ -337,6 +350,7 @@ class AfipService:
             "environment": (config or {}).get("environment") or "homo",
             "has_certificate": has_cert,
             "has_private_key": has_key,
+            "cert_not_after": cert_not_after,
             "ready": bool(enabled and has_cert and has_key and has_any_branch_pto),
             "branches": serialized_branches,
         }
@@ -788,7 +802,7 @@ class AfipService:
         pto_vta = int(invoice.get("pto_vta") or 0)
         cbte_nro = int(invoice.get("cbte_nro") or 0)
         cbte_tipo = int(invoice.get("cbte_tipo") or 0)
-        kind = _CBTE_TIPO_TO_KIND.get(cbte_tipo, str(cbte_tipo))
+        kind = _ALL_CBTE_TIPO_TO_KIND.get(cbte_tipo, str(cbte_tipo))
         return {
             "cbte": _format_cbte(pto_vta, cbte_nro),
             "cbte_tipo": cbte_tipo,
@@ -994,7 +1008,7 @@ class AfipService:
             "cbte_nro": int(saved_invoice.get("cbte_nro")),
             "pto_vta": int(saved_invoice.get("pto_vta")),
             "cbte_tipo": int(saved_invoice.get("cbte_tipo")),
-            "cbte_kind": _CBTE_TIPO_TO_KIND.get(int(saved_invoice.get("cbte_tipo")), str(saved_invoice.get("cbte_tipo"))),
+            "cbte_kind": _ALL_CBTE_TIPO_TO_KIND.get(int(saved_invoice.get("cbte_tipo")), str(saved_invoice.get("cbte_tipo"))),
             "cae": saved_invoice.get("cae"),
             "cae_vto": str(saved_invoice.get("cae_vto")),
             "qr_url": saved_invoice.get("qr_url"),
@@ -1056,6 +1070,234 @@ class AfipService:
             }
             if order
             else None,
+        }
+
+
+    @staticmethod
+    def list_invoices(
+        restaurant_id: str,
+        branch_id: Optional[str] = None,
+        status: Optional[str] = None,
+        cbte_tipo: Optional[int] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        def _run():
+            query = (
+                supabase.table("invoices")
+                .select("id, restaurant_id, branch_id, order_id, cuit, pto_vta, cbte_tipo, cbte_nro, cae, cae_vto, doc_tipo, doc_nro, imp_total, status, afip_result, afip_err, created_at, associated_invoice_id", count="exact")
+                .eq("restaurant_id", restaurant_id)
+                .order("created_at", desc=True)
+            )
+            if branch_id:
+                query = query.eq("branch_id", branch_id)
+            if status:
+                query = query.eq("status", status.upper())
+            if cbte_tipo is not None:
+                query = query.eq("cbte_tipo", cbte_tipo)
+            if date_from:
+                query = query.gte("created_at", date_from)
+            if date_to:
+                query = query.lte("created_at", date_to + "T23:59:59")
+            query = query.range(offset, offset + limit - 1)
+            return query.execute()
+
+        response = execute_with_retry(_run, retries=1, delay=0.2)
+        rows = response.data or []
+        total = response.count if hasattr(response, "count") and response.count is not None else len(rows)
+
+        items = []
+        for row in rows:
+            ct = int(row.get("cbte_tipo") or 0)
+            is_nc = ct in _NC_TIPO_TO_KIND
+            items.append({
+                **row,
+                "cbte_kind": _ALL_CBTE_TIPO_TO_KIND.get(ct, str(ct)),
+                "is_credit_note": is_nc,
+                "cbte_formatted": _format_cbte(
+                    int(row.get("pto_vta") or 0),
+                    int(row.get("cbte_nro") or 0),
+                ),
+            })
+
+        return {"items": items, "total": total, "limit": limit, "offset": offset}
+
+    @staticmethod
+    def authorize_credit_note(
+        restaurant_id: str,
+        payload: Dict[str, Any],
+        user_branch_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        original_invoice_id = payload.get("invoice_id")
+        if not original_invoice_id:
+            raise AfipError(
+                code="AFIP_INVALID_REQUEST",
+                message="invoice_id de la factura original es requerido",
+                status_code=400,
+            )
+
+        original = AfipService._fetch_invoice(restaurant_id, original_invoice_id, None)
+        if not original:
+            raise AfipError(
+                code="AFIP_NOT_FOUND",
+                message="Factura original no encontrada",
+                status_code=404,
+            )
+        if original.get("status") != "AUTHORIZED":
+            raise AfipError(
+                code="AFIP_INVALID_REQUEST",
+                message="Solo se puede emitir nota de crédito para facturas autorizadas",
+                status_code=400,
+            )
+
+        orig_cbte_tipo = int(original.get("cbte_tipo") or 0)
+        orig_kind = _CBTE_TIPO_TO_KIND.get(orig_cbte_tipo)
+        if not orig_kind:
+            raise AfipError(
+                code="AFIP_INVALID_REQUEST",
+                message=f"Tipo de comprobante original no soportado: {orig_cbte_tipo}",
+                status_code=400,
+            )
+
+        nc_cbte_tipo = _NC_KIND_TO_TIPO[orig_kind]
+        branch_id = original.get("branch_id")
+
+        config_row = AfipService._fetch_config_row(restaurant_id)
+        config = AfipService._ensure_config_ready(config_row)
+        branch, pto_vta, source_branch = AfipService._resolve_effective_pto_vta(
+            restaurant_id, branch_id,
+        )
+
+        doc_tipo = int(original.get("doc_tipo") or 99)
+        doc_nro = int(original.get("doc_nro") or 0)
+
+        totals_payload = payload.get("totals") or {"total": original.get("imp_total")}
+        amounts = AfipService._build_amounts(totals_payload, orig_kind)
+
+        token_sign = get_token_sign(
+            restaurant_id=restaurant_id,
+            environment=config["environment"],
+            service="wsfe",
+        )
+
+        with AfipService._advisory_lock(config["cuit"], pto_vta, nc_cbte_tipo):
+            ultimo_nro = fe_comp_ultimo_autorizado(
+                token=token_sign["token"],
+                sign=token_sign["sign"],
+                cuit=config["cuit"],
+                pto_vta=pto_vta,
+                cbte_tipo=nc_cbte_tipo,
+                environment=config["environment"],
+            )
+            cbte_nro = int(ultimo_nro) + 1
+
+            fe_payload = AfipService._build_fecae_payload(
+                token=token_sign["token"],
+                sign=token_sign["sign"],
+                cuit=config["cuit"],
+                pto_vta=pto_vta,
+                cbte_tipo=nc_cbte_tipo,
+                cbte_nro=cbte_nro,
+                doc_tipo=doc_tipo,
+                doc_nro=doc_nro,
+                amounts=amounts,
+            )
+
+            # Add CbtesAsoc referencing the original invoice
+            fe_detail = fe_payload["FeCAEReq"]["FeDetReq"]["FECAEDetRequest"][0]
+            fe_detail["CbtesAsoc"] = {
+                "CbteAsoc": [{
+                    "Tipo": orig_cbte_tipo,
+                    "PtoVta": int(original.get("pto_vta") or pto_vta),
+                    "Nro": int(original.get("cbte_nro")),
+                    "Cuit": int(config["cuit"]),
+                    "CbteFch": fe_detail["CbteFch"],
+                }]
+            }
+
+            fe_response = fe_cae_solicitar(
+                payload=fe_payload,
+                environment=config["environment"],
+            )
+
+        parsed = AfipService._parse_fe_response(fe_response, cbte_nro)
+        afip_err_text = " | ".join(
+            [f"{err['code']}: {err['message']}" for err in parsed["errors"] if err.get("message")]
+        ).strip()
+
+        if parsed["approved"]:
+            qr_data = {
+                "fecha": _ar_now().strftime("%Y-%m-%d"),
+                "cuit": config["cuit"],
+                "ptoVta": pto_vta,
+                "tipoCmp": nc_cbte_tipo,
+                "nroCmp": parsed["cbte_nro"],
+                "importe": amounts["ImpTotal"],
+                "moneda": amounts["MonId"],
+                "ctz": amounts["MonCotiz"],
+                "tipoDocRec": doc_tipo,
+                "nroDocRec": doc_nro,
+                "codAut": parsed["cae"],
+            }
+            qr_url = build_qr_url(qr_data)
+            qr_image_b64 = build_qr_image_b64(qr_url)
+            status = "AUTHORIZED"
+        else:
+            qr_url = ""
+            qr_image_b64 = ""
+            status = "REJECTED"
+
+        invoice_record = {
+            "restaurant_id": restaurant_id,
+            "branch_id": branch.get("id"),
+            "order_id": original.get("order_id"),
+            "cuit": config["cuit"],
+            "pto_vta": int(pto_vta),
+            "cbte_tipo": int(nc_cbte_tipo),
+            "cbte_nro": int(parsed["cbte_nro"]),
+            "cae": parsed["cae"],
+            "cae_vto": parsed["cae_vto"],
+            "doc_tipo": int(doc_tipo),
+            "doc_nro": int(doc_nro),
+            "imp_total": amounts["ImpTotal"],
+            "mon_id": amounts["MonId"],
+            "mon_cotiz": amounts["MonCotiz"],
+            "status": status,
+            "qr_url": qr_url,
+            "afip_result": parsed["resultado"],
+            "afip_err": afip_err_text or None,
+            "afip_request": fe_payload["FeCAEReq"],
+            "afip_response": fe_response,
+            "associated_invoice_id": original_invoice_id,
+        }
+        saved_invoice = AfipService._persist_invoice(invoice_record)
+
+        if not parsed["approved"]:
+            raise AfipRejectedError(
+                "Nota de crédito rechazada por AFIP",
+                {
+                    "invoice_id": saved_invoice.get("id"),
+                    "cbte_nro": parsed["cbte_nro"],
+                    "cbte_tipo": nc_cbte_tipo,
+                    "errors": parsed["errors"],
+                    "afip_result": parsed["resultado"],
+                    "afip_err": afip_err_text,
+                },
+            )
+
+        return {
+            "invoice_id": saved_invoice.get("id"),
+            "original_invoice_id": original_invoice_id,
+            "cbte_nro": int(saved_invoice.get("cbte_nro")),
+            "pto_vta": int(saved_invoice.get("pto_vta")),
+            "cbte_tipo": int(nc_cbte_tipo),
+            "cbte_kind": f"NC {orig_kind}",
+            "cae": saved_invoice.get("cae"),
+            "cae_vto": str(saved_invoice.get("cae_vto")),
+            "qr_url": saved_invoice.get("qr_url"),
+            "qr_image_b64": qr_image_b64,
         }
 
 
