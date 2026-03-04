@@ -45,6 +45,13 @@ export async function proxyToBackend(
       headers['Authorization'] = authHeader
     }
 
+    const incomingContentType = request.headers.get('content-type')
+    if (incomingContentType) {
+      headers['Content-Type'] = incomingContentType
+    } else if (request.method !== 'GET' && request.method !== 'HEAD') {
+      headers['Content-Type'] = 'application/json'
+    }
+
     const fetchOptions: RequestInit = {
       method: request.method,
       headers,

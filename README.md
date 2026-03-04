@@ -1,3 +1,10 @@
+# Café Platform Notes
+
+For AFIP/ARCA electronic invoicing setup and operator flow, see:
+
+- `README_ADMIN.md` (section **AFIP/ARCA Electronic Invoicing (WSAA + WSFEv1)**)
+- `backend/env.example` for required backend env vars (`AFIP_MASTER_KEY_B64`, etc.)
+
 # Supabase CLI
 
 [![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main) [![Bitbucket Pipelines](https://img.shields.io/bitbucket/pipelines/supabase-cli/setup-cli/master?style=flat-square&label=Bitbucket%20Canary)](https://bitbucket.org/supabase-cli/setup-cli/pipelines) [![Gitlab Pipeline Status](https://img.shields.io/gitlab/pipeline-status/sweatybridge%2Fsetup-cli?label=Gitlab%20Canary)

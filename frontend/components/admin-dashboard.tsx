@@ -26,7 +26,9 @@ import {
   Download,
   X,
   Activity,
-  UtensilsCrossed
+  UtensilsCrossed,
+  FileText,
+  History,
 } from "lucide-react"
 import ProductsManagement from "./admin/products-management"
 import PromotionsManagement from "./admin/promotions-management"
@@ -37,6 +39,8 @@ import BankConfigManagement from "./admin/bank-config-management"
 import IngredientsManagement from "./admin/ingredients-management"
 import RecipiesManagement from "./admin/recipies-management"
 import CashierManagement from "./admin/cashier-management"
+import AfipManagement from "./admin/afip-management"
+import InvoiceHistory from "./admin/invoice-history"
 import CashMonitor from "./admin/cash-monitor"
 import StockMovements from "./admin/stock-movements"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -424,6 +428,14 @@ export default function AdminDashboard() {
                 <DollarSign className="w-4 h-4" />
                 <span className="hidden sm:inline">Caja</span>
               </TabsTrigger>
+              <TabsTrigger value="afip" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">AFIP/ARCA</span>
+              </TabsTrigger>
+              <TabsTrigger value="invoices" className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap min-w-[100px] py-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">Facturas</span>
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -475,6 +487,14 @@ export default function AdminDashboard() {
 
           <TabsContent value="cash-monitor">
             <CashMonitor branchId={selectedBranchId || undefined} />
+          </TabsContent>
+
+          <TabsContent value="afip">
+            <AfipManagement />
+          </TabsContent>
+
+          <TabsContent value="invoices">
+            <InvoiceHistory />
           </TabsContent>
 
         </Tabs>
