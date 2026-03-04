@@ -107,7 +107,7 @@ export default function AdminDashboard() {
       const response = await fetch(`${backendUrl}/branches`, { headers: authHeader })
       if (!response.ok) return []
       const json = await response.json()
-      return (Array.isArray(json?.data) ? json.data : []) as Array<{ id: string; name: string }>
+      return (Array.isArray(json?.branches) ? json.branches : []) as Array<{ id: string; name: string }>
     },
     retry: false,
   })
