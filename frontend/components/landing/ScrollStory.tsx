@@ -20,6 +20,10 @@ const STAGE = {
   zoomEndCashier:    0.85,
 }
 
+// ─── Progreso p de cada stage discreto
+// Stage 0 = hero, Stage 1 = cliente, Stage 2 = cajero
+const STAGE_P = [0, 0.55, 1.0] as const
+
 // ─── Helpers
 function clamp(v: number, min: number, max: number) { return Math.max(min, Math.min(max, v)) }
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
@@ -74,7 +78,9 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
 
   const isActiveRef      = useRef(false)
   const cooldownRef      = useRef(false)
-  const exitedForwardRef = useRef(false)  // true tras completar la historia hacia adelante
+  const exitedForwardRef = useRef(false)     // true tras completar la historia hacia adelante
+  const stageRef         = useRef<0|1|2>(0)  // stage actual: 0=hero, 1=cliente, 2=cajero
+  const animatingRef     = useRef(false)     // true mientras el lerp no llegó al target
   const targetPRef       = useRef(0)
   const currentPRef      = useRef(0)
   const rafRef           = useRef(0)
@@ -113,12 +119,20 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
   }, [])
 
   // ─── Loop RAF con lerp
+  // MAX_STEP controla la velocidad máxima de la animación entre stages.
+  // animatingRef se pone en false cuando el lerp converge → permite el próximo scroll.
   useEffect(() => {
+    const MAX_STEP = 0.007
     const tick = () => {
       const diff = targetPRef.current - currentPRef.current
-      if (Math.abs(diff) > 0.0002) {
-        currentPRef.current += diff * 0.08
+      if (Math.abs(diff) > 0.001) {
+        animatingRef.current = true
+        const raw  = diff * 0.08
+        const step = Math.sign(raw) * Math.min(Math.abs(raw), MAX_STEP)
+        currentPRef.current += step
         applyFrame(currentPRef.current)
+      } else {
+        animatingRef.current = false   // animación terminada, próximo scroll permitido
       }
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -127,12 +141,14 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
   }, [applyFrame])
 
   // ─── Activar: bloquea body, cambia panel a fixed
-  // initialP = 0 → historia hacia adelante (normal)
-  // initialP = 1 → historia al revés (usuario vuelve tras completarla)
-  const activateStory = useCallback((initialP = 0) => {
+  // initialStage = 0 → historia desde el principio (hero)
+  // initialStage = 2 → historia al revés desde el cajero
+  const activateStory = useCallback((initialStage: 0|1|2 = 0) => {
     if (isActiveRef.current || cooldownRef.current) return
     isActiveRef.current      = true
-    exitedForwardRef.current = false   // limpia flag post-historia
+    exitedForwardRef.current = false
+    animatingRef.current     = false
+    stageRef.current         = initialStage
     sectionTopRef.current    = sectionRef.current?.offsetTop ?? 0
 
     if (panelRef.current) {
@@ -150,6 +166,7 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
     document.body.style.top      = `-${scrollY}px`
     document.body.style.width    = "100%"
 
+    const initialP = STAGE_P[initialStage]
     targetPRef.current  = initialP
     currentPRef.current = initialP
     applyFrame(initialP)
@@ -215,111 +232,115 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
     return () => window.removeEventListener("scroll", onScroll)
   }, [activateStory])
 
-  // ─── Wheel → controla el progreso sin que scrollee la página
+  // ─── Wheel → avanza/retrocede un stage por gesto, ignora velocidad/cantidad
   useEffect(() => {
-    const SENSITIVITY = 0.0005
-    let pendingExit: ReturnType<typeof setTimeout> | null = null
-
     const onWheel = (e: WheelEvent) => {
-      // Post-historia: si el usuario scrollea hacia arriba mientras la imagen
-      // zoomeada está visible, re-activamos la historia al revés desde p=1.
+      // Post-historia: scroll arriba → reversa desde stage 2
       if (!isActiveRef.current) {
         if (exitedForwardRef.current && !cooldownRef.current && e.deltaY < 0) {
           const section = sectionRef.current
           if (section) {
             const rect = section.getBoundingClientRect()
-            // La sección ocupa el viewport (usuario en el top de la página)
             if (rect.top >= -10 && rect.bottom >= window.innerHeight * 0.5) {
               e.preventDefault()
-              activateStory(1)   // empieza desde el cajero, va hacia atrás
+              activateStory(2)
             }
           }
         }
         return
       }
+
       e.preventDefault()
-      if (pendingExit !== null) return
+      if (animatingRef.current) return  // esperar a que termine la animación actual
 
-      const delta = e.deltaY * SENSITIVITY
-      const cur   = targetPRef.current
+      const forward   = e.deltaY > 0
+      const newStage  = stageRef.current + (forward ? 1 : -1)
 
-      if (cur <= 0.001 && delta < 0) { exitStory("backward"); return }
+      if (newStage < 0) { exitStory("backward"); return }
+      if (newStage > 2) { exitStory("forward");  return }
 
-      if (cur >= 0.998 && delta > 0) {
-        targetPRef.current  = 1
-        currentPRef.current = 1
-        applyFrame(1)
-        pendingExit = setTimeout(() => { exitStory("forward"); pendingExit = null }, 600)
-        return
-      }
-
-      targetPRef.current = clamp(cur + delta, 0, 1)
+      stageRef.current     = newStage as 0|1|2
+      targetPRef.current   = STAGE_P[newStage]
+      animatingRef.current = true
     }
 
     window.addEventListener("wheel", onWheel, { passive: false })
-    return () => {
-      window.removeEventListener("wheel", onWheel)
-      if (pendingExit) clearTimeout(pendingExit)
-    }
-  }, [applyFrame, exitStory])
+    return () => window.removeEventListener("wheel", onWheel)
+  }, [activateStory, exitStory])
 
-  // ─── Touch → igual que wheel para mobile
+  // ─── Touch → swipe discreto (touchend detecta dirección, ignora velocidad)
   useEffect(() => {
-    let lastY = 0
-    const SENSITIVITY = 0.001
+    let touchStartY = 0
+    const SWIPE_THRESHOLD = 40  // px mínimos para contar como swipe
 
-    const onTouchStart = (e: TouchEvent) => { lastY = e.touches[0].clientY }
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY
+    }
 
+    // onTouchMove solo bloquea el scroll nativo del browser mientras la historia está activa
     const onTouchMove = (e: TouchEvent) => {
+      if (isActiveRef.current) e.preventDefault()
+    }
+
+    const onTouchEnd = (e: TouchEvent) => {
+      const dy = touchStartY - e.changedTouches[0].clientY  // positivo = swipe arriba
+
+      // Post-historia: swipe arriba → reversa desde stage 2
       if (!isActiveRef.current) {
-        if (exitedForwardRef.current && !cooldownRef.current) {
-          const y     = e.touches[0].clientY
-          const delta = lastY - y   // negativo = dedo sube = scroll hacia arriba
-          if (delta < 0) {
-            const section = sectionRef.current
-            if (section) {
-              const rect = section.getBoundingClientRect()
-              if (rect.top >= -10 && rect.bottom >= window.innerHeight * 0.5) {
-                e.preventDefault()
-                lastY = y
-                activateStory(1)
-              }
+        if (exitedForwardRef.current && !cooldownRef.current && dy < -SWIPE_THRESHOLD) {
+          const section = sectionRef.current
+          if (section) {
+            const rect = section.getBoundingClientRect()
+            if (rect.top >= -10 && rect.bottom >= window.innerHeight * 0.5) {
+              activateStory(2)
             }
           }
         }
         return
       }
-      e.preventDefault()
-      const y     = e.touches[0].clientY
-      const delta = (lastY - y) * SENSITIVITY
-      lastY = y
-      const cur = targetPRef.current
-      if (cur <= 0 && delta < 0) { exitStory("backward"); return }
-      if (cur >= 1 && delta > 0) { exitStory("forward");  return }
-      targetPRef.current = clamp(cur + delta, 0, 1)
+
+      if (animatingRef.current) return
+      if (Math.abs(dy) < SWIPE_THRESHOLD) return
+
+      const forward  = dy > 0
+      const newStage = stageRef.current + (forward ? 1 : -1)
+
+      if (newStage < 0) { exitStory("backward"); return }
+      if (newStage > 2) { exitStory("forward");  return }
+
+      stageRef.current     = newStage as 0|1|2
+      targetPRef.current   = STAGE_P[newStage]
+      animatingRef.current = true
     }
 
     window.addEventListener("touchstart", onTouchStart, { passive: true })
     window.addEventListener("touchmove",  onTouchMove,  { passive: false })
+    window.addEventListener("touchend",   onTouchEnd,   { passive: true  })
     return () => {
       window.removeEventListener("touchstart", onTouchStart)
       window.removeEventListener("touchmove",  onTouchMove)
+      window.removeEventListener("touchend",   onTouchEnd)
     }
-  }, [exitStory])
+  }, [activateStory, exitStory])
 
-  // ─── Teclado: flechas / PageDown / PageUp
+  // ─── Teclado: una tecla = un stage
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isActiveRef.current) return
-      const delta =
-        e.key === "ArrowDown" || e.key === "PageDown" ?  0.06 :
-        e.key === "ArrowUp"   || e.key === "PageUp"   ? -0.06 : null
-      if (delta === null) return
+      const forward =
+        e.key === "ArrowDown" || e.key === "PageDown" ? true  :
+        e.key === "ArrowUp"   || e.key === "PageUp"   ? false : null
+      if (forward === null) return
       e.preventDefault()
-      const cur = targetPRef.current
-      if (cur >= 1 && delta > 0) { exitStory("forward");  return }
-      if (cur <= 0 && delta < 0) { exitStory("backward"); return }
-      targetPRef.current = clamp(cur + delta, 0, 1)
+      if (animatingRef.current) return
+
+      const newStage = stageRef.current + (forward ? 1 : -1)
+      if (newStage < 0) { exitStory("backward"); return }
+      if (newStage > 2) { exitStory("forward");  return }
+
+      stageRef.current     = newStage as 0|1|2
+      targetPRef.current   = STAGE_P[newStage]
+      animatingRef.current = true
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
@@ -422,7 +443,7 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
         {/* Overlay cajero */}
         <div
           ref={cashierRef}
-          className="absolute bottom-16 right-8 md:right-16 max-w-xs md:max-w-sm z-20"
+          className="absolute top-24 left-8 md:left-16 max-w-xs md:max-w-sm z-20"
           style={{ opacity: 0 }}
         >
           <div className="bg-black/55 backdrop-blur-md rounded-2xl p-5 md:p-6 border border-white/10 shadow-2xl">
