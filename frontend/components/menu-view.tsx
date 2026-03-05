@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, Search, Plus, Minus, Trash2, SlidersHorizontal, X, Loader2, Check } from "lucide-react"
+import { Bell, Search, Plus, Minus, Trash2, SlidersHorizontal, X, Loader2, Check, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart, Product } from "@/contexts/cart-context"
 import CallWaiterModal from "./call-waiter-modal"
@@ -56,6 +56,7 @@ export default function MenuView() {
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([])
   const [selectedOptionIds, setSelectedOptionIds] = useState<Record<string, string[]>>({})
   const [optionsLoadingProductId, setOptionsLoadingProductId] = useState<string | null>(null)
+  const [activePromos, setActivePromos] = useState<Array<{ id: string; name: string; type: string; value: number; description: string; applicable_products: string[] | null }>>([])
   const t = useTranslations("usuario.menu")
   useEffect(() => {
     setSelectedCategory(t("all"))
@@ -111,6 +112,20 @@ export default function MenuView() {
   useEffect(() => {
     fetchProducts()
   }, [])
+
+  useEffect(() => {
+    if (!branch_id) return
+    const fetchPromos = async () => {
+      try {
+        const { getTenantApiBase } = await import("@/lib/apiClient")
+        const backendUrl = getTenantApiBase()
+        const res = await fetch(`${backendUrl}/promotions/public?branch_id=${branch_id}`)
+        const json = await res.json()
+        setActivePromos(Array.isArray(json) ? json : [])
+      } catch {}
+    }
+    fetchPromos()
+  }, [branch_id])
 
   // Filtrar productos basado en categoría, búsqueda y disponibilidad
   // y ordenar alfabéticamente por nombre dentro de cada categoría
@@ -440,6 +455,64 @@ export default function MenuView() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">{t("exploreTitle")}</h1>
           <p className="text-gray-600 text-sm">{t("exploreSubtitle")}</p>
         </div>
+
+        {/* Promotions Banner */}
+        {activePromos.length > 0 && (
+          <div className="mb-6 space-y-3">
+            {activePromos.map((promo) => {
+              const promoProductNames = (promo.applicable_products || [])
+                .map((pid) => products.find((p) => String(p.id) === String(pid)))
+                .filter(Boolean)
+                .map((p) => p!.name)
+
+              const badge =
+                promo.type === "2x1"
+                  ? "2×1"
+                  : promo.type === "combo"
+                    ? `$${promo.value}`
+                    : `${promo.value}% OFF`
+
+              return (
+                <div
+                  key={promo.id}
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500 to-pink-500 p-[1px]"
+                >
+                  <div className="relative rounded-2xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-4 sm:px-5">
+                    {/* Badge */}
+                    <span className="absolute top-3 right-3 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1 text-sm font-extrabold text-white tracking-wide">
+                      {badge}
+                    </span>
+
+                    {/* Content */}
+                    <div className="pr-16">
+                      <p className="text-base font-bold text-white leading-tight">
+                        {promo.name}
+                      </p>
+                      {promo.description && (
+                        <p className="mt-0.5 text-sm text-white/80 leading-snug">
+                          {promo.description}
+                        </p>
+                      )}
+                      {promoProductNames.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {promoProductNames.map((name) => (
+                            <span
+                              key={name}
+                              className="inline-block rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-0.5 text-xs font-medium text-white"
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Categories - Single chip status + Filters button */}
         <div className="sticky top-[73px] bg-gray-50 z-40 w-full overflow-hidden">
           <div className="w-full px-4 py-3">

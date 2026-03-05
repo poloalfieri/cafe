@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, g, request
 import traceback
 from ..middleware.auth import require_auth, require_roles
 from ..services.promotions_service import promotions_service
+from ..services.promotion_engine import apply_promotions_to_items
 from ..db.supabase_client import supabase
 from ..utils.logger import setup_logger
 
@@ -31,18 +32,70 @@ def list_public_promotions():
         branch_id = request.args.get("branch_id")
         if not branch_id:
             return jsonify([]), 200
-        q = (
+        select_cols = "id, name, type, value, description, applicable_products"
+        resp_branch = (
             supabase.table("promotions")
-            .select("id, name, type, value, description")
+            .select(select_cols)
             .eq("active", True)
             .eq("applies_to_all", True)
+            .eq("branch_id", branch_id)
+            .execute()
         )
-        q = q.eq("branch_id", branch_id)
-        resp = q.execute()
-        return jsonify(resp.data or []), 200
+        resp_global = (
+            supabase.table("promotions")
+            .select(select_cols)
+            .eq("active", True)
+            .eq("applies_to_all", True)
+            .is_("branch_id", "null")
+            .execute()
+        )
+        seen = set()
+        result = []
+        for p in (resp_branch.data or []) + (resp_global.data or []):
+            if p["id"] not in seen:
+                seen.add(p["id"])
+                result.append(p)
+        return jsonify(result), 200
     except Exception as e:
         logger.error(f"Error listando promotions públicas: {str(e)}")
         return jsonify([]), 200
+
+
+@promotions_bp.route("/preview", methods=["POST"])
+def preview_promotions():
+    """Calcula preview de promociones para items del carrito (sin auth, público)."""
+    try:
+        payload = request.get_json() or {}
+        branch_id = payload.get("branch_id")
+        items = payload.get("items", [])
+        if not branch_id or not items:
+            return jsonify({"items": items, "savings": []}), 200
+
+        # Resolver restaurant_id desde branch_id
+        branch_resp = (
+            supabase.table("branches")
+            .select("restaurant_id")
+            .eq("id", branch_id)
+            .limit(1)
+            .execute()
+        )
+        branch = (branch_resp.data or [None])[0]
+        if not branch:
+            return jsonify({"items": items, "savings": []}), 200
+
+        restaurant_id = branch["restaurant_id"]
+        logger.info(f"Preview: restaurant_id={restaurant_id}, branch_id={branch_id}, items_count={len(items)}")
+        promo_items, savings_summary = apply_promotions_to_items(
+            items=items,
+            restaurant_id=restaurant_id,
+            branch_id=branch_id,
+        )
+        logger.info(f"Preview result: savings={savings_summary}")
+        return jsonify({"items": promo_items, "savings": savings_summary}), 200
+    except Exception as e:
+        logger.error(f"Error en preview de promociones: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"items": [], "savings": []}), 200
 
 
 @promotions_bp.route("", methods=["POST"])

@@ -5,6 +5,9 @@ Procesa los ítems de un pedido y aplica descuentos según las promotions activa
 from datetime import datetime, timezone, time as dt_time
 from typing import Dict, List, Tuple
 from .promotions_service import promotions_service
+from ..utils.logger import setup_logger
+
+_logger = setup_logger(__name__)
 
 
 def _current_time() -> dt_time:
@@ -40,6 +43,18 @@ def _in_time_window(promotion: Dict) -> bool:
         return True
 
 
+def _is_active_day(promotion: Dict) -> bool:
+    """Verifica si hoy es un día activo para la promotion según days_of_week."""
+    days = promotion.get("days_of_week")
+    if not days:
+        return True  # null = todos los días
+    # Python weekday(): Monday=0..Sunday=6
+    # Nuestra convención: 0=Domingo, 1=Lunes...6=Sábado
+    today_py = datetime.now(timezone.utc).weekday()  # 0=Mon
+    today_mapped = (today_py + 1) % 7  # Mon=1, Tue=2...Sat=6, Sun=0
+    return today_mapped in days
+
+
 def _in_date_range(promotion: Dict) -> bool:
     """Verifica si la fecha actual está dentro del rango start_date–end_date."""
     start_d = promotion.get("start_date")
@@ -69,6 +84,9 @@ def apply_promotions_to_items(
         - savings_summary: [{id, name, type, saving_amount}]
     """
     promotions = promotions_service.list_active_for_branch(restaurant_id, branch_id)
+    _logger.info(f"Engine: found {len(promotions)} promos for restaurant={restaurant_id} branch={branch_id}")
+    for p in promotions:
+        _logger.info(f"  Promo: id={p.get('id')} name={p.get('name')} type={p.get('type')} active={p.get('active')} is_manual={p.get('is_manual')} branch_id={p.get('branch_id')} applicable_products={p.get('applicable_products')}")
     if not promotions:
         return _items_with_final_price(items), []
 
@@ -86,6 +104,8 @@ def apply_promotions_to_items(
         if not promo.get("active"):
             continue
         if not _in_date_range(promo):
+            continue
+        if not _is_active_day(promo):
             continue
 
         promo_type = promo.get("type", "")
@@ -117,19 +137,35 @@ def apply_promotions_to_items(
                 savings[promo_id] = savings.get(promo_id, 0) + discount_unit * int(it.get("quantity", 1))
 
         elif promo_type == "2x1":
-            # Por cada par de ítems elegibles el segundo sale gratis (precio unitario)
+            # Cross-product 2x1: de cada par de unidades elegibles, la más barata es gratis
             eligible = [it for it in result_items if _promotion_applies_to_item(promo, it.get("id"))]
+            # Expandir a unidades individuales ordenadas por precio ascendente
+            units = []
             for it in eligible:
                 qty = int(it.get("quantity", 1))
                 unit_price = float(it.get("price", 0))
-                free_units = qty // 2  # por cada 2 uno gratis
-                if free_units > 0:
-                    discount_total = round(unit_price * free_units, 2)
-                    per_unit_discount = round(discount_total / qty, 2)
-                    it["finalPrice"] = round(it["finalPrice"] - per_unit_discount, 2)
-                    it["discountAmount"] = round(it.get("discountAmount", 0) + per_unit_discount, 2)
-                    it["promotionId"] = promo_id
-                    savings[promo_id] = savings.get(promo_id, 0) + discount_total
+                for _ in range(qty):
+                    units.append({"item": it, "price": unit_price})
+            units.sort(key=lambda u: u["price"])
+            total_units = len(units)
+            free_count = total_units // 2
+            if free_count > 0:
+                # Las free_count unidades más baratas son gratis
+                free_units = units[:free_count]
+                # Acumular descuento por item
+                discount_per_item: Dict[int, float] = {}
+                for u in free_units:
+                    item_idx = id(u["item"])
+                    discount_per_item[item_idx] = discount_per_item.get(item_idx, 0) + u["price"]
+                for it in eligible:
+                    disc = discount_per_item.get(id(it), 0)
+                    if disc > 0:
+                        qty = int(it.get("quantity", 1))
+                        per_unit_discount = round(disc / qty, 2)
+                        it["finalPrice"] = round(it["finalPrice"] - per_unit_discount, 2)
+                        it["discountAmount"] = round(it.get("discountAmount", 0) + per_unit_discount, 2)
+                        it["promotionId"] = promo_id
+                        savings[promo_id] = savings.get(promo_id, 0) + disc
 
         elif promo_type == "combo":
             # Verificar si todos los productos del combo están en el pedido con cantidad suficiente

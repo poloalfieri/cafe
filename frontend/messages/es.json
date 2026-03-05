@@ -60,7 +60,10 @@
       "total": "Total",
       "pay": "Pagar",
       "missingMesa": "Error: Faltan datos de la mesa o token QR.",
-      "paymentProcessed": "Pago procesado. ID del pedido: {orderId}"
+      "paymentProcessed": "Pago procesado. ID del pedido: {orderId}",
+      "youSave": "Ahorras",
+      "promoApplied": "Promo aplicada",
+      "savings": "Ahorro por promociones"
     },
     "waiter": {
       "title": "Llamar al Mozo",
@@ -687,10 +690,50 @@
         "active": "🟢 Activa",
         "inactive": "⚪ Inactiva"
       },
+      "productSelection": {
+        "title": "Productos Aplicables",
+        "all": "Todos los productos",
+        "specific": "Productos específicos",
+        "byCategory": "Por categoría",
+        "searchPlaceholder": "Buscar productos...",
+        "selectedCount": "{count} producto(s) seleccionado(s)",
+        "noProducts": "No se encontraron productos",
+        "selectProducts": "Seleccionar productos"
+      },
+      "comboBuilder": {
+        "title": "Productos del Combo",
+        "addProduct": "Agregar producto",
+        "product": "Producto",
+        "quantity": "Cantidad",
+        "unitPrice": "Precio Unit.",
+        "subtotal": "Subtotal",
+        "normalPrice": "Precio normal",
+        "comboPrice": "Precio combo",
+        "savings": "Ahorro",
+        "selectProduct": "Seleccionar producto",
+        "noItems": "Agrega productos para armar el combo"
+      },
+      "daysOfWeek": {
+        "title": "Días de la semana",
+        "allDays": "Todos los días",
+        "sun": "Dom",
+        "mon": "Lun",
+        "tue": "Mar",
+        "wed": "Mié",
+        "thu": "Jue",
+        "fri": "Vie",
+        "sat": "Sáb"
+      },
       "card": {
         "period": "Período",
         "schedule": "Horario",
-        "value": "Valor"
+        "value": "Valor",
+        "products": "Productos",
+        "allProducts": "Todos los productos",
+        "productsCount": "{count} producto(s)",
+        "categories": "Categorías: {categories}",
+        "comboContents": "Contenido del combo",
+        "activeDays": "Días activos"
       },
       "empty": {
         "title": "No hay promociones",

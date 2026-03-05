@@ -2,7 +2,7 @@
 
 import React from "react"
 import { getRestaurantSlug } from "@/lib/apiClient"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { ArrowLeft, Minus, Plus, Trash2, Bell, Tag } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useCart } from "@/contexts/cart-context"
@@ -13,6 +13,23 @@ import PaymentModal from "./payment-modal"
 import { useTranslations } from "next-intl"
 import { formatSelectedOptionLabel } from "@/lib/product-options"
 import { getMesaSession as resolveMesaSession, refreshMesaSessionToken } from "@/lib/mesa-session"
+
+interface PromoPreviewItem {
+  id: number | string
+  lineId?: string
+  name: string
+  price: number
+  quantity: number
+  finalPrice: number
+  discountAmount: number
+  promotionId?: string | null
+}
+
+interface SavingSummary {
+  id: string
+  name: string
+  saving_amount: number
+}
 
 export default function CartView() {
   const slug = typeof window !== "undefined" ? getRestaurantSlug() : ""
@@ -26,12 +43,19 @@ export default function CartView() {
   const [success, setSuccess] = useState("")
   const [activePromos, setActivePromos] = useState<Array<{ id: string; name: string; type: string; value: number; description: string }>>([])
   const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[] | null>(null)
+  const [promoItems, setPromoItems] = useState<PromoPreviewItem[]>([])
+  const [savingsSummary, setSavingsSummary] = useState<SavingSummary[]>([])
   const t = useTranslations("usuario.cart")
   const searchParams = useSearchParams()
   const router = useRouter()
   const mesa_id = searchParams.get("mesa_id")
   const token = searchParams.get("token")
-  const branch_id = searchParams.get("branch_id")
+  const branch_id_param = searchParams.get("branch_id")
+  const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Fallback: si no hay branch_id en URL, usar la mesa session guardada
+  const resolvedSession = resolveMesaSession({ mesa_id, token, branch_id: branch_id_param })
+  const branch_id = branch_id_param || resolvedSession.branch_id
 
   useEffect(() => {
     if (!branch_id) return
@@ -42,6 +66,48 @@ export default function CartView() {
       .then((json) => setActivePromos(Array.isArray(json) ? json : []))
       .catch(() => {})
   }, [branch_id])
+
+  // Fetch promotion preview whenever cart items change
+  const fetchPreview = useCallback(async () => {
+    if (!branch_id || state.items.length === 0) {
+      setPromoItems([])
+      setSavingsSummary([])
+      return
+    }
+    try {
+      const { getTenantApiBase } = require("@/lib/apiClient")
+      const backendUrl = getTenantApiBase()
+      const items = state.items.map((item) => ({
+        id: item.id,
+        lineId: item.lineId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        basePrice: item.basePrice,
+        selectedOptions: item.selectedOptions,
+      }))
+      const response = await fetch(`${backendUrl}/promotions/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch_id, items }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setPromoItems(data.items || [])
+        setSavingsSummary(data.savings || [])
+      }
+    } catch {
+      // Silent fail - show original prices
+    }
+  }, [branch_id, state.items])
+
+  useEffect(() => {
+    if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current)
+    previewTimeoutRef.current = setTimeout(fetchPreview, 300)
+    return () => {
+      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current)
+    }
+  }, [fetchPreview])
 
   useEffect(() => {
     if (!mesa_id || !branch_id) return
@@ -136,6 +202,13 @@ export default function CartView() {
     }
   }
 
+  // Helper: get promo info for a cart item
+  const getPromoForItem = (lineId: string) => {
+    return promoItems.find((pi) => pi.lineId === lineId)
+  }
+
+  const totalSavings = savingsSummary.reduce((sum, s) => sum + s.saving_amount, 0)
+
   if (state.items.length === 0) {
     return (
       <div className="min-h-screen bg-background">
@@ -151,10 +224,10 @@ export default function CartView() {
                 </Link>
                 <h1 className="text-xl font-bold text-text">{t("title")}</h1>
               </div>
-              <Button 
+              <Button
                 onClick={handleCallWaiter}
-                variant="ghost" 
-                size="icon" 
+                variant="ghost"
+                size="icon"
                 className="rounded-full hover:bg-secondary"
               >
                 <Bell className="w-5 h-5 text-text" />
@@ -186,6 +259,8 @@ export default function CartView() {
 
   const totalItems = state.items.reduce((sum, item) => sum + item.quantity, 0)
   const subtotal = state.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const totalAfterPromos = totalSavings > 0 ? subtotal - totalSavings : subtotal
+  const displayTotal = Math.max(0, totalAfterPromos + state.serviceCharge)
 
   return (
     <div className="min-h-screen bg-background pb-48">
@@ -205,7 +280,7 @@ export default function CartView() {
               <span className="bg-primary text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-medium">
                 {totalItems}
               </span>
-              <Button 
+              <Button
                 onClick={clearCart}
                 variant="ghost"
                 size="icon"
@@ -213,10 +288,10 @@ export default function CartView() {
               >
                 <Trash2 className="w-5 h-5" />
               </Button>
-              <Button 
+              <Button
                 onClick={handleCallWaiter}
-                variant="ghost" 
-                size="icon" 
+                variant="ghost"
+                size="icon"
                 className="rounded-full hover:bg-secondary"
               >
                 <Bell className="w-5 h-5 text-text" />
@@ -241,65 +316,91 @@ export default function CartView() {
 
         {/* Cart Items */}
         <div className="space-y-4 mb-6">
-          {state.items.map((item) => (
-            <div key={item.lineId} className="bg-card rounded-xl p-4 shadow-sm border border-border">
-              <div className="flex items-center gap-4">
-                {/* Product Image */}
-                <div className="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
-                  {item.image ? (
-                    <img 
-                      src={item.image} 
-                      alt={item.name}
-                      className="w-full h-full object-cover rounded-xl"
-                    />
-                  ) : (
-                    <span className="text-2xl">🍽️</span>
-                  )}
-                </div>
-                
-                {/* Product Info */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-text text-sm mb-1">{item.name}</h3>
-                  <p className="text-xs text-muted-foreground">{item.description || "Delicioso platillo"}</p>
-                  {item.selectedOptions.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {item.selectedOptions.map((option) => (
-                        <p key={`${item.lineId}-${option.groupId}-${option.id}`} className="text-[11px] text-muted-foreground">
-                          • {formatSelectedOptionLabel(option)}
-                          {option.priceAddition > 0 ? ` (+$${option.priceAddition.toFixed(2)})` : ""}
-                        </p>
-                      ))}
+          {state.items.map((item) => {
+            const promoInfo = getPromoForItem(item.lineId)
+            const hasDiscount = promoInfo && promoInfo.discountAmount > 0
+            return (
+              <div key={item.lineId} className="bg-card rounded-xl p-4 shadow-sm border border-border">
+                <div className="flex items-center gap-4">
+                  {/* Product Image */}
+                  <div className="w-16 h-16 bg-secondary rounded-xl flex items-center justify-center flex-shrink-0">
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <span className="text-2xl">🍽️</span>
+                    )}
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-text text-sm mb-1">{item.name}</h3>
+                    <p className="text-xs text-muted-foreground">{item.description || "Delicioso platillo"}</p>
+                    {item.selectedOptions.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {item.selectedOptions.map((option) => (
+                          <p key={`${item.lineId}-${option.groupId}-${option.id}`} className="text-[11px] text-muted-foreground">
+                            • {formatSelectedOptionLabel(option)}
+                            {option.priceAddition > 0 ? ` (+$${option.priceAddition.toFixed(2)})` : ""}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2">
+                        {hasDiscount ? (
+                          <>
+                            <span className="text-sm font-bold text-green-600">
+                              ${promoInfo.finalPrice.toFixed(2)}
+                            </span>
+                            <span className="text-xs text-muted-foreground line-through">
+                              ${item.price.toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-bold text-text">${item.price.toFixed(2)}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={() => updateQuantity(item.lineId, Math.max(0, item.quantity - 1))}
+                          size="icon"
+                          variant="outline"
+                          className="h-8 w-8 rounded-full border-border hover:bg-secondary"
+                        >
+                          <Minus className="w-3 h-3 text-text" />
+                        </Button>
+
+                        <span className="font-semibold text-text min-w-[30px] text-center">
+                          {item.quantity}
+                        </span>
+
+                        <Button
+                          onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
+                          size="icon"
+                          className="h-8 w-8 rounded-full bg-primary hover:bg-primary-hover"
+                        >
+                          <Plus className="w-3 h-3 text-white" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-bold text-text">${item.price.toFixed(2)}</span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => updateQuantity(item.lineId, Math.max(0, item.quantity - 1))}
-                        size="icon"
-                        variant="outline"
-                        className="h-8 w-8 rounded-full border-border hover:bg-secondary"
-                      >
-                        <Minus className="w-3 h-3 text-text" />
-                      </Button>
-                      
-                      <span className="font-semibold text-text min-w-[30px] text-center">
-                        {item.quantity}
-                      </span>
-                      
-                      <Button
-                        onClick={() => updateQuantity(item.lineId, item.quantity + 1)}
-                        size="icon"
-                        className="h-8 w-8 rounded-full bg-primary hover:bg-primary-hover"
-                      >
-                        <Plus className="w-3 h-3 text-white" />
-                      </Button>
-                    </div>
+                    {/* Promo badge on item */}
+                    {hasDiscount && (
+                      <div className="mt-1.5 inline-flex items-center gap-1 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                        <Tag className="w-3 h-3 text-green-600" />
+                        <span className="text-[10px] font-medium text-green-700">
+                          {t("youSave")} ${(promoInfo.discountAmount * item.quantity).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Botón "Buscar más productos" con flecha hacia atrás */}
@@ -335,24 +436,47 @@ export default function CartView() {
               <span className="text-muted-foreground">{t("subtotal")}</span>
               <span className="font-semibold text-text">${subtotal.toFixed(2)}</span>
             </div>
-            
-            {/* Fila de descuentos - solo visible si existen */}
+
+            {/* Savings from promotions */}
+            {totalSavings > 0 && (
+              <div className="flex justify-between">
+                <span className="text-green-600 font-medium">{t("savings")}</span>
+                <span className="font-semibold text-green-600">-${totalSavings.toFixed(2)}</span>
+              </div>
+            )}
+
+            {/* Savings detail per promo */}
+            {savingsSummary.length > 0 && (
+              <div className="space-y-1 pl-2">
+                {savingsSummary.map((s) => (
+                  <div key={s.id} className="flex justify-between text-xs">
+                    <span className="text-green-600 flex items-center gap-1">
+                      <Tag className="w-3 h-3" />
+                      {s.name}
+                    </span>
+                    <span className="text-green-600">-${s.saving_amount.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Fila de descuentos manuales - solo visible si existen */}
             {state.discounts > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t("discounts")}</span>
                 <span className="font-semibold text-text">-${state.discounts.toFixed(2)}</span>
               </div>
             )}
-            
+
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("serviceFee")}</span>
               <span className="font-semibold text-text">${state.serviceCharge.toFixed(2)}</span>
             </div>
-            
+
             <div className="border-t border-border pt-3">
               <div className="flex justify-between">
                 <span className="text-lg font-bold text-text">{t("total")}</span>
-                <span className="text-lg font-bold text-text">${state.total.toFixed(2)}</span>
+                <span className="text-lg font-bold text-text">${displayTotal.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -364,7 +488,7 @@ export default function CartView() {
               className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-200"
               size="lg"
             >
-              {t("pay")} ${state.total.toFixed(2)}
+              {t("pay")} ${displayTotal.toFixed(2)}
             </Button>
           ) : (
             <div className="text-center text-destructive p-4">
@@ -387,7 +511,7 @@ export default function CartView() {
         mesaId={mesaSession.mesa_id || ''}
         branchId={mesaSession.branch_id || ''}
         mesaToken={mesaSession.token || ''}
-        totalAmount={state.total}
+        totalAmount={displayTotal}
         allowedPaymentMethods={allowedPaymentMethods ?? undefined}
         items={state.items.map((item) => ({
           id: item.id,

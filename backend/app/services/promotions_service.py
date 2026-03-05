@@ -44,23 +44,62 @@ class PromotionsService:
             return query.order("created_at", desc=False).execute()
 
         response = execute_with_retry(_run)
-        return response.data or []
+        promos = response.data or []
+        for p in promos:
+            if p.get("type") == "combo":
+                p["combo_items"] = self.get_combo_items(p["id"])
+        return promos
 
     def list_active_for_branch(self, restaurant_id: str, branch_id: Optional[str] = None) -> List[Dict]:
-        """Devuelve promotions activas y automáticas (is_manual=false) para el motor de aplicación."""
+        """Devuelve promotions activas para el motor de aplicación.
+        Incluye automáticas (is_manual=false) y las que son visibles al usuario (applies_to_all=true).
+        """
+        def _query_auto(q):
+            """Promos automáticas: is_manual=false"""
+            return q.eq("is_manual", False)
+
+        def _query_public(q):
+            """Promos públicas: applies_to_all=true (se muestran al usuario → deben aplicarse)"""
+            return q.eq("applies_to_all", True)
+
+        def _base(q):
+            return q.eq("restaurant_id", restaurant_id).eq("active", True)
+
         def _run():
-            query = (
-                supabase.table("promotions")
-                .select("*")
-                .eq("restaurant_id", restaurant_id)
-                .eq("active", True)
-                .eq("is_manual", False)
-            )
+            # Query 1: automáticas para esta branch
+            queries = []
             if branch_id:
-                query = query.eq("branch_id", branch_id)
-            return query.execute()
-        response = execute_with_retry(_run)
-        return response.data or []
+                q1 = _query_auto(_base(supabase.table("promotions").select("*"))).eq("branch_id", branch_id)
+                queries.append(q1)
+                # Query 2: automáticas globales (branch_id IS NULL)
+                q2 = _query_auto(_base(supabase.table("promotions").select("*"))).is_("branch_id", "null")
+                queries.append(q2)
+                # Query 3: públicas para esta branch
+                q3 = _query_public(_base(supabase.table("promotions").select("*"))).eq("branch_id", branch_id)
+                queries.append(q3)
+                # Query 4: públicas globales
+                q4 = _query_public(_base(supabase.table("promotions").select("*"))).is_("branch_id", "null")
+                queries.append(q4)
+            else:
+                q1 = _query_auto(_base(supabase.table("promotions").select("*")))
+                queries.append(q1)
+                q2 = _query_public(_base(supabase.table("promotions").select("*")))
+                queries.append(q2)
+            return queries
+
+        seen = set()
+        promos = []
+        for q in _run():
+            resp = execute_with_retry(lambda q=q: q.execute())
+            for p in (resp.data or []):
+                if p["id"] not in seen:
+                    seen.add(p["id"])
+                    promos.append(p)
+
+        for p in promos:
+            if p.get("type") == "combo":
+                p["combo_items"] = self.get_combo_items(p["id"])
+        return promos
 
     def get_combo_items(self, promotion_id: str) -> List[Dict]:
         """Devuelve los productos que componen un combo."""
@@ -109,11 +148,18 @@ class PromotionsService:
             "applicable_products": payload.get("applicable_products"),
             "is_manual": bool(payload.get("is_manual", False)),
             "applies_to_all": bool(payload.get("applies_to_all", False)),
+            "days_of_week": payload.get("days_of_week"),
         }
         response = supabase.table("promotions").insert(insert_data).execute()
         promo = (response.data or [None])[0]
         if not promo:
             raise Exception("No se pudo crear la promoción")
+
+        # Guardar combo_items si es tipo combo
+        if promo_type == "combo" and payload.get("combo_items"):
+            self.set_combo_items(promo["id"], payload["combo_items"])
+            promo["combo_items"] = self.get_combo_items(promo["id"])
+
         return promo
 
     def update_promotion(self, user_id: str, promotion_id: str, payload: Dict) -> Dict:
@@ -146,6 +192,7 @@ class PromotionsService:
             "branch_id",
             "is_manual",
             "applies_to_all",
+            "days_of_week",
         }
         update_data = {k: v for k, v in payload.items() if k in allowed_fields}
         if "start_time" in update_data:
@@ -164,6 +211,12 @@ class PromotionsService:
         promo = (response.data or [None])[0]
         if not promo:
             raise Exception("No se pudo actualizar la promoción")
+
+        # Actualizar combo_items si se envían
+        if "combo_items" in payload:
+            self.set_combo_items(promotion_id, payload["combo_items"])
+            promo["combo_items"] = self.get_combo_items(promotion_id)
+
         return promo
 
     def delete_promotion(self, user_id: str, promotion_id: str) -> None:
