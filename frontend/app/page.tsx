@@ -1,6 +1,1 @@
-import { redirect } from "next/navigation"
-
-export default function Home() {
-  redirect("/usuario")
-  return null
-} 
+export { default } from "@/app/landing/page"
