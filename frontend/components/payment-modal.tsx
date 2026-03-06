@@ -9,19 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { useTranslations } from 'next-intl'
 import { toast } from '@/hooks/use-toast'
 import { formatSelectedOptionLabel, type SelectedProductOption } from '@/lib/product-options'
-import { 
-  Wallet, 
-  CreditCard, 
-  DollarSign, 
-  QrCode, 
-  Loader2, 
+import {
+  Wallet,
+  CreditCard,
+  DollarSign,
+  QrCode,
+  Loader2,
   ExternalLink,
   CheckCircle,
   X,
   ShoppingCart,
   Clock,
-  Shield
+  Shield,
+  Truck
 } from 'lucide-react'
+import AddressAutocomplete from './address-autocomplete'
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -31,6 +33,9 @@ interface PaymentModalProps {
   branchId: string
   mesaToken: string
   totalAmount: number
+  promotionDiscountAmount?: number
+  extraDiscountAmount?: number
+  serviceChargeAmount?: number
   allowedPaymentMethods?: string[]
   items: Array<{
     id?: string
@@ -44,6 +49,7 @@ interface PaymentModalProps {
 }
 
 type PaymentMethod = 'billetera' | 'tarjeta' | 'efectivo' | 'qr'
+type DeliveryType = 'DELIVERY' | 'TAKE_AWAY'
 
 interface PaymentMethodOption {
   id: PaymentMethod
@@ -72,6 +78,9 @@ export default function PaymentModal({
   branchId,
   mesaToken,
   totalAmount,
+  promotionDiscountAmount = 0,
+  extraDiscountAmount = 0,
+  serviceChargeAmount = 0,
   allowedPaymentMethods,
   items
 }: PaymentModalProps) {
@@ -80,14 +89,24 @@ export default function PaymentModal({
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [customerPhone, setCustomerPhone] = useState('')
-  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryStreet, setDeliveryStreet] = useState('')
+  const [deliveryNumber, setDeliveryNumber] = useState('')
+  const [deliveryFloorApt, setDeliveryFloorApt] = useState('')
+  const [deliveryInstructions, setDeliveryInstructions] = useState('')
+  const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null)
   const t = useTranslations('usuario.payment')
   const isDelivery = mesaId === 'Delivery'
+  const shouldShowDeliveryAddressForm = isDelivery && deliveryType === 'DELIVERY'
   
   // Detectar si los parámetros de mesa son inválidos
   const hasInvalidParams = !mesaId || !mesaToken || !branchId ||
     mesaId.toLowerCase() === 'null' || mesaToken.toLowerCase() === 'null' || branchId.toLowerCase() === 'null' ||
     mesaId.trim() === '' || mesaToken.trim() === '' || branchId.trim() === ''
+  const subtotalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const promoDiscount = Math.max(0, promotionDiscountAmount)
+  const extraDiscount = Math.max(0, extraDiscountAmount)
+  const serviceCharge = Math.max(0, serviceChargeAmount)
+  const hasSummaryAdjustments = promoDiscount > 0 || extraDiscount > 0 || serviceCharge > 0
 
   const handleBilleteraPayment = async () => {
     setIsLoading(true)
@@ -135,6 +154,17 @@ export default function PaymentModal({
               selectedOptions: item.selectedOptions || [],
             })),
             total_amount: totalAmount,
+            ...(isDelivery && deliveryType ? { delivery_type: deliveryType } : {}),
+            ...(shouldShowDeliveryAddressForm && customerPhone ? { customer_phone: customerPhone } : {}),
+            ...(shouldShowDeliveryAddressForm && deliveryStreet
+              ? { delivery_address: `${deliveryStreet} ${deliveryNumber}`.trim() }
+              : {}),
+            ...(shouldShowDeliveryAddressForm && deliveryFloorApt
+              ? { delivery_floor_apt: deliveryFloorApt }
+              : {}),
+            ...(shouldShowDeliveryAddressForm && deliveryInstructions
+              ? { delivery_instructions: deliveryInstructions }
+              : {}),
           }),
         }
       )
@@ -203,14 +233,23 @@ export default function PaymentModal({
           })),
           token: mesaToken,
           payment_method: paymentMethod,
-          ...(customerPhone ? { customer_phone: customerPhone } : {}),
-          ...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
+          ...(isDelivery && deliveryType ? { delivery_type: deliveryType } : {}),
+          ...(shouldShowDeliveryAddressForm && customerPhone ? { customer_phone: customerPhone } : {}),
+          ...(shouldShowDeliveryAddressForm && deliveryStreet
+            ? { delivery_address: `${deliveryStreet} ${deliveryNumber}`.trim() }
+            : {}),
+          ...(shouldShowDeliveryAddressForm && deliveryFloorApt
+            ? { delivery_floor_apt: deliveryFloorApt }
+            : {}),
+          ...(shouldShowDeliveryAddressForm && deliveryInstructions
+            ? { delivery_instructions: deliveryInstructions }
+            : {}),
         }),
       })
       
-      const message = t('successWaiter')
+      const message = isDelivery ? t('deliveryOrderConfirmed') : t('successWaiter')
       toast({
-        title: t('waiterCalledTitle'),
+        title: isDelivery ? t('deliveryOrderConfirmedTitle') : t('waiterCalledTitle'),
         description: message
       })
       if (onWaiterCalled) {
@@ -251,11 +290,11 @@ export default function PaymentModal({
     {
       id: 'efectivo',
       title: t('cashTitle'),
-      description: t('cashDescription'),
+      description: isDelivery ? t('deliveryCashDescription') : t('cashDescription'),
       icon: <DollarSign className="w-5 h-5" />,
       action: () => handleWaiterNotification('CASH'),
-      buttonText: t('requestCash'),
-      message: t('cashMessage'),
+      buttonText: isDelivery ? t('deliveryRequestCash') : t('requestCash'),
+      message: isDelivery ? t('deliveryCashMessage') : t('cashMessage'),
       color: 'text-gray-600',
       features: [t('directPay'), t('noFees')]
     },
@@ -272,12 +311,20 @@ export default function PaymentModal({
     }
   ]
 
-  const filteredPaymentMethods = allowedPaymentMethods
-    ? paymentMethods.filter((m) => {
-        const allowedIds = allowedPaymentMethods.map((key) => PAYMENT_METHOD_MAP[key]).filter(Boolean)
-        return allowedIds.includes(m.id)
-      })
-    : paymentMethods
+  const DELIVERY_ALLOWED_METHODS: PaymentMethod[] = ['billetera', 'efectivo']
+
+  const filteredPaymentMethods = (() => {
+    let methods = allowedPaymentMethods
+      ? paymentMethods.filter((m) => {
+          const allowedIds = allowedPaymentMethods.map((key) => PAYMENT_METHOD_MAP[key]).filter(Boolean)
+          return allowedIds.includes(m.id)
+        })
+      : paymentMethods
+    if (isDelivery) {
+      methods = methods.filter((m) => DELIVERY_ALLOWED_METHODS.includes(m.id))
+    }
+    return methods
+  })()
 
   const handleMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method)
@@ -287,6 +334,31 @@ export default function PaymentModal({
 
   const handleMethodAction = async (method: PaymentMethod) => {
     if (isLoading) return
+    if (isDelivery) {
+      if (!deliveryType) {
+        setErrorMessage(t('deliveryTypeRequired'))
+        return
+      }
+      if (deliveryType === 'TAKE_AWAY') {
+        const selectedOption = paymentMethods.find(m => m.id === method)
+        if (selectedOption) {
+          await selectedOption.action()
+        }
+        return
+      }
+      if (!customerPhone.trim()) {
+        setErrorMessage(t('deliveryPhoneRequired'))
+        return
+      }
+      if (!deliveryStreet.trim()) {
+        setErrorMessage(t('deliveryStreetRequired'))
+        return
+      }
+      if (!deliveryNumber.trim()) {
+        setErrorMessage(t('deliveryNumberRequired'))
+        return
+      }
+    }
     const selectedOption = paymentMethods.find(m => m.id === method)
     if (selectedOption) {
       await selectedOption.action()
@@ -298,7 +370,11 @@ export default function PaymentModal({
     setSuccessMessage(null)
     setErrorMessage(null)
     setCustomerPhone('')
-    setDeliveryAddress('')
+    setDeliveryStreet('')
+    setDeliveryNumber('')
+    setDeliveryFloorApt('')
+    setDeliveryInstructions('')
+    setDeliveryType(null)
     onClose()
   }
 
@@ -370,6 +446,32 @@ export default function PaymentModal({
                   {t('moreItems', {count: items.length - 3})}
                 </div>
               )}
+              {hasSummaryAdjustments && (
+                <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">{t('subtotal')}</span>
+                    <span className="text-gray-900">${subtotalAmount.toFixed(2)}</span>
+                  </div>
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-green-700 font-medium">{t('promoSavings')}</span>
+                      <span className="text-green-700 font-semibold">-${promoDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {extraDiscount > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">{t('otherDiscounts')}</span>
+                      <span className="text-gray-900">-${extraDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  {serviceCharge > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600">{t('serviceFee')}</span>
+                      <span className="text-gray-900">${serviceCharge.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="border-t border-gray-300 pt-2 mt-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-900">{t('total')}</span>
@@ -407,30 +509,107 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* Datos de delivery */}
+          {/* Tipo de pedido delivery/take away */}
           {isDelivery && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-              <h3 className="font-semibold text-blue-900 text-sm">{t('deliveryInfo')}</h3>
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">{t('customerPhone')}</label>
-                <input
-                  type="tel"
-                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
-                  placeholder={t('customerPhonePlaceholder')}
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                />
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-blue-600" />
+                <h3 className="font-semibold text-blue-900 text-sm">{t('deliveryTypeTitle')}</h3>
               </div>
-              <div>
-                <label className="text-xs text-gray-600 mb-1 block">{t('deliveryAddress')}</label>
-                <input
-                  type="text"
-                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
-                  placeholder={t('deliveryAddressPlaceholder')}
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                />
+              <p className="text-xs text-blue-700">{t('deliveryTypeSubtitle')}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    deliveryType === 'TAKE_AWAY'
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-blue-200 bg-white text-blue-900 hover:bg-blue-100'
+                  }`}
+                  onClick={() => setDeliveryType('TAKE_AWAY')}
+                >
+                  {t('takeAwayOption')}
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    deliveryType === 'DELIVERY'
+                      ? 'border-blue-500 bg-blue-600 text-white'
+                      : 'border-blue-200 bg-white text-blue-900 hover:bg-blue-100'
+                  }`}
+                  onClick={() => setDeliveryType('DELIVERY')}
+                >
+                  {t('deliveryOption')}
+                </button>
               </div>
+
+              {deliveryType === 'TAKE_AWAY' && (
+                <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-blue-800">
+                  {t('takeAwayNoAddressHint')}
+                </div>
+              )}
+
+              {shouldShowDeliveryAddressForm && (
+                <>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">
+                      {t('customerPhone')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                      placeholder={t('customerPhonePlaceholder')}
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-600 mb-1 block">
+                        {t('deliveryStreet')} <span className="text-red-500">*</span>
+                      </label>
+                      <AddressAutocomplete
+                        value={deliveryStreet}
+                        onChange={setDeliveryStreet}
+                        placeholder={t('deliveryStreetPlaceholder')}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-600 mb-1 block">
+                        {t('deliveryNumber')} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                        placeholder={t('deliveryNumberPlaceholder')}
+                        value={deliveryNumber}
+                        onChange={(e) => setDeliveryNumber(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t('deliveryFloorApt')}</label>
+                    <input
+                      type="text"
+                      className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+                      placeholder={t('deliveryFloorAptPlaceholder')}
+                      value={deliveryFloorApt}
+                      onChange={(e) => setDeliveryFloorApt(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-600 mb-1 block">{t('deliveryInstructions')}</label>
+                    <textarea
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm resize-none"
+                      rows={2}
+                      placeholder={t('deliveryInstructionsPlaceholder')}
+                      value={deliveryInstructions}
+                      onChange={(e) => setDeliveryInstructions(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
 

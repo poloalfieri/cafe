@@ -39,6 +39,11 @@ export async function GET(
         mesa_id: order.mesa_id,
         items: Array.isArray(order.items) ? order.items : [],
         total_amount: order.total_amount ?? 0,
+        discount_amount: order.discount_amount ?? 0,
+        promotions_applied: Array.isArray(order.promotions_applied)
+          ? order.promotions_applied
+          : [],
+        delivery_type: order.delivery_type ?? null,
         created_at: createdAt,
         creation_date: order.creation_date || createdAt,
         prebill_printed_at: order.prebill_printed_at ?? null,

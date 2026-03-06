@@ -95,6 +95,9 @@ def create_order():
         discount_id = payload.get("discount_id")
         customer_phone = payload.get("customer_phone")
         delivery_address = payload.get("delivery_address")
+        delivery_floor_apt = payload.get("delivery_floor_apt")
+        delivery_instructions = payload.get("delivery_instructions")
+        delivery_type = payload.get("delivery_type")
 
         if not mesa_id:
             return jsonify({"error": "mesa_id requerido"}), 400
@@ -176,6 +179,9 @@ def create_order():
                 discount_id=discount_id,
                 customer_phone=customer_phone,
                 delivery_address=delivery_address,
+                delivery_floor_apt=delivery_floor_apt,
+                delivery_instructions=delivery_instructions,
+                delivery_type=delivery_type,
             )
         else:
             if not token:
@@ -188,6 +194,9 @@ def create_order():
                 payment_method=payment_method,
                 customer_phone=customer_phone,
                 delivery_address=delivery_address,
+                delivery_floor_apt=delivery_floor_apt,
+                delivery_instructions=delivery_instructions,
+                delivery_type=delivery_type,
             )
 
         return jsonify(order), 201

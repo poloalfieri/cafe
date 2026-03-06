@@ -91,13 +91,39 @@ async function getMpConfig(
   return null
 }
 
+function normalizeDeliveryType(
+  mesaId: string,
+  deliveryType: unknown,
+  deliveryAddress: unknown,
+): "DELIVERY" | "TAKE_AWAY" | null {
+  if (mesaId !== "Delivery") return null
+
+  const raw = typeof deliveryType === "string" ? deliveryType.trim().toUpperCase() : ""
+  if (raw === "DELIVERY" || raw === "TAKE_AWAY") {
+    return raw
+  }
+
+  const hasAddress = typeof deliveryAddress === "string" && deliveryAddress.trim().length > 0
+  return hasAddress ? "DELIVERY" : "TAKE_AWAY"
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders })
   }
 
   try {
-    const { mesa_id, items, total_amount, token } = await req.json()
+    const {
+      mesa_id,
+      items,
+      total_amount,
+      token,
+      delivery_type,
+      customer_phone,
+      delivery_address,
+      delivery_floor_apt,
+      delivery_instructions,
+    } = await req.json()
 
     // Validations
     if (!mesa_id || !items || !total_amount || !token) {
@@ -180,9 +206,42 @@ serve(async (req) => {
       token: orderToken,
       status: "PAYMENT_PENDING",
       items: items,
+      total_amount: Number(total_amount) || 0,
       creation_date: new Date().toISOString(),
       payment_method: "mercadopago",
       restaurant_id: restaurantId,
+    }
+    const normalizedDeliveryType = normalizeDeliveryType(
+      mesa_id.toString(),
+      delivery_type,
+      delivery_address,
+    )
+    if (normalizedDeliveryType) {
+      orderData.delivery_type = normalizedDeliveryType
+    }
+    if (typeof customer_phone === "string" && customer_phone.trim()) {
+      orderData.customer_phone = customer_phone.trim()
+    }
+    if (
+      normalizedDeliveryType === "DELIVERY" &&
+      typeof delivery_address === "string" &&
+      delivery_address.trim()
+    ) {
+      orderData.delivery_address = delivery_address.trim()
+    }
+    if (
+      normalizedDeliveryType === "DELIVERY" &&
+      typeof delivery_floor_apt === "string" &&
+      delivery_floor_apt.trim()
+    ) {
+      orderData.delivery_floor_apt = delivery_floor_apt.trim()
+    }
+    if (
+      normalizedDeliveryType === "DELIVERY" &&
+      typeof delivery_instructions === "string" &&
+      delivery_instructions.trim()
+    ) {
+      orderData.delivery_instructions = delivery_instructions.trim()
     }
     if (branchId) {
       orderData.branch_id = branchId
