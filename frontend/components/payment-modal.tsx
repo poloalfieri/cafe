@@ -145,6 +145,7 @@ export default function PaymentModal({
             mesa_id: mesaId,
             branch_id: branchId,
             token: mesaToken,
+            return_url: window.location.href,
             items: items.map(item => ({
               id: item.id,
               lineId: item.lineId,
@@ -180,8 +181,8 @@ export default function PaymentModal({
       const paymentUrl = data.init_point
       
       if (data.success && paymentUrl) {
-        window.open(paymentUrl, '_blank')
-        setSuccessMessage(t('walletSuccess'))
+        window.location.href = paymentUrl
+        return
       } else {
         throw new Error(data.error || t('payLinkError'))
       }

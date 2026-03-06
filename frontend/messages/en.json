@@ -67,7 +67,9 @@
       "deliveryConfirmedTitle": "Pedido confirmado",
       "deliveryConfirmedBody": "Tu pedido está siendo preparado y será enviado a la dirección indicada. Te contactaremos por teléfono cuando esté en camino.",
       "waiterOnWayTitle": "Mozo en camino",
-      "waiterOnWayBody": "Ya se notificó al mozo. Se acercará a tu mesa en la brevedad."
+      "waiterOnWayBody": "Ya se notificó al mozo. Se acercará a tu mesa en la brevedad.",
+      "paymentSuccessTitle": "¡Pago exitoso!",
+      "paymentSuccessBody": "Tu pago fue procesado correctamente. Tu pedido está siendo preparado."
     },
     "waiter": {
       "title": "Call the Waiter",

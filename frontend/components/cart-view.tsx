@@ -210,6 +210,47 @@ export default function CartView() {
 
   const totalSavings = savingsSummary.reduce((sum, s) => sum + s.saving_amount, 0)
 
+  // Detect return from MercadoPago payment
+  const paymentStatus = searchParams.get("payment_status")
+  const [showMpSuccess, setShowMpSuccess] = useState(false)
+
+  useEffect(() => {
+    if (paymentStatus === "success") {
+      clearCart()
+      setShowMpSuccess(true)
+      // Clean payment params from URL
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href)
+        url.searchParams.delete("payment_status")
+        url.searchParams.delete("order_id")
+        url.searchParams.delete("collection_id")
+        url.searchParams.delete("collection_status")
+        url.searchParams.delete("payment_id")
+        url.searchParams.delete("status")
+        url.searchParams.delete("external_reference")
+        url.searchParams.delete("payment_type")
+        url.searchParams.delete("merchant_order_id")
+        url.searchParams.delete("preference_id")
+        url.searchParams.delete("site_id")
+        url.searchParams.delete("processing_mode")
+        url.searchParams.delete("merchant_account_id")
+        window.history.replaceState({}, "", url.toString())
+      }
+    }
+  }, [paymentStatus])
+
+  if (showMpSuccess) {
+    return (
+      <OrderSuccessScreen
+        isDelivery={mesaSession.mesa_id === "Delivery"}
+        title={t("paymentSuccessTitle")}
+        body={t("paymentSuccessBody")}
+        slug={slug}
+        onClose={() => setShowMpSuccess(false)}
+      />
+    )
+  }
+
   if (showWaiterNotice) {
     return (
       <OrderSuccessScreen

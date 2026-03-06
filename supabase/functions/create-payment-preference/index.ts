@@ -124,6 +124,7 @@ serve(async (req) => {
       delivery_address,
       delivery_floor_apt,
       delivery_instructions,
+      return_url,
     } = await req.json()
 
     // Validations
@@ -286,10 +287,19 @@ serve(async (req) => {
       currency_id: "ARS",
     }))
 
+    // If return_url provided, redirect back to the user's page after payment
+    const baseReturnUrl = return_url || `${frontendUrl}/payment`
+    const separator = baseReturnUrl.includes('?') ? '&' : '?'
     const backUrls = {
-      success: `${frontendUrl}/payment/success?order_id=${order.id}`,
-      failure: `${frontendUrl}/payment/error?message=payment_failed`,
-      pending: `${frontendUrl}/payment/pending?order_id=${order.id}`,
+      success: return_url
+        ? `${baseReturnUrl}${separator}payment_status=success&order_id=${order.id}`
+        : `${frontendUrl}/payment/success?order_id=${order.id}`,
+      failure: return_url
+        ? `${baseReturnUrl}${separator}payment_status=failure`
+        : `${frontendUrl}/payment/error?message=payment_failed`,
+      pending: return_url
+        ? `${baseReturnUrl}${separator}payment_status=pending&order_id=${order.id}`
+        : `${frontendUrl}/payment/pending?order_id=${order.id}`,
     }
 
     // Create MercadoPago preference
@@ -308,7 +318,8 @@ serve(async (req) => {
     }
 
     // auto_return requires valid HTTPS back_urls
-    if (frontendUrl.startsWith("https://")) {
+    const effectiveUrl = return_url || frontendUrl
+    if (effectiveUrl.startsWith("https://")) {
       preferenceData.auto_return = "approved"
     }
 
