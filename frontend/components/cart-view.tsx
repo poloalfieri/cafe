@@ -10,6 +10,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import CallWaiterModal from "./call-waiter-modal"
 import PaymentModal from "./payment-modal"
+import OrderSuccessScreen from "./order-success-screen"
 import { useTranslations } from "next-intl"
 import { formatSelectedOptionLabel } from "@/lib/product-options"
 import { getMesaSession as resolveMesaSession, refreshMesaSessionToken } from "@/lib/mesa-session"
@@ -208,6 +209,26 @@ export default function CartView() {
   }
 
   const totalSavings = savingsSummary.reduce((sum, s) => sum + s.saving_amount, 0)
+
+  if (showWaiterNotice) {
+    return (
+      <OrderSuccessScreen
+        isDelivery={mesaSession.mesa_id === "Delivery"}
+        title={
+          mesaSession.mesa_id === "Delivery"
+            ? t("deliveryConfirmedTitle")
+            : t("waiterOnWayTitle")
+        }
+        body={
+          mesaSession.mesa_id === "Delivery"
+            ? t("deliveryConfirmedBody")
+            : waiterNoticeMessage || t("waiterOnWayBody")
+        }
+        slug={slug}
+        onClose={() => setShowWaiterNotice(false)}
+      />
+    )
+  }
 
   if (state.items.length === 0) {
     return (
@@ -527,39 +548,6 @@ export default function CartView() {
         }))}
       />
 
-      {showWaiterNotice && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-card rounded-xl p-6 w-full max-w-sm shadow-xl text-center">
-            <div className="w-12 h-12 rounded-full bg-secondary text-text flex items-center justify-center mx-auto mb-3">
-              <Bell className="w-6 h-6" />
-            </div>
-            {mesaSession.mesa_id === "Delivery" ? (
-              <>
-                <h3 className="text-lg font-bold text-text">{t("deliveryConfirmedTitle")}</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {t("deliveryConfirmedBody")}
-                </p>
-              </>
-            ) : (
-              <>
-                <h3 className="text-lg font-bold text-text">{t("waiterOnWayTitle")}</h3>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {waiterNoticeMessage || t("waiterOnWayBody")}
-                </p>
-              </>
-            )}
-            <Button
-              onClick={() => {
-                setShowWaiterNotice(false)
-                router.push(`/${slug}/usuario`)
-              }}
-              className="mt-4 w-full bg-primary hover:bg-primary-hover text-white"
-            >
-              {t("backToMenu")}
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
