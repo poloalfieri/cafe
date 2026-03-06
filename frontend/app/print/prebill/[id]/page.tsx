@@ -19,11 +19,22 @@ interface RawOrderItem {
   selected_options?: unknown[]
 }
 
+interface PromotionApplied {
+  id?: string
+  name?: string
+  type?: string
+  saving_amount?: number
+}
+
 interface PrebillOrder {
   id: string
   mesa_id: string
   items: RawOrderItem[]
   total_amount?: number | string
+  discount_amount?: number | string
+  promotions_applied?: PromotionApplied[]
+  delivery_type?: "DELIVERY" | "TAKE_AWAY" | string | null
+  delivery_address?: string | null
   created_at?: string
   creation_date?: string
   restaurant_name?: string | null
@@ -192,12 +203,17 @@ export default function PrebillPrintPage() {
     return lines.reduce((acc, line) => acc + line.lineTotal, 0)
   }, [lines])
 
+  const discountAmount = useMemo<number>(() => {
+    if (!order) return 0
+    return toNumber(order.discount_amount, 0)
+  }, [order])
+
   const total = useMemo<number>(() => {
     if (!order) return computedTotal
-    const orderTotal = toNumber(order.total_amount, computedTotal)
-    const diff = Math.abs(orderTotal - computedTotal)
-    return diff < 0.01 ? orderTotal : computedTotal
-  }, [computedTotal, order])
+    const fallbackTotal = Math.max(0, computedTotal - discountAmount)
+    const orderTotal = toNumber(order.total_amount, fallbackTotal)
+    return Math.max(0, orderTotal)
+  }, [computedTotal, discountAmount, order])
 
   useEffect(() => {
     if (!autoprint || !order || autoPrintDoneRef.current) {
@@ -231,6 +247,14 @@ export default function PrebillPrintPage() {
 
   const timestamp = order.creation_date || order.created_at
   const shortOrderId = order.id.split("-")[0].toUpperCase()
+  const deliveryTypeLabel =
+    order.mesa_id === "Delivery"
+      ? (String(order.delivery_type || "").toUpperCase() === "TAKE_AWAY"
+          ? "Take away"
+          : (String(order.delivery_type || "").toUpperCase() === "DELIVERY" || order.delivery_address)
+            ? "Delivery"
+            : "Take away")
+      : null
 
   return (
     <main className={styles.page}>
@@ -245,10 +269,19 @@ export default function PrebillPrintPage() {
 
         <section className={styles.meta}>
           <div className={styles.metaRow}>
-            <span className={styles.boldText}>MESA {order.mesa_id}</span>
+            <span className={styles.boldText}>
+              {order.mesa_id === "Delivery"
+                ? "Delivery"
+                : order.mesa_id === "Caja"
+                  ? "Caja"
+                  : `MESA ${order.mesa_id}`}
+            </span>
             <span>{toDateLabel(timestamp)}</span>
           </div>
           <p className={styles.metaRef}>Ref: #{shortOrderId}</p>
+          {deliveryTypeLabel && (
+            <p className={styles.metaRef}>Tipo: {deliveryTypeLabel}</p>
+          )}
         </section>
 
         <hr className={styles.divider} />
@@ -270,6 +303,29 @@ export default function PrebillPrintPage() {
             </div>
           ))}
         </section>
+
+        {discountAmount > 0 && (
+          <>
+            <section className={styles.totalRow}>
+              <span>SUBTOTAL</span>
+              <span>{formatArs(computedTotal)}</span>
+            </section>
+            {(order.promotions_applied && order.promotions_applied.length > 0)
+              ? order.promotions_applied.map((promo, i) => (
+                  <section key={promo.id || i} className={styles.totalRow}>
+                    <span>{promo.name || "DESCUENTO"}</span>
+                    <span>- {formatArs(toNumber(promo.saving_amount, 0))}</span>
+                  </section>
+                ))
+              : (
+                <section className={styles.totalRow}>
+                  <span>DESCUENTO</span>
+                  <span>- {formatArs(discountAmount)}</span>
+                </section>
+              )
+            }
+          </>
+        )}
 
         <hr className={styles.dividerThick} />
 

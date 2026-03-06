@@ -21,6 +21,7 @@ logger = setup_logger(__name__)
 class OrderService:
     """Servicio para manejar operaciones de pedidos"""
     VALID_PAYMENT_METHODS = {"CARD", "CASH", "QR"}
+    VALID_DELIVERY_TYPES = {"DELIVERY", "TAKE_AWAY"}
 
     def get_all_orders(
         self,
@@ -334,6 +335,9 @@ class OrderService:
         payment_method: Optional[str] = None,
         customer_phone: Optional[str] = None,
         delivery_address: Optional[str] = None,
+        delivery_floor_apt: Optional[str] = None,
+        delivery_instructions: Optional[str] = None,
+        delivery_type: Optional[str] = None,
     ) -> Dict:
         """
         Crear un nuevo pedido (flujo público con token de mesa)
@@ -354,14 +358,20 @@ class OrderService:
         if not validate_token(mesa_id, branch_id, token):
             raise PermissionError("Token inválido o expirado")
 
-        return self._create_order_for_mesa(
+        create_kwargs = dict(
             mesa_id=mesa_id,
             items=items,
             branch_id=branch_id,
             payment_method=payment_method,
             customer_phone=customer_phone,
             delivery_address=delivery_address,
+            delivery_floor_apt=delivery_floor_apt,
+            delivery_instructions=delivery_instructions,
         )
+        if delivery_type is not None:
+            create_kwargs["delivery_type"] = delivery_type
+
+        return self._create_order_for_mesa(**create_kwargs)
 
     def create_order_by_staff(
         self,
@@ -373,6 +383,9 @@ class OrderService:
         discount_id: Optional[str] = None,
         customer_phone: Optional[str] = None,
         delivery_address: Optional[str] = None,
+        delivery_floor_apt: Optional[str] = None,
+        delivery_instructions: Optional[str] = None,
+        delivery_type: Optional[str] = None,
     ) -> Dict:
         """
         Crear un pedido desde backoffice (caja/admin), sin token de mesa.
@@ -384,7 +397,7 @@ class OrderService:
         if not branch_id:
             raise ValueError("branch_id requerido")
 
-        return self._create_order_for_mesa(
+        create_kwargs = dict(
             mesa_id=mesa_id,
             items=items,
             branch_id=branch_id,
@@ -393,7 +406,13 @@ class OrderService:
             discount_id=discount_id,
             customer_phone=customer_phone,
             delivery_address=delivery_address,
+            delivery_floor_apt=delivery_floor_apt,
+            delivery_instructions=delivery_instructions,
         )
+        if delivery_type is not None:
+            create_kwargs["delivery_type"] = delivery_type
+
+        return self._create_order_for_mesa(**create_kwargs)
 
     def update_order_status(
         self,
@@ -720,6 +739,9 @@ class OrderService:
         discount_id: Optional[str] = None,
         customer_phone: Optional[str] = None,
         delivery_address: Optional[str] = None,
+        delivery_floor_apt: Optional[str] = None,
+        delivery_instructions: Optional[str] = None,
+        delivery_type: Optional[str] = None,
     ) -> Dict:
         if not branch_id:
             raise ValueError("branch_id requerido")
@@ -796,6 +818,11 @@ class OrderService:
             )
 
             total_amount = max(0.0, round(self._calculate_total(promo_items) - manual_discount_amount, 2))
+            normalized_delivery_type = self._normalize_delivery_type(
+                mesa_id=mesa_id,
+                delivery_type=delivery_type,
+                delivery_address=delivery_address,
+            )
 
             insert_data = {
                 "mesa_id": mesa_id,
@@ -811,13 +838,19 @@ class OrderService:
             }
             if discount_id:
                 insert_data["discount_id"] = discount_id
+            if normalized_delivery_type:
+                insert_data["delivery_type"] = normalized_delivery_type
             normalized_payment_method = self._normalize_payment_method(payment_method)
             if normalized_payment_method:
                 insert_data["payment_method"] = normalized_payment_method
             if customer_phone:
                 insert_data["customer_phone"] = str(customer_phone).strip()
-            if delivery_address:
+            if normalized_delivery_type == "DELIVERY" and delivery_address:
                 insert_data["delivery_address"] = str(delivery_address).strip()
+            if normalized_delivery_type == "DELIVERY" and delivery_floor_apt:
+                insert_data["delivery_floor_apt"] = str(delivery_floor_apt).strip()
+            if normalized_delivery_type == "DELIVERY" and delivery_instructions:
+                insert_data["delivery_instructions"] = str(delivery_instructions).strip()
 
             response = supabase.table("orders").insert(insert_data).execute()
             if not response.data:
@@ -922,7 +955,14 @@ class OrderService:
             "restaurant_id": order.get("restaurant_id"),
             "branch_id": order.get("branch_id"),
             "prebill_printed_at": order.get("prebill_printed_at"),
+            "discount_amount": float(order.get("discount_amount") or 0),
+            "promotions_applied": order.get("promotions_applied") or [],
             "paid_amount": float(order.get("paid_amount") or 0),
+            "customer_phone": order.get("customer_phone"),
+            "delivery_address": order.get("delivery_address"),
+            "delivery_floor_apt": order.get("delivery_floor_apt"),
+            "delivery_instructions": order.get("delivery_instructions"),
+            "delivery_type": order.get("delivery_type"),
         }
 
     def _validate_stock_for_items(
@@ -1119,6 +1159,26 @@ class OrderService:
                 f"payment_method debe ser uno de: {', '.join(sorted(self.VALID_PAYMENT_METHODS))}"
             )
         return value
+
+    def _normalize_delivery_type(
+        self,
+        mesa_id: str,
+        delivery_type: Optional[str],
+        delivery_address: Optional[str] = None,
+    ) -> Optional[str]:
+        if str(mesa_id) != "Delivery":
+            return None
+
+        if delivery_type is not None:
+            value = str(delivery_type).strip().upper()
+            if value:
+                if value not in self.VALID_DELIVERY_TYPES:
+                    raise ValueError(
+                        "delivery_type debe ser DELIVERY o TAKE_AWAY"
+                    )
+                return value
+
+        return "DELIVERY" if str(delivery_address or "").strip() else "TAKE_AWAY"
 
 
 order_service = OrderService()

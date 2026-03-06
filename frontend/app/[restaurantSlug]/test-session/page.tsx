@@ -16,11 +16,23 @@ interface Mesa {
   mesa_id: string
   is_active: boolean
   branch_id?: string
+  branch_name?: string
+}
+
+interface Branch {
+  id: string
+  name: string
 }
 
 interface Restaurant {
   id: string
   slug: string
+}
+
+const SPECIAL_MESAS = new Set(["Delivery", "Caja"])
+
+function getMesaLabel(mesaId: string) {
+  return SPECIAL_MESAS.has(mesaId) ? mesaId : `Mesa ${mesaId}`
 }
 
 export default function TestSessionPage() {
@@ -30,6 +42,8 @@ export default function TestSessionPage() {
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [mesas, setMesas] = useState<Mesa[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMesas, setLoadingMesas] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -77,30 +91,43 @@ export default function TestSessionPage() {
     loadRestaurant()
   }, [supabaseUrl, supabaseAnonKey, restaurantSlug])
 
-  // Load mesas when restaurant is loaded
+  // Load mesas and branches when restaurant is loaded
   useEffect(() => {
-    const loadMesas = async () => {
+    const loadMesasAndBranches = async () => {
       if (!restaurant || !supabaseUrl || !supabaseAnonKey) return
       try {
         setLoadingMesas(true)
         setError(null)
 
-        const response = await fetch(
-          `${supabaseUrl}/rest/v1/mesas?select=id,mesa_id,is_active,branch_id&restaurant_id=eq.${restaurant.id}&order=mesa_id`,
-          {
-            headers: {
-              apikey: supabaseAnonKey,
-              Authorization: `Bearer ${supabaseAnonKey}`,
-            },
-          }
-        )
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
+        const headers = {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
         }
 
-        const data = await response.json()
-        setMesas(Array.isArray(data) ? data : [])
+        const [mesasRes, branchesRes] = await Promise.all([
+          fetch(
+            `${supabaseUrl}/rest/v1/mesas?select=id,mesa_id,is_active,branch_id&restaurant_id=eq.${restaurant.id}&order=mesa_id`,
+            { headers }
+          ),
+          fetch(
+            `${supabaseUrl}/rest/v1/branches?select=id,name&restaurant_id=eq.${restaurant.id}&order=name`,
+            { headers }
+          ),
+        ])
+
+        if (!mesasRes.ok) throw new Error(`HTTP ${mesasRes.status}`)
+
+        const mesasData = await mesasRes.json()
+        const branchesData = branchesRes.ok ? await branchesRes.json() : []
+
+        const branchesList: Branch[] = Array.isArray(branchesData) ? branchesData : []
+        setBranches(branchesList)
+        setMesas(Array.isArray(mesasData) ? mesasData : [])
+
+        // Auto-select first branch if there's only one
+        if (branchesList.length === 1) {
+          setSelectedBranch(branchesList[0].id)
+        }
       } catch (err) {
         setError("No se pudieron cargar las mesas desde la base de datos")
         setMesas([])
@@ -109,7 +136,7 @@ export default function TestSessionPage() {
       }
     }
 
-    loadMesas()
+    loadMesasAndBranches()
   }, [restaurant, supabaseUrl, supabaseAnonKey])
 
   const startWithMesa = async (mesaId: string, branchId: string | undefined) => {
@@ -178,8 +205,7 @@ export default function TestSessionPage() {
           )}
 
           {restaurant && (
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">Selecciona una mesa:</p>
+            <div className="space-y-4">
               {loadingMesas ? (
                 <div className="text-sm text-gray-600">Cargando mesas...</div>
               ) : mesas.length === 0 ? (
@@ -187,21 +213,48 @@ export default function TestSessionPage() {
                   No hay mesas registradas para este restaurante.
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {mesas.map((mesa) => (
-                    <Button
-                      key={mesa.id}
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        startWithMesa(mesa.mesa_id, mesa.branch_id)
-                      }
-                      disabled={!mesa.is_active}
-                    >
-                      Mesa {mesa.mesa_id}
-                    </Button>
-                  ))}
-                </div>
+                <>
+                  {branches.length > 1 && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Selecciona una sucursal:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {branches.map((branch) => (
+                          <Button
+                            key={branch.id}
+                            variant={selectedBranch === branch.id ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedBranch(branch.id)}
+                          >
+                            {branch.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedBranch && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600">Selecciona una mesa:</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {mesas
+                          .filter((mesa) => mesa.branch_id === selectedBranch)
+                          .map((mesa) => (
+                            <Button
+                              key={mesa.id}
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                startWithMesa(mesa.mesa_id, mesa.branch_id)
+                              }
+                              disabled={!mesa.is_active}
+                            >
+                              {getMesaLabel(mesa.mesa_id)}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

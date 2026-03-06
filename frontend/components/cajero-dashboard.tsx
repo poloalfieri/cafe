@@ -56,6 +56,11 @@ interface Order {
   payment_method?: string | null
   items: any[]
   prebill_printed_at?: string | null
+  customer_phone?: string | null
+  delivery_address?: string | null
+  delivery_floor_apt?: string | null
+  delivery_instructions?: string | null
+  delivery_type?: "DELIVERY" | "TAKE_AWAY" | null
 }
 
 type PaymentMethod = "CARD" | "CASH" | "QR"
@@ -177,7 +182,9 @@ export default function CajeroDashboard() {
   const [creatingOrder, setCreatingOrder] = useState(false)
   const [createOrderError, setCreateOrderError] = useState<string | null>(null)
   const [deliveryPhone, setDeliveryPhone] = useState("")
-  const [deliveryAddress, setDeliveryAddress] = useState("")
+  const [deliveryStreet, setDeliveryStreet] = useState("")
+  const [deliveryNumber, setDeliveryNumber] = useState("")
+  const [deliveryType, setDeliveryType] = useState<"DELIVERY" | "TAKE_AWAY" | null>(null)
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false)
   const [optionsProduct, setOptionsProduct] = useState<MenuItem | null>(null)
   const [optionGroups, setOptionGroups] = useState<ProductOptionGroup[]>([])
@@ -247,6 +254,18 @@ export default function CajeroDashboard() {
       .filter(Boolean) as Array<{ name: string; qty: number }>
   }
 
+  const getOrderDeliveryTypeLabel = (order: Order): string | null => {
+    if (String(order.mesa_id) !== "Delivery") return null
+
+    const normalized = String(order.delivery_type || "").toUpperCase()
+    if (normalized === "DELIVERY") return t("orders.deliveryTypeDelivery")
+    if (normalized === "TAKE_AWAY") return t("orders.deliveryTypeTakeAway")
+
+    return order.delivery_address
+      ? t("orders.deliveryTypeDelivery")
+      : t("orders.deliveryTypeTakeAway")
+  }
+
   const colorMap: Record<string, { bg: string; ring: string; badge: string; icon: string }> = {
     orange: { bg: "bg-orange-500", ring: "ring-orange-50", badge: "bg-orange-50 text-orange-700", icon: "text-orange-500" },
     blue: { bg: "bg-blue-500", ring: "ring-blue-50", badge: "bg-blue-50 text-blue-700", icon: "text-blue-500" },
@@ -256,6 +275,7 @@ export default function CajeroDashboard() {
   const renderOrderCard = (order: Order, accent: string, actions: ReactNode) => {
     const c = colorMap[accent] || colorMap.orange
     const items = getOrderItems(order)
+    const deliveryTypeLabel = getOrderDeliveryTypeLabel(order)
     return (
       <div key={order.id} className={`bg-white rounded-xl shadow-sm ring-1 ${c.ring} transition-shadow hover:shadow-md`}>
         {/* Header: mesa + time + total */}
@@ -299,6 +319,30 @@ export default function CajeroDashboard() {
               <p className="text-gray-400 text-[11px]">+{items.length - 4} más</p>
             )}
           </div>
+          {/* Delivery info */}
+          {String(order.mesa_id) === "Delivery" && (
+            <div className="mt-2 p-2 rounded-lg bg-blue-50 border border-blue-200 space-y-1">
+              {deliveryTypeLabel && (
+                <p className="text-xs text-blue-800">
+                  <span className="font-medium">{t("orders.deliveryTypeLabel")}:</span> {deliveryTypeLabel}
+                </p>
+              )}
+              {order.customer_phone && (
+                <p className="text-xs text-blue-800">
+                  <span className="font-medium">Tel:</span> {order.customer_phone}
+                </p>
+              )}
+              {order.delivery_address && (
+                <p className="text-xs text-blue-800">
+                  <span className="font-medium">Dir:</span> {order.delivery_address}
+                  {order.delivery_floor_apt && ` - ${order.delivery_floor_apt}`}
+                </p>
+              )}
+              {order.delivery_instructions && (
+                <p className="text-xs text-blue-700 italic">{order.delivery_instructions}</p>
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between pt-1 border-t border-gray-50">
             <span className="text-xs text-gray-400">{t("payments.totalLabel")}</span>
             <span className="font-bold text-sm text-gray-900">
@@ -656,7 +700,9 @@ export default function CajeroDashboard() {
     setSelectedMenuItemId("")
     setCreateOrderError(null)
     setDeliveryPhone("")
-    setDeliveryAddress("")
+    setDeliveryStreet("")
+    setDeliveryNumber("")
+    setDeliveryType(null)
     setMenuItems([])
     setMenuLoading(false)
     setCreatingOrder(false)
@@ -670,6 +716,10 @@ export default function CajeroDashboard() {
     setCreateOrderPaymentMethod("CASH")
     setCreateOrderError(null)
     setSelectedDiscountId("")
+    setDeliveryPhone("")
+    setDeliveryStreet("")
+    setDeliveryNumber("")
+    setDeliveryType(null)
     const branchId = resolveMesaBranchId(mesa)
     void fetchMenuForCreateOrder(branchId)
     // Cargar descuentos manuales disponibles
@@ -880,6 +930,10 @@ export default function CajeroDashboard() {
       setCreateOrderError(t("orders.atLeastOneItem"))
       return
     }
+    if (String(createOrderMesa.mesa_id) === "Delivery" && !deliveryType) {
+      setCreateOrderError(t("orders.deliveryTypeRequired"))
+      return
+    }
 
     const targetBranchId = resolveMesaBranchId(createOrderMesa)
     if (!targetBranchId) {
@@ -925,8 +979,13 @@ export default function CajeroDashboard() {
             selectedOptions: item.selectedOptions || [],
           })),
           ...(selectedDiscountId ? { discount_id: selectedDiscountId } : {}),
-          ...(deliveryPhone ? { customer_phone: deliveryPhone } : {}),
-          ...(deliveryAddress ? { delivery_address: deliveryAddress } : {}),
+          ...(deliveryType === "DELIVERY" && deliveryPhone ? { customer_phone: deliveryPhone } : {}),
+          ...(String(createOrderMesa?.mesa_id) === "Delivery" && deliveryType
+            ? { delivery_type: deliveryType }
+            : {}),
+          ...(deliveryType === "DELIVERY" && deliveryStreet
+            ? { delivery_address: `${deliveryStreet} ${deliveryNumber}`.trim() }
+            : {}),
         }),
       })
 
@@ -1930,25 +1989,77 @@ export default function CajeroDashboard() {
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-3">
                   <p className="text-sm font-medium text-blue-900">{t("orders.deliveryInfo")}</p>
                   <div>
-                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.customerPhone")}</label>
-                    <input
-                      type="tel"
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      placeholder={t("orders.customerPhonePlaceholder")}
-                      value={deliveryPhone}
-                      onChange={(e) => setDeliveryPhone(e.target.value)}
-                    />
+                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryTypeLabel")}</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                          deliveryType === "TAKE_AWAY"
+                            ? "border-blue-500 bg-blue-600 text-white"
+                            : "border-blue-200 bg-white text-blue-900 hover:bg-blue-100"
+                        }`}
+                        onClick={() => setDeliveryType("TAKE_AWAY")}
+                      >
+                        {t("orders.deliveryTypeTakeAway")}
+                      </button>
+                      <button
+                        type="button"
+                        className={`h-10 rounded-md border text-sm font-medium transition-colors ${
+                          deliveryType === "DELIVERY"
+                            ? "border-blue-500 bg-blue-600 text-white"
+                            : "border-blue-200 bg-white text-blue-900 hover:bg-blue-100"
+                        }`}
+                        onClick={() => setDeliveryType("DELIVERY")}
+                      >
+                        {t("orders.deliveryTypeDelivery")}
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryAddress")}</label>
-                    <input
-                      type="text"
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      placeholder={t("orders.deliveryAddressPlaceholder")}
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                    />
-                  </div>
+
+                  {deliveryType === "DELIVERY" ? (
+                    <>
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">{t("orders.customerPhone")}</label>
+                        <input
+                          type="tel"
+                          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          placeholder={t("orders.customerPhonePlaceholder")}
+                          value={deliveryPhone}
+                          onChange={(e) => setDeliveryPhone(e.target.value)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryStreet")}</label>
+                          <input
+                            type="text"
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                            placeholder={t("orders.deliveryStreetPlaceholder")}
+                            value={deliveryStreet}
+                            onChange={(e) => setDeliveryStreet(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">{t("orders.deliveryNumber")}</label>
+                          <input
+                            type="text"
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                            placeholder={t("orders.deliveryNumberPlaceholder")}
+                            value={deliveryNumber}
+                            onChange={(e) => setDeliveryNumber(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : deliveryType === "TAKE_AWAY" ? (
+                    <p className="text-xs text-blue-800">
+                      {t("orders.takeAwayHint")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-blue-800">
+                      {t("orders.deliveryTypeRequired")}
+                    </p>
+                  )}
                 </div>
               )}
 

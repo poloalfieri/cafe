@@ -512,6 +512,9 @@ export default function CartView() {
         branchId={mesaSession.branch_id || ''}
         mesaToken={mesaSession.token || ''}
         totalAmount={displayTotal}
+        promotionDiscountAmount={totalSavings}
+        extraDiscountAmount={state.discounts}
+        serviceChargeAmount={state.serviceCharge}
         allowedPaymentMethods={allowedPaymentMethods ?? undefined}
         items={state.items.map((item) => ({
           id: item.id,
@@ -530,10 +533,21 @@ export default function CartView() {
             <div className="w-12 h-12 rounded-full bg-secondary text-text flex items-center justify-center mx-auto mb-3">
               <Bell className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-text">Mozo en camino</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              {waiterNoticeMessage || "Ya se notificó al mozo. Se acercará a tu mesa en la brevedad."}
-            </p>
+            {mesaSession.mesa_id === "Delivery" ? (
+              <>
+                <h3 className="text-lg font-bold text-text">{t("deliveryConfirmedTitle")}</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {t("deliveryConfirmedBody")}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-text">{t("waiterOnWayTitle")}</h3>
+                <p className="text-sm text-muted-foreground mt-2">
+                  {waiterNoticeMessage || t("waiterOnWayBody")}
+                </p>
+              </>
+            )}
             <Button
               onClick={() => {
                 setShowWaiterNotice(false)
@@ -541,7 +555,7 @@ export default function CartView() {
               }}
               className="mt-4 w-full bg-primary hover:bg-primary-hover text-white"
             >
-              Volver al menú
+              {t("backToMenu")}
             </Button>
           </div>
         </div>

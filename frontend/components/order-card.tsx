@@ -23,6 +23,11 @@ interface Order {
   created_at: string
   paid_at?: string
   payment_status?: string
+  customer_phone?: string | null
+  delivery_address?: string | null
+  delivery_floor_apt?: string | null
+  delivery_instructions?: string | null
+  delivery_type?: "DELIVERY" | "TAKE_AWAY" | null
 }
 
 interface OrderCardProps {
@@ -203,6 +208,32 @@ export default function OrderCard({ order, onStatusUpdate, onAcceptOrder, onReje
             )
           })}
         </div>
+
+        {/* Delivery info */}
+        {order.mesa_id === "Delivery" && (
+          <div className="mb-3 p-2.5 rounded-lg bg-blue-50 border border-blue-200 space-y-1">
+            <p className="text-xs text-blue-800">
+              <span className="font-medium">Tipo:</span>{" "}
+              {String(order.delivery_type || "").toUpperCase() === "TAKE_AWAY"
+                ? "Take away"
+                : "Delivery"}
+            </p>
+            {order.customer_phone && (
+              <p className="text-xs text-blue-800">
+                <span className="font-medium">Tel:</span> {order.customer_phone}
+              </p>
+            )}
+            {order.delivery_address && (
+              <p className="text-xs text-blue-800">
+                <span className="font-medium">Dir:</span> {order.delivery_address}
+                {order.delivery_floor_apt && ` - ${order.delivery_floor_apt}`}
+              </p>
+            )}
+            {order.delivery_instructions && (
+              <p className="text-xs text-blue-700 italic">{order.delivery_instructions}</p>
+            )}
+          </div>
+        )}
 
         <div className="border-t border-gray-200 pt-3 mb-4">
           <div className="flex justify-between items-center">
