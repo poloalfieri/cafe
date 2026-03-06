@@ -143,6 +143,7 @@ export default function PaymentModal({
           },
           body: JSON.stringify({
             mesa_id: mesaId,
+            branch_id: branchId,
             token: mesaToken,
             items: items.map(item => ({
               id: item.id,

@@ -115,6 +115,7 @@ serve(async (req) => {
   try {
     const {
       mesa_id,
+      branch_id: reqBranchId,
       items,
       total_amount,
       token,
@@ -143,11 +144,14 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     // --- Validate mesa token ---
-    const { data: mesaRows, error: mesaError } = await supabase
+    let mesaQuery = supabase
       .from("mesas")
       .select("id, mesa_id, token, token_expires_at, is_active, restaurant_id, branch_id")
       .eq("mesa_id", mesa_id)
-      .limit(1)
+    if (reqBranchId) {
+      mesaQuery = mesaQuery.eq("branch_id", reqBranchId)
+    }
+    const { data: mesaRows, error: mesaError } = await mesaQuery.limit(1)
 
     if (mesaError) {
       console.error("Error buscando mesa:", mesaError)
@@ -268,8 +272,11 @@ serve(async (req) => {
     const notificationUrl = `${SUPABASE_URL}/functions/v1/mercadopago-webhook?${webhookParams.toString()}`
 
     // Determine frontend URL for back_urls
-    const frontendUrl =
+    const frontendUrl = (
       Deno.env.get("FRONTEND_URL") || "http://localhost:3000"
+    ).replace(/\/+$/, "")
+
+    console.log("FRONTEND_URL resolved to:", frontendUrl)
 
     // Prepare items for MercadoPago
     const mpItems = items.map((item: any) => ({
@@ -279,17 +286,18 @@ serve(async (req) => {
       currency_id: "ARS",
     }))
 
+    const backUrls = {
+      success: `${frontendUrl}/payment/success?order_id=${order.id}`,
+      failure: `${frontendUrl}/payment/error?message=payment_failed`,
+      pending: `${frontendUrl}/payment/pending?order_id=${order.id}`,
+    }
+
     // Create MercadoPago preference
-    const preferenceData = {
+    const preferenceData: Record<string, any> = {
       items: mpItems,
       external_reference: order.id,
       notification_url: notificationUrl,
-      back_urls: {
-        success: `${frontendUrl}/payment/success?order_id=${order.id}`,
-        failure: `${frontendUrl}/payment/error?message=payment_failed`,
-        pending: `${frontendUrl}/payment/pending?order_id=${order.id}`,
-      },
-      auto_return: "approved",
+      back_urls: backUrls,
       statement_descriptor: "CAFE LOCAL",
       metadata: {
         mesa_id: mesa_id.toString(),
@@ -297,6 +305,11 @@ serve(async (req) => {
         restaurant_id: restaurantId,
         branch_id: branchId || "",
       },
+    }
+
+    // auto_return requires valid HTTPS back_urls
+    if (frontendUrl.startsWith("https://")) {
+      preferenceData.auto_return = "approved"
     }
 
     const mpResponse = await preference.create({ body: preferenceData })
