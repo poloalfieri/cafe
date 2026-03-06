@@ -1392,7 +1392,7 @@
         "fetchBranch": "Error fetching branch:",
         "updateCallStatus": "Error actualizando estado de llamada:",
         "updateMesaStatus": "Error updating mesa status:",
-        "markPrebillPrinted": "Error marcando precuenta impresa:",
+        "markPrebillPrinted": "Error marcando cuenta impresa:",
         "fetchMenu": "Error cargando menú para crear pedido:",
         "fetchOptions": "Error cargando opcionales del producto:",
         "createOrder": "Error creando pedido desde caja:",

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { getClientAuthHeaderAsync } from "@/lib/fetcher"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useSearchParams } from "next/navigation"
+import { getItemSelectedOptions, formatSelectedOptionLabel } from "@/lib/product-options"
 import styles from "./prebill.module.css"
 
 interface RawOrderItem {
@@ -14,6 +15,8 @@ interface RawOrderItem {
   price?: number | string
   quantity?: number | string
   qty?: number | string
+  selectedOptions?: unknown[]
+  selected_options?: unknown[]
 }
 
 interface PrebillOrder {
@@ -32,6 +35,7 @@ interface TicketLine {
   qty: number
   name: string
   lineTotal: number
+  modifiers: { id: string; label: string; price: number }[]
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("es-AR", {
@@ -137,12 +141,12 @@ export default function PrebillPrintPage() {
 
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data?.error || "No se pudo cargar la precuenta")
+        throw new Error(data?.error || "No se pudo cargar la cuenta")
       }
 
       setOrder(data as PrebillOrder)
     } catch (loadError: any) {
-      setError(loadError?.message || "No se pudo cargar la precuenta")
+      setError(loadError?.message || "No se pudo cargar la cuenta")
       setOrder(null)
     } finally {
       setLoading(false)
@@ -167,11 +171,19 @@ export default function PrebillPrintPage() {
       const safeName = rawName || `Item ${index + 1}`
       const itemKey = String(item.lineId || item.id || item.item_id || index)
 
+      const options = getItemSelectedOptions(item)
+      const modifiers = options.map((opt) => ({
+        id: `${opt.groupId}-${opt.id}`,
+        label: formatSelectedOptionLabel(opt),
+        price: opt.priceAddition,
+      }))
+
       return {
         key: itemKey,
         qty,
         name: safeName,
         lineTotal,
+        modifiers,
       }
     })
   }, [order])
@@ -203,13 +215,13 @@ export default function PrebillPrintPage() {
   }, [autoprint, order])
 
   if (loading) {
-    return <main className={styles.state}>Cargando precuenta...</main>
+    return <main className={styles.state}>Cargando cuenta...</main>
   }
 
   if (error || !order) {
     return (
       <main className={styles.state}>
-        <p>{error || "No se pudo cargar la precuenta"}</p>
+        <p>{error || "No se pudo cargar la cuenta"}</p>
         <Button variant="outline" className="mt-4" onClick={loadOrder}>
           Reintentar
         </Button>
@@ -218,41 +230,57 @@ export default function PrebillPrintPage() {
   }
 
   const timestamp = order.creation_date || order.created_at
+  const shortOrderId = order.id.split("-")[0].toUpperCase()
 
   return (
     <main className={styles.page}>
       <article className={styles.ticket}>
         <header className={styles.header}>
-          {order.restaurant_name ? <p className={styles.title}>{order.restaurant_name}</p> : null}
-          {order.branch_name ? <p className={styles.subtitle}>{order.branch_name}</p> : null}
-          <p className={styles.subtitle}>PRECUENTA</p>
+          <h1 className={styles.restaurantName}>
+            {order.restaurant_name || "RESTAURANTE"}
+          </h1>
+          {order.branch_name && <p className={styles.branchName}>{order.branch_name}</p>}
+          <h2 className={styles.docType}>CUENTA</h2>
         </header>
 
         <section className={styles.meta}>
-          <p>Mesa {order.mesa_id}</p>
-          <p>{toDateLabel(timestamp)}</p>
-          <p>Pedido #{order.id}</p>
+          <div className={styles.metaRow}>
+            <span className={styles.boldText}>MESA {order.mesa_id}</span>
+            <span>{toDateLabel(timestamp)}</span>
+          </div>
+          <p className={styles.metaRef}>Ref: #{shortOrderId}</p>
         </section>
 
-        <div className={styles.separator} />
+        <hr className={styles.divider} />
 
         <section className={styles.lines}>
           {lines.map((line) => (
-            <div key={line.key} className={styles.row}>
-              <span className={styles.rowLeft}>{`${line.qty} ${line.name}`}</span>
-              <span className={styles.rowRight}>{formatArs(line.lineTotal)}</span>
+            <div key={line.key} className={styles.itemRow}>
+              <span className={styles.itemQty}>{line.qty}</span>
+              <div className={styles.itemDetails}>
+                <span className={styles.itemName}>{line.name}</span>
+                {line.modifiers.map((mod) => (
+                  <span key={mod.id} className={styles.modifier}>
+                    - {mod.label}
+                    {mod.price > 0 ? ` (+${formatArs(mod.price)})` : ""}
+                  </span>
+                ))}
+              </div>
+              <span className={styles.itemPrice}>{formatArs(line.lineTotal)}</span>
             </div>
           ))}
         </section>
 
-        <div className={styles.separator} />
+        <hr className={styles.dividerThick} />
 
         <section className={styles.totalRow}>
           <span>TOTAL</span>
           <span>{formatArs(total)}</span>
         </section>
 
-        <footer className={styles.footer}>PRECUENTA</footer>
+        <footer className={styles.footer}>
+          <p>DOCUMENTO NO VÁLIDO COMO FACTURA</p>
+        </footer>
       </article>
 
       <div className={styles.actions}>

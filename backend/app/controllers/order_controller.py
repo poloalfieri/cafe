@@ -231,7 +231,7 @@ def update_order_status(order_id):
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def get_order_prebill(order_id):
-    """Obtener datos de orden para imprimir precuenta."""
+    """Obtener datos de orden para imprimir cuenta."""
     try:
         restaurant_id, auth_error = _resolve_authorized_restaurant()
         if auth_error:
@@ -246,15 +246,15 @@ def get_order_prebill(order_id):
             return jsonify({"error": "Pedido no encontrado"}), 404
         return jsonify(order), 200
     except Exception as e:
-        logger.error(f"Error obteniendo precuenta del pedido {order_id}: {str(e)}")
-        return jsonify({"error": "Error al obtener precuenta"}), 500
+        logger.error(f"Error obteniendo cuenta del pedido {order_id}: {str(e)}")
+        return jsonify({"error": "Error al obtener cuenta"}), 500
 
 
 @orders_bp.route("/<order_id>/prebill/mark-printed", methods=["POST"])
 @require_auth
 @require_roles("desarrollador", "admin", "caja")
 def mark_order_prebill_printed(order_id):
-    """Marcar precuenta como impresa (idempotente)."""
+    """Marcar cuenta como impresa (idempotente)."""
     try:
         restaurant_id, auth_error = _resolve_authorized_restaurant()
         if auth_error:
@@ -275,5 +275,5 @@ def mark_order_prebill_printed(order_id):
             }
         ), 200
     except Exception as e:
-        logger.error(f"Error marcando precuenta impresa del pedido {order_id}: {str(e)}")
-        return jsonify({"error": "Error al marcar precuenta impresa"}), 500
+        logger.error(f"Error marcando cuenta impresa del pedido {order_id}: {str(e)}")
+        return jsonify({"error": "Error al marcar cuenta impresa"}), 500

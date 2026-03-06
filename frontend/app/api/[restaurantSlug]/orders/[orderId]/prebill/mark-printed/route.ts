@@ -49,7 +49,7 @@ export async function POST(
 
     if (updateError) {
       return NextResponse.json(
-        { error: updateError.message || "No se pudo marcar la precuenta" },
+        { error: updateError.message || "No se pudo marcar la cuenta" },
         { status: 500 },
       )
     }
@@ -81,7 +81,7 @@ export async function POST(
     )
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "No se pudo marcar la precuenta" },
+      { error: error?.message || "No se pudo marcar la cuenta" },
       { status: 500 },
     )
   }

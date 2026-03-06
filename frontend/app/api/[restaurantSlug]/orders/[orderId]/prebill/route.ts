@@ -49,7 +49,7 @@ export async function GET(
     )
   } catch (error: any) {
     return NextResponse.json(
-      { error: error?.message || "No se pudo cargar la precuenta" },
+      { error: error?.message || "No se pudo cargar la cuenta" },
       { status: 500 },
     )
   }

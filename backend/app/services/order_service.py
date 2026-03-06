@@ -92,7 +92,7 @@ class OrderService:
         branch_id: Optional[str] = None,
     ) -> Optional[Dict]:
         """
-        Obtener datos de una orden para impresión de precuenta.
+        Obtener datos de una orden para impresión de cuenta.
 
         Valida alcance multi-tenant por restaurant_id y, si aplica, branch_id.
         """
@@ -114,8 +114,8 @@ class OrderService:
             payload["branch_name"] = branch_name
             return payload
         except Exception as e:
-            logger.error(f"Error al obtener precuenta de {order_id}: {str(e)}")
-            raise Exception(f"Error al consultar pedido para precuenta: {str(e)}")
+            logger.error(f"Error al obtener cuenta de {order_id}: {str(e)}")
+            raise Exception(f"Error al consultar pedido para cuenta: {str(e)}")
 
     def mark_prebill_printed(
         self,
@@ -180,8 +180,8 @@ class OrderService:
                 "prebill_printed_at": latest.get("prebill_printed_at"),
             }
         except Exception as e:
-            logger.error(f"Error al marcar precuenta impresa de {order_id}: {str(e)}")
-            raise Exception(f"Error al marcar precuenta impresa: {str(e)}")
+            logger.error(f"Error al marcar cuenta impresa de {order_id}: {str(e)}")
+            raise Exception(f"Error al marcar cuenta impresa: {str(e)}")
 
     def get_orders_by_mesa(self, mesa_id: str) -> List[Dict]:
         """

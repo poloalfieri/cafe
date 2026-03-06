@@ -1347,7 +1347,7 @@ export default function CajeroDashboard() {
           (prev || []).map(o => o.id === order.id ? { ...o, status: "READY" } : o)
         )
       }
-      // Always open prebill dialog (as receipt for MercadoPago, as precuenta for others)
+      // Always open prebill dialog (as receipt for MercadoPago, as cuenta for others)
       setPrebillOrder(order)
       setPrebillStep("ASK_PRINT")
       setInvoiceError(null)
