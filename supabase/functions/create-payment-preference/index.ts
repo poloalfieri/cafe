@@ -196,6 +196,8 @@ serve(async (req) => {
     }
 
     // --- Initialize MercadoPago with the correct access_token ---
+    const tokenPrefix = mpConfig.access_token?.substring(0, 10) || "NONE"
+    console.log(`MP config: token starts with "${tokenPrefix}...", restaurant=${restaurantId}, branch=${branchId}`)
     const client = new MercadoPagoConfig({
       accessToken: mpConfig.access_token,
       options: { timeout: 5000 },
