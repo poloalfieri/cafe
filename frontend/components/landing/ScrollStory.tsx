@@ -109,7 +109,7 @@ export default function ScrollStory({ imageSrc = "/images/hero-cafe.png" }: Scro
       customerRef.current.style.transform = `translateY(${(1 - op) * 20}px)`
     }
     if (cashierRef.current) {
-      const op = getTextOpacity(p, STAGE.zoomEndCashier - 0.05, STAGE.zoomEndCashier + 0.05, 0.95, 1.05)
+      const op = getTextOpacity(p, STAGE.zoomEndCashier - 0.05, STAGE.zoomEndCashier + 0.05, 1.0, 1.0)
       cashierRef.current.style.opacity   = String(op)
       cashierRef.current.style.transform = `translateY(${(1 - op) * 20}px)`
     }
